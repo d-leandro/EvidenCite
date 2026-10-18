@@ -114,3 +114,48 @@ class RetrievedChunk(BaseModel):
     rank: int = Field(..., description="Rango de relevancia (1 para el más similar, 2, 3)")
 
 
+class AnnotationMetadata(BaseModel):
+    """Metadatos de procedencia, ciclo de vida de la etiqueta y partición (ADR-08)."""
+
+    source_dataset: str = Field(..., description="Dataset de origen: multicite, unarxive_mined, acl_arc")
+    original_label: Optional[str] = Field(default=None, description="Etiqueta original en el corpus de procedencia")
+    mapping_type: Optional[str] = Field(default=None, description="'exact', 'partial', 'heuristic' o null")
+    label_source: str = Field(default="human_gold", description="'human_gold', 'inherited', 'heuristic_rule', 'llm_panel'")
+    is_gold: bool = Field(default=True, description="True si proviene de anotación experta humana")
+    panel_agreement: Optional[float] = Field(default=None, description="Concordancia del panel de jueces LLM (Actividad A2)")
+    split: Optional[str] = Field(default=None, description="Partición del dataset: 'train', 'dev', o 'test'")
+
+
+class CitingPaperInfo(BaseModel):
+    """Información del artículo citante."""
+
+    id: str = Field(..., description="Identificador del artículo citante (arXiv ID o hash)")
+    id_source: str = Field(default="arxiv", description="Tipo de identificador: 'arxiv', 'semantic_scholar', 'corpus_id'")
+    title: Optional[str] = Field(default=None, description="Título del artículo citante si está disponible")
+    rhetorical_section: Optional[str] = Field(default=None, description="Sección retórica donde aparece la cita")
+
+
+class CitedPaperInfo(BaseModel):
+    """Información consolidada del artículo citado para Configuración A y B."""
+
+    id: str = Field(..., description="Identificador del artículo citado en papers.jsonl")
+    title: Optional[str] = Field(default=None, description="Título del artículo citado (Configuración A)")
+    abstract: Optional[str] = Field(default=None, description="Abstract del artículo citado (Configuración A)")
+    retrieved_chunks: List[RetrievedChunk] = Field(
+        default_factory=list,
+        description="Top-k fragmentos discursivos más relevantes según SciBERT (Configuración B)",
+    )
+
+
+class DatasetInstance(BaseModel):
+    """Instancia final consolidada del dataset experimental (Salida de Actividad A1)."""
+
+    instance_id: str = Field(..., description="Identificador único canónico de la instancia: inst_{index:05d}")
+    label: Optional[str] = Field(default=None, description="Etiqueta normalizada en la taxonomía de 9 clases")
+    annotation_metadata: AnnotationMetadata = Field(..., description="Metadatos de etiquetado y partición")
+    citing_paper: CitingPaperInfo = Field(..., description="Metadatos y contexto del artículo citante")
+    citation_context: str = Field(..., description="Ventana de cita m=3 con marcador <cite>...</cite>")
+    cited_paper: CitedPaperInfo = Field(..., description="Información completa del artículo citado (Config A y B)")
+
+
+

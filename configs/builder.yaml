@@ -1,0 +1,18 @@
+# Configuración del Ensamblado y Particionamiento del Dataset (A1 / Capa 4)
+# Documento de Diseño: documentacion/diseno-tecnico/08-diseno-dataset-builder.md
+# Decisiones Relacionadas: ADR-03 (Ventana m=3), ADR-04 (Presupuesto Tokens), ADR-05 (Embeddings SciBERT), ADR-06 (Consulta Aislada), ADR-07 (Paridad Estricta), ADR-08 (Etiquetas y Trazabilidad), ADR-09 (Particionado Anti-Fuga)
+
+input_contexts_path: "data/processed/citing_contexts.jsonl"
+papers_path: "data/structured/papers.jsonl"
+chunks_path: "data/processed/cited_chunks.jsonl"
+retrieval_config_path: "configs/retrieval.yaml"
+output_dir: "data/dataset"
+
+quota_per_class: null       # null para procesar todas las instancias con paridad 1:1, o entero (ej. 2000)
+k_chunks: 3
+split_ratios:
+  train: 0.70
+  dev: 0.15
+  test: 0.15
+seed: 42
+force: false
