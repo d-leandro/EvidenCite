@@ -1,0 +1,20 @@
+# Configuración del Pipeline Orquestador de Datos (Actividad A1)
+# Documento de Diseño: documentacion/diseno-tecnico/09-diseno-pipeline-orquestador-datos.md
+
+# Rutas Canónicas de las 4 Capas de Datos
+raw_unarxive_dir: "data/raw/unarxive"
+raw_multicite_dir: "data/raw/multicite"
+s2_cache_path: "data/raw/s2_cache.db"
+structured_papers_path: "data/structured/papers.jsonl"
+citing_contexts_path: "data/processed/citing_contexts.jsonl"
+cited_chunks_path: "data/processed/cited_chunks.jsonl"
+dataset_dir: "data/dataset"
+
+# Rutas de Configuración Modular
+builder_config_path: "configs/builder.yaml"
+retrieval_config_path: "configs/retrieval.yaml"
+
+# Parámetros Globales
+seed: 42
+force: false
+skip_seminal: false
