@@ -1,7 +1,7 @@
 [project]
-name = "proyectogrado"
+name = "evidencite"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local Citation Recommendation and Rhetorical Function Classification in Scientific Literature via Dense Evidence Retrieval and Language Models"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
