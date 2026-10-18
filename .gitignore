@@ -1,0 +1,84 @@
+# ==============================================================================
+# .gitignore — Proyecto de Grado MAIA (NLP / Citas Científicas)
+# ==============================================================================
+
+# --- Entorno y Secretos -------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- Python y Caché de Compilación --------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+wheels/
+
+# --- Entornos Virtuales -------------------------------------------------------
+.venv/
+venv/
+env/
+
+# --- Pruebas y Cobertura ------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# --- Sistema Operativo e IDEs -------------------------------------------------
+.DS_Store
+.DS_Store?
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+
+# --- Tracking de Experimentos y MLflow ----------------------------------------
+mlruns/
+mlruns.db
+.mlflow/
+
+# --- Modelos y Checkpoints (Se ignoran pesos, se preservan carpetas con .gitkeep)
+models/**
+!models/**/
+!models/**/.gitkeep
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+
+# --- Datos (Se ignoran datos masivos, se preserva la jerarquía con .gitkeep) --
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# Extensiones de datos grandes por seguridad
+*.jsonl
+*.jsonl.gz
+*.tar.gz
+*.zip
+*.parquet
+*.h5
+*.sqlite3
+*.db
+
+# --- Documentación Interna y Borradores de Tesis (Privados) -------------------
+documentacion/
+hallazgos-datasets/
+references/
+propuesta-proyecto-grado/
+propuestas-proyectos-maia/
+assets-propuesta-proyecto-grado/
+
+# --- Archivos de Trabajo Temporal / Borradores en Raíz -------------------------
+PENDING-*
+DEPRECATED_*
+repo-*.txt
+repo-template*
+spec_dataset_*.md
