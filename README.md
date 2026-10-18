@@ -7,6 +7,9 @@
 [![Package Manager: uv](https://img.shields.io/badge/package%20manager-uv-blueviolet.svg)](https://github.com/astral-sh/uv)
 [![Embeddings: SciBERT](https://img.shields.io/badge/Embeddings-SciBERT-teal.svg)](https://huggingface.co/allenai/scibert_scivocab_uncased)
 [![Tests: 73 passed](https://img.shields.io/badge/Tests-73%20passed-brightgreen.svg)]()
+
+[🇪🇸 Leer en Español](README.es.md) | [🇬🇧 English](README.md)
+
 ---
 
 ## 1. Overview
