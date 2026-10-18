@@ -79,6 +79,7 @@ assets-propuesta-proyecto-grado/
 # --- Archivos de Trabajo Temporal / Borradores en Raíz -------------------------
 PENDING-*
 DEPRECATED_*
+assets-*.md
 repo-*.txt
 repo-template*
 spec_dataset_*.md
