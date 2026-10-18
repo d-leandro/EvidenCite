@@ -58,3 +58,36 @@ class StructuredPaper(BaseModel):
     bibliography: Dict[str, BibliographyEntry] = Field(default_factory=dict, description="Bibliografía indexada")
 
 
+class CitingContext(BaseModel):
+    """Contexto citante atómico procesado en data/processed/citing_contexts.jsonl."""
+
+    context_id: str = Field(..., description="Identificador único del contexto (ej. 'mc_train_021c423c_0' o 'unx_2101.00098_s0')")
+    source_dataset: str = Field(..., description="Origen de la instancia: 'multicite' o 'unarxive_mined'")
+    split: Optional[str] = Field(default=None, description="Partición del dataset ('train', 'dev', 'test') si aplica")
+    citing_paper_id: str = Field(..., description="Identificador del artículo citante (arXiv ID o hash MultiCite)")
+    rhetorical_section: str = Field(..., description="Encabezado de sección fiel donde ocurre la cita")
+    window_rule: str = Field(default="m_3_sentences", description="Regla de ventana aplicada (m=3 oraciones)")
+    citation_context: str = Field(..., description="Texto de la ventana con cita delimitada por <cite>...</cite>")
+
+    # Metadatos del artículo citado resuelto
+    target_ref_key: Optional[str] = Field(default=None, description="Clave de referencia bibliográfica original")
+    target_cited_id: Optional[str] = Field(default=None, description="Identificador canónico arXiv del citado si fue resuelto")
+    target_cited_title: Optional[str] = Field(default=None, description="Título del artículo citado")
+    target_cited_authors: Optional[str] = Field(default=None, description="Autores del artículo citado")
+    target_cited_year: Optional[int] = Field(default=None, description="Año del artículo citado")
+    target_cited_abstract: Optional[str] = Field(default=None, description="Abstract del citado (clave para Configuración A)")
+    has_cited_chunks: bool = Field(default=False, description="Indica si el artículo citado cuenta con texto completo en papers.jsonl")
+
+    # Etiquetas e intención de cita
+    original_label: Optional[str] = Field(default=None, description="Etiqueta original en el dataset fuente")
+    normalized_label: Optional[str] = Field(default=None, description="Etiqueta normalizada en el esquema de 9 clases de Lyu et al.")
+    label_source: str = Field(
+        default="human_gold",
+        description="Origen de la etiqueta: 'human_gold' (anotación humana experta) o 'heuristic_rule' (regla léxica minada)",
+    )
+    is_gold: bool = Field(
+        default=True,
+        description="Booleano que certifica si la etiqueta es un benchmark de oro humano (True) o una heurística débil (False)",
+    )
+
+
