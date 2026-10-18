@@ -91,3 +91,16 @@ class CitingContext(BaseModel):
     )
 
 
+class CitedChunk(BaseModel):
+    """Representación granular de un fragmento discursivo de un artículo citado."""
+
+    chunk_id: str = Field(..., description="Identificador único canónico: {paper_id}_s{sec_idx}_c{chunk_idx}")
+    paper_id: str = Field(..., description="Identificador del artículo citado en papers.jsonl")
+    section_idx: int = Field(..., description="Índice ordinal de la sección dentro del artículo")
+    section_heading: str = Field(..., description="Título o encabezado retórico de la sección")
+    chunk_idx: int = Field(..., description="Índice ordinal del chunk dentro de la sección")
+    text: str = Field(..., description="Texto concatenado de las oraciones que componen el chunk")
+    token_count: int = Field(..., description="Número de tokens aproximados (WordPiece)")
+    word_count: int = Field(..., description="Número de palabras en el fragmento")
+
+
