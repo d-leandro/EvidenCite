@@ -1,0 +1,11 @@
+# Configuración del Pipeline de Recuperación Semántica con SciBERT (A1 / Capa 4)
+# Documento de Diseño: documentacion/diseno-tecnico/07-diseno-chunking-scibert.md
+# Decisiones Relacionadas: ADR-04 (Presupuesto Tokens), ADR-05 (Embeddings SciBERT), ADR-06 (Consulta Aislada)
+
+model_name: "allenai/scibert_scivocab_uncased"
+batch_size: 32
+max_length: 512
+k: 3
+device: "auto"        # "auto" (detecta mps/cuda/cpu), "mps", "cuda", "cpu"
+seed: 42
+chunks_path: "data/processed/cited_chunks.jsonl"

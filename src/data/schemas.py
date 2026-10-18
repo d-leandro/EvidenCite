@@ -104,3 +104,13 @@ class CitedChunk(BaseModel):
     word_count: int = Field(..., description="Número de palabras en el fragmento")
 
 
+class RetrievedChunk(BaseModel):
+    """Fragmento relevante recuperado con su puntaje de similitud semántica."""
+
+    chunk_id: str = Field(..., description="Identificador del chunk recuperado")
+    section_heading: str = Field(..., description="Sección a la que pertenece el chunk en el citado")
+    text: str = Field(..., description="Texto del chunk relevante")
+    similarity_score: float = Field(..., description="Puntaje de similitud coseno con el contexto citante [-1, 1]")
+    rank: int = Field(..., description="Rango de relevancia (1 para el más similar, 2, 3)")
+
+
