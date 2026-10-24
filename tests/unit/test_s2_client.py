@@ -19,7 +19,7 @@ def test_config_api_key_from_env(monkeypatch, tmp_path):
     config = S2ClientConfig(cache_path=tmp_path / "cache.db")
     client = SemanticScholarClient(config)
     assert client.api_key == "test-api-key-123"
-    assert client.rate_limit_delay == 0.1
+    assert client.rate_limit_delay == 10.0
 
 
 def test_cache_hit_avoids_http_call(tmp_path):
