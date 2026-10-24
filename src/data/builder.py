@@ -47,11 +47,11 @@ logger = logging.getLogger(__name__)
 
 CANONICAL_9_CLASSES = [
     "Background",
-    "Uses",
+    "Gap",
+    "Basis",
     "Comparison",
-    "Extends",
-    "Motivation",
-    "Future Work",
+    "Application",
+    "Improvement",
     "Evidence",
     "Originator",
     "Further Reading",
@@ -114,25 +114,49 @@ def map_to_canonical_label(raw_label: Optional[str]) -> Tuple[Optional[str], Opt
         return None, None
 
     raw_clean = raw_label.strip()
-    is_compound = ";" in raw_clean
-    primary = raw_clean.split(";")[0].strip()
+    is_compound = (";" in raw_clean) or (" " in raw_clean and not any(raw_clean.lower().startswith(x) for x in ["future work", "further reading", "identification of", "improvement"]))
+
+    if ";" in raw_clean:
+        primary = raw_clean.split(";")[0].strip()
+    elif is_compound:
+        if raw_clean.lower().startswith(("future work", "future_work")):
+            primary = "future work"
+        elif raw_clean.lower().startswith("further reading"):
+            primary = "further reading"
+        elif raw_clean.lower().startswith("identification of"):
+            primary = "originator"
+        elif raw_clean.lower().startswith("improvement"):
+            primary = "improvement"
+        else:
+            primary = raw_clean.split()[0].strip()
+    else:
+        primary = raw_clean
+
+    primary_norm = primary.replace("_", " ").strip().lower()
 
     mapping_table = {
-        "Background": "Background",
-        "Uses": "Uses",
-        "Differences": "Comparison",
-        "Similarities": "Comparison",
-        "Comparison": "Comparison",
-        "Extends": "Extends",
-        "Basis": "Extends",
-        "Motivation": "Motivation",
-        "Future Work": "Future Work",
-        "Evidence": "Evidence",
-        "Originator": "Originator",
-        "Further Reading": "Further Reading",
+        "background": "Background",
+        "uses": "Application",
+        "application": "Application",
+        "differences": "Comparison",
+        "similarities": "Comparison",
+        "comparison": "Comparison",
+        "extends": "Improvement",
+        "improvement": "Improvement",
+        "improvement / modification": "Improvement",
+        "basis": "Basis",
+        "motivation": "Gap",
+        "future work": "Gap",
+        "future": "Gap",
+        "gap": "Gap",
+        "evidence": "Evidence",
+        "originator": "Originator",
+        "identification of the originator": "Originator",
+        "identification of": "Originator",
+        "further reading": "Further Reading",
     }
 
-    canonical = mapping_table.get(primary)
+    canonical = mapping_table.get(primary_norm)
     if not canonical:
         return None, None
 
@@ -183,6 +207,20 @@ def load_missing_paper_abstracts(
     return resolved
 
 
+def compute_group_rarity_key(
+    group_item: Tuple[str, List[DatasetInstance]],
+    class_totals: Counter,
+) -> Tuple[int, int]:
+    """Calcula la clave de ordenamiento por rareza para un grupo de citas (paper citante).
+
+    Prioriza papers que contienen las clases con menor frecuencia global (rarest class first),
+    desempatando por tamaño de grupo decreciente para acomodar bloques grandes al inicio.
+    """
+    _, group_instances = group_item
+    min_freq = min((class_totals[inst.label] for inst in group_instances if inst.label), default=0)
+    return (min_freq, -len(group_instances))
+
+
 def group_stratified_split(
     instances: List[DatasetInstance],
     train_ratio: float = 0.70,
@@ -217,15 +255,14 @@ def group_stratified_split(
         for split, ratio in [("train", train_ratio), ("dev", dev_ratio), ("test", test_ratio)]
     }
 
-    # 3. Asignación voraz ordenada (Greedy Allocation)
+    # 3. Asignación voraz balanceada por necesidad de clase (Rarity-Prioritized Allocation)
     splits: Dict[str, List[DatasetInstance]] = {"train": [], "dev": [], "test": []}
     current_counts = {"train": 0, "dev": 0, "test": 0}
     current_class_counts: Dict[str, Counter] = {"train": Counter(), "dev": Counter(), "test": Counter()}
 
-    # Ordenar grupos por tamaño decreciente y desempatar con aleatoriedad reproducible
+    # Ordenar grupos priorizando papers que contienen las clases más escasas (rarest class first)
     group_items = list(paper_groups.items())
-    rng.shuffle(group_items)
-    group_items.sort(key=lambda x: len(x[1]), reverse=True)
+    group_items.sort(key=lambda item: compute_group_rarity_key(item, class_totals))
 
     for paper_id, group_instances in group_items:
         group_size = len(group_instances)
@@ -240,14 +277,18 @@ def group_stratified_split(
             if capacity <= 0 and split_name != "train":
                 continue
 
-            # Penalización por desviación en cuota de instancias y balance de clases
-            size_error = abs((current_counts[split_name] + group_size) - target_counts[split_name])
-            class_error = sum(
-                abs((current_class_counts[split_name][c] + group_class_dist[c]) - target_class_counts[split_name].get(c, 0))
+            # Penalización normalizada por tamaño
+            size_error = abs((current_counts[split_name] + group_size) - target_counts[split_name]) / target_counts[split_name]
+            
+            # Déficit relativo para las clases contenidas en este paper
+            class_deficit = sum(
+                max(0, (target_class_counts[split_name].get(c, 0) - (current_class_counts[split_name][c] + group_class_dist[c])))
+                / max(1, target_class_counts[split_name].get(c, 1))
                 for c in group_class_dist
             )
 
-            score = size_error + 2.0 * class_error
+            # Minimizar error de tamaño mientras se maximiza la cobertura de clases deficitarias
+            score = size_error - 2.5 * class_deficit
             if score < best_score:
                 best_score = score
                 best_split = split_name

@@ -21,18 +21,23 @@ from src.data.schemas import (
 
 
 def test_map_to_canonical_label_exact():
-    """Valida el mapeo de etiquetas individuales a la taxonomía canónica de 9 clases (RF-04)."""
+    """Valida el mapeo de etiquetas individuales a la taxonomía canónica de 9 clases (RF-04 / ADR-10)."""
     assert map_to_canonical_label("Background") == ("Background", "exact")
-    assert map_to_canonical_label("Uses") == ("Uses", "exact")
+    assert map_to_canonical_label("Uses") == ("Application", "exact")
+    assert map_to_canonical_label("Application") == ("Application", "exact")
     assert map_to_canonical_label("Differences") == ("Comparison", "exact")
     assert map_to_canonical_label("Similarities") == ("Comparison", "exact")
     assert map_to_canonical_label("Comparison") == ("Comparison", "exact")
-    assert map_to_canonical_label("Extends") == ("Extends", "exact")
-    assert map_to_canonical_label("Basis") == ("Extends", "exact")
-    assert map_to_canonical_label("Motivation") == ("Motivation", "exact")
-    assert map_to_canonical_label("Future Work") == ("Future Work", "exact")
+    assert map_to_canonical_label("Extends") == ("Improvement", "exact")
+    assert map_to_canonical_label("Improvement") == ("Improvement", "exact")
+    assert map_to_canonical_label("Improvement / Modification") == ("Improvement", "exact")
+    assert map_to_canonical_label("Basis") == ("Basis", "exact")
+    assert map_to_canonical_label("Motivation") == ("Gap", "exact")
+    assert map_to_canonical_label("Future Work") == ("Gap", "exact")
+    assert map_to_canonical_label("Gap") == ("Gap", "exact")
     assert map_to_canonical_label("Evidence") == ("Evidence", "exact")
     assert map_to_canonical_label("Originator") == ("Originator", "exact")
+    assert map_to_canonical_label("Identification of the Originator") == ("Originator", "exact")
     assert map_to_canonical_label("Further Reading") == ("Further Reading", "exact")
     assert map_to_canonical_label(None) == (None, None)
     assert map_to_canonical_label("UnknownLabel") == (None, None)
@@ -42,7 +47,7 @@ def test_map_to_canonical_label_compound():
     """Valida el mapeo de etiquetas combinadas de MultiCite a su función primaria con tipo 'partial'."""
     assert map_to_canonical_label("Similarities; Uses") == ("Comparison", "partial")
     assert map_to_canonical_label("Background; Motivation") == ("Background", "partial")
-    assert map_to_canonical_label("Extends; Differences") == ("Extends", "partial")
+    assert map_to_canonical_label("Extends; Differences") == ("Improvement", "partial")
 
 
 def _create_synthetic_instance(idx: int, citing_paper_id: str, label: str) -> DatasetInstance:
