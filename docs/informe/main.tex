@@ -1,0 +1,350 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage[margin=1.8cm]{geometry}
+\usepackage{lmodern,microtype,booktabs,tabularx,array,amsmath,graphicx,xcolor,tikz,pgfplots}
+\usetikzlibrary{arrows.meta,positioning}
+\pgfplotsset{compat=1.18}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{titlesec,fancyhdr}
+\usepackage[colorlinks=true,urlcolor=blue!50!black,citecolor=blue!50!black,linkcolor=blue!50!black]{hyperref}
+\setlength{\columnsep}{0.65cm}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{2pt}
+\setlength{\headheight}{14pt}
+\setlength{\emergencystretch}{1.5em}
+\pagestyle{fancy}\fancyhf{}\fancyhead[L]{\small EvidenCite | Informe de avance}\fancyhead[R]{\small MAIA}\fancyfoot[C]{\thepage}
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.45em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection.}{0.4em}{}
+\titlespacing*{\section}{0pt}{9pt}{4pt}
+\titlespacing*{\subsection}{0pt}{7pt}{3pt}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\begin{document}
+\raggedbottom
+\twocolumn[\begin{center}
+{\LARGE\bfseries EvidenCite: recomendación local de citas y clasificación de su función en artículos académicos}\par\vspace{6pt}
+Daniel Ricardo Gallo Acevedo · Dubán Leandro Jiménez Puerta\\
+Julián Andrés Malaver Montoya · Javier Mauricio Torres Ortega\\
+Maestría en Inteligencia Artificial, Universidad de los Andes\\
+\small Informe de avance
+\end{center}\vspace{7pt}]
+
+\section{Descripción breve de la propuesta de solución}
+EvidenCite estudia si la evidencia localizada en el documento citado permite clasificar mejor la función de una cita que una representación global de ese documento. Se comparan dos entradas: \textbf{A}, contexto citante más título y resumen del citado, y \textbf{B}, el mismo contexto más hasta tres fragmentos recuperados del citado. La recuperación identifica pasajes relacionados; la clasificación asigna una función discursiva. El diseño permite estudiar tanto la predicción de la función como el aporte de la información recuperada.
+
+Este avance presenta la construcción del conjunto pareado, su evolución de \textbf{3.232 a 8.074 instancias} y el diseño comparativo de TF-IDF, SciBERT y Qwen+LoRA. La meta sigue siendo 18.000 instancias, con 2.000 por función. Los resultados corresponden a las particiones del conjunto inicial; el conjunto ampliado incorpora la taxonomía objetivo y constituye la base del siguiente ciclo experimental.
+
+\section{Recolección y preparación de los datos}
+La construcción se desarrolló en dos ciclos complementarios. El conjunto inicial de 3.232 instancias permitió poner a prueba el ensamblaje de entradas A/B y establecer los primeros resultados comparables. A partir de esa experiencia, se amplió la cobertura documental y se aplicaron las reglas de homologación acordadas para construir una versión de 8.074 instancias alineada con las nueve funciones objetivo. El avance es cuantitativo y metodológico: se dispone de más ejemplos y de una definición operativa más precisa de las categorías. Los experimentos iniciales conservan su valor como punto de referencia; evaluar la nueva versión requiere repetir el protocolo sobre sus propias particiones.
+\subsection{De las fuentes al conjunto comparable}
+El dataset se construyó combinando dos fuentes complementarias. MultiCite aporta contextos de citas con funciones anotadas por personas; unarXive aporta artículos estructurados y referencias bibliográficas que permiten localizar el texto citado \cite{multicite,unarxive}. Sobre esta segunda fuente se aplican reglas léxicas para obtener ejemplos adicionales. Cada instancia conserva su procedencia, de modo que se puede distinguir una anotación heredada de una etiqueta obtenida por minado.
+
+Para comparar A y B, cada ejemplo reúne el contexto de una cita y la información del artículo al que apunta: título, resumen y fragmentos de su cuerpo. La preparación comienza organizando los artículos por secciones; luego identifica la cita, resuelve su referencia y recupera los pasajes del citado. Así, ambas estrategias se construyen a partir del mismo vínculo documental.
+
+Se conservaron los encabezados originales para mantener el contexto de cada pasaje. Los párrafos sin un nuevo encabezado se asocian con la sección precedente. Además, se adoptó una ventana de tres oraciones alrededor de la cita, desplazándola en los bordes del texto cuando es necesario. Esto permite incorporar la explicación que antecede o sigue a la referencia, en lugar de limitar la entrada a una oración aislada.
+
+\subsection{Resolución bibliográfica, escala y paridad A/B}
+La resolución bibliográfica conecta cada cita con el artículo correcto. Para ello se incorporaron tres controles: \textbf{normalizar los identificadores arXiv}, reconociendo tanto los formatos modernos como los clásicos; \textbf{comparar los títulos}, eliminando palabras vacías y puntuación y exigiendo una similitud de Levenshtein normalizada de al menos 0,85; y \textbf{contrastar el apellido del primer autor} entre la referencia y el candidato. Los candidatos que no superan estos filtros se descartan del enlace. Esta secuencia permite tratar referencias escritas con formatos distintos y reducir asociaciones entre trabajos que solo comparten palabras en el título.
+
+La escala del procesamiento motivó otras decisiones de implementación. Se trabajó con más de 35 GB de datos crudos y aproximadamente 66 mil documentos estructurados. La lectura por líneas permite procesarlos sin cargar el corpus completo en memoria. Para consultar metadatos en Semantic Scholar y arXiv se incorporaron una caché local SQLite y reintentos con espera creciente y variación aleatoria: la caché reutiliza respuestas previas y los reintentos permiten continuar cuando una API limita temporalmente las consultas.
+
+La decisión central fue exigir \textbf{paridad de instancias}: A y B reciben los mismos ejemplos y etiquetas, cambiando la información del citado. No significa equivalencia uno a uno entre etiquetas de distintas taxonomías. Admitir más ejemplos en A por tener resumen, mientras B solo dispone de texto completo en una fracción, confundiría el efecto de la representación con cambios de población.
+
+El minado inicial identificó 56.778 contextos candidatos. El paso decisivo para incorporarlos fue disponer del cuerpo del documento citado, necesario para construir B además de A. El primer conjunto experimental reunió \textbf{3.232 instancias completas}; la ampliación posterior elevó esa cifra a \textbf{8.074}, manteniendo el mismo requisito de comparación pareada.
+
+\begin{table}[t]
+\centering\small
+\caption{Evolución del conjunto experimental hacia la meta de 18.000 instancias.}\label{tab:evolucion}
+\begin{tabular}{lrr}\toprule
+Indicador & Inicial & Ampliado\\\midrule
+Instancias & 3.232 & 8.074\\
+Artículos citantes & 657 & 3.244\\
+Origen MultiCite & 2.735 & 3.629\\
+Origen minado & 497 & 4.445\\
+Marca \texttt{exact} & 2.899 & 7.607\\
+Marca \texttt{partial} & 333 & 467\\
+Menos de tres chunks & 32 & 40\\\bottomrule
+\end{tabular}
+\end{table}
+
+La verificación de los archivos confirma que todas las instancias de ambos conjuntos contienen contexto, título, resumen y al menos un fragmento. Cuando un citado ofrece menos de tres chunks se aprovecha la evidencia disponible, lo que ocurre en 32 casos iniciales y 40 ampliados. Esta política conserva ejemplos utilizables y mantiene la paridad A/B. El conjunto creció 2,50 veces y alcanza el 44,9\% de la meta total; la distribución por función orienta las siguientes incorporaciones.
+
+\subsection{Homologación y tratamiento de funciones múltiples}
+La taxonomía del primer experimento conserva nombres heredados: Background, Uses, Comparison, Extends, Motivation, Future Work, Evidence, Originator y Further Reading. La versión ampliada adopta las nueve funciones objetivo, operacionalizadas a partir del marco de motivaciones de citación de la propuesta \cite{lyu}. El cambio no consiste únicamente en renombrar etiquetas: separa Basis de Extends y agrupa Motivation y Future Work bajo Gap. La Tabla~\ref{tab:mapeo} resume las decisiones aplicadas al conjunto ampliado.
+
+\begin{table}[t]
+\centering\small
+\caption{Reglas operativas de homologación al esquema objetivo. Son decisiones del proyecto, sujetas a revisión contextual.}\label{tab:mapeo}
+\begin{tabularx}{\columnwidth}{@{}p{2.7cm}Y@{}}\toprule
+Origen & Destino y criterio\\\midrule
+Background & Background: contextualización temática.\\
+Uses & Application: empleo de un recurso o método.\\
+Extends & Improvement: modificación o extensión.\\
+Similarities / Differences & Comparison: contraste de trabajos.\\
+Motivation / Future Work & Gap: necesidad de investigación o área abierta; requiere revisar casos de frontera.\\
+Basis minada & Basis: fundamento intelectual, separado de modificación.\\
+Evidence / Originator / Further Reading & Se conservan: sustento, atribución de origen y remisión a detalles.\\\bottomrule
+\end{tabularx}
+\end{table}
+
+La multietiqueta exige una decisión adicional. El procedimiento normaliza las funciones de MultiCite conservando su orden y selecciona la primera para obtener una salida multiclase. La regla es \textbf{posicional y determinista}; no prioriza la función más escasa ni demuestra que la primera sea discursivamente dominante. La cadena original se conserva y el caso se marca \texttt{partial}. Por ejemplo, en el conjunto ampliado, \texttt{uses similarities} produce Application, mientras \texttt{similarities uses} produce Comparison. Conservar la etiqueta original permite rastrear la decisión y revisar posteriormente los casos multifuncionales.
+
+Las Tablas~\ref{tab:3k} y~\ref{tab:8k} muestran el costo de esa reducción por clase. La proporción \texttt{partial} pasa de 10,3\% a 5,8\%, aunque su cantidad absoluta aumenta de 333 a 467. \texttt{Exact} es una marca del procedimiento de mapeo, \textbf{no una medida de exactitud de la anotación}: también aparece en ejemplos minados y en transformaciones taxonómicas. Incluso combinaciones que terminan en una misma categoría, como Similarities/Differences, pueden conservar \texttt{partial}. Estas marcas permiten cuantificar la homologación y localizar los casos que requieren revisión contextual.
+
+\begin{table}[t]
+\centering\small
+\caption{Conjunto inicial: marcas de homologación por clase, antes del cambio a la taxonomía objetivo.}\label{tab:3k}
+\begin{tabular}{lrrr}\toprule
+Clase & Exact & Partial & Total\\\midrule
+Background & 831 & 43 & 874\\
+Motivation & 113 & 29 & 142\\
+Uses & 828 & 67 & 895\\
+Comparison & 522 & 150 & 672\\
+Extends & 155 & 43 & 198\\
+Future Work & 9 & 1 & 10\\
+Further Reading & 259 & 0 & 259\\
+Evidence & 156 & 0 & 156\\
+Originator & 26 & 0 & 26\\\midrule
+Total & 2.899 & 333 & 3.232\\\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering\small
+\caption{Conjunto ampliado: taxonomía objetivo y déficit frente a 2.000 instancias por clase.}\label{tab:8k}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrr}\toprule
+Clase & Exact & Partial & Total & Déficit\\\midrule
+Background & 1.109 & 61 & 1.170 & 830\\
+Gap & 168 & 44 & 212 & 1.788\\
+Basis & 472 & 0 & 472 & 1.528\\
+Comparison & 674 & 202 & 876 & 1.124\\
+Application & 1.068 & 89 & 1.157 & 843\\
+Improvement & 143 & 71 & 214 & 1.786\\
+Evidence & 1.384 & 0 & 1.384 & 616\\
+Originator & 344 & 0 & 344 & 1.656\\
+Further Reading & 2.245 & 0 & 2.245 & 0\\\midrule
+Total & 7.607 & 467 & 8.074 & 10.171\\\bottomrule
+\end{tabular}
+\end{table}
+
+En el conjunto ampliado, 3.629 ejemplos proceden de MultiCite y 4.445 del minado: 44,9\% y 55,1\%, respectivamente. La integración de fuentes amplía la cobertura funcional: Basis, Evidence, Originator y Further Reading se obtienen mediante minado, mientras las otras cinco funciones proceden de MultiCite. Conservar esta distinción permite evaluar posteriormente el rendimiento por fuente y planear una revisión de etiquetas que cubra ambos procedimientos.
+
+\subsection{Particiones y diversidad documental}
+Las particiones entregadas pertenecen al conjunto de 3.232, no al ampliado. Se agrupan por artículo citante para impedir que citas del mismo manuscrito aparezcan en entrenamiento y evaluación. La auditoría reproduce cero intersecciones de identificadores citantes entre las tres particiones. Este control es más estricto que separar únicamente el par citante--citado, aunque no descarta por sí solo duplicados entre versiones de un artículo o todas las formas de fuga.
+
+\begin{table}[t]
+\centering\small
+\caption{Particiones empleadas por los experimentos reportados.}\label{tab:splits}
+\begin{tabular}{lrrr}\toprule
+Partición & Instancias & Citantes & Inst./citante\\\midrule
+Train & 2.255 & 615 & 3,67\\
+Dev & 491 & 26 & 18,88\\
+Test & 486 & 16 & 30,38\\\bottomrule
+\end{tabular}
+\end{table}
+
+La separación documental tiene un costo distinto de la fuga: la baja diversidad de evaluación. Cinco citantes reúnen 41,2\% del test y diez reúnen 70,4\%. Además, el test contiene solo Background (149), Uses (167), Comparison (121), Extends (20) y Motivation (29); no tiene Evidence, Originator, Further Reading ni Future Work. Sus 486 ejemplos proceden de MultiCite. Por ello, los resultados no evalúan todavía las funciones minadas ni las nueve clases definitivas.
+
+\section{Descripción del proceso de construcción de los modelos o solución}
+\subsection{Diseño común y recuperación de evidencia}
+El diseño compara tres familias bajo las entradas A/B, con la misma población y selección mediante validación (Figura~\ref{fig:flujo}). Se mantienen separados dos usos de SciBERT: un codificador para recuperar fragmentos, cuyos resultados quedan precomputados, y un clasificador ajustado para predecir funciones. Los experimentos aquí descritos evalúan clasificación sobre esos fragmentos; no vuelven a entrenar ni validan directamente el recuperador.
+
+La segmentación respeta límites de sección y acumula oraciones contiguas. Frente al máximo de 300 palabras contemplado inicialmente, el diseño adoptó un umbral de unas 110 palabras para reducir la presión sobre la ventana de 512 tokens. Una oración individual que excede ese umbral se conserva íntegra, por lo que no es una cota absoluta. Reducir palabras tampoco garantiza una cantidad fija de tokens WordPiece.
+
+Para recuperar, SciBERT codifica exclusivamente el contexto citante y el texto de cada chunk, sin prefijar encabezados retóricos. El propósito es evitar que la coincidencia entre nombres de sección dirija la búsqueda. Se promedian los estados ocultos de tokens válidos mediante la máscara de atención, se normaliza el vector en norma L2 y se calcula similitud coseno. La búsqueda se restringe a los fragmentos del documento citado objetivo, no a todo el corpus:
+\[
+ e(T)=\frac{\sum_i m_i h_i}{\sum_i m_i},\qquad
+ s(q,c)=\frac{e(q)^\top e(c)}{\|e(q)\|_2\|e(c)\|_2}.
+\]
+Se ordenan los puntajes y se conservan hasta tres fragmentos, sus identificadores, secciones y posiciones. El almacenamiento del texto recuperado permite que distintas familias consuman la misma evidencia y evita recalcularla en cada entrenamiento. La similitud semántica es un criterio de selección, no una prueba de pertinencia argumentativa.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[font=\small,box/.style={draw=blue!45!black,rounded corners=2pt,align=center,fill=blue!3,minimum height=0.85cm,text width=3.5cm},arr/.style={-{Stealth[length=2mm]},thick,draw=blue!50!black}]
+\node[box,text width=11.6cm] (data) at (0,0) {Mismas instancias y particiones · contexto citante + referencia objetivo};
+\node[box,text width=5.2cm] (a) at (-3.2,-1.4) {A: contexto + título + abstract};
+\node[box,text width=5.2cm] (b) at (3.2,-1.4) {B: contexto + hasta 3 chunks\\recuperación dentro del citado};
+\node[box] (tf) at (-4.2,-3.1) {TF-IDF + regresión logística\\baseline léxico};
+\node[box] (sb) at (0,-3.1) {SciBERT ajustado\\control adicional: solo contexto};
+\node[box] (qw) at (4.2,-3.1) {Qwen + LoRA\\ajuste de bajo rango};
+\node[box,text width=11.6cm] (res) at (0,-4.65) {Función de cita · selección en dev · evaluación común en test\\Macro-F1 y cobertura por clase; comparación pareada A/B};
+\draw[arr] (data.south) -- ++(0,-0.25) -| (a.north);
+\draw[arr] (data.south) -- ++(0,-0.25) -| (b.north);
+\foreach \x in {a,b} {\foreach \y in {tf,sb,qw} {\draw[arr] (\x.south) -- (\y.north);}}
+\foreach \x in {tf,sb,qw} {\draw[arr] (\x.south) -- (\x.south |- res.north);}
+\end{tikzpicture}
+\caption{Diseño comparativo reproducible, dibujado en LaTeX/TikZ. Las nueve etiquetas de los experimentos iniciales difieren de las nueve funciones objetivo del conjunto ampliado; ambas versiones deben evaluarse por separado.}\label{fig:flujo}
+\end{figure*}
+
+\subsection{Baseline léxico: TF-IDF y regresión logística}
+Se construyó una referencia léxica para medir cuánto puede resolverse a partir de palabras y expresiones del texto antes de introducir un modelo contextual. TF-IDF transforma cada entrada en un vector: pondera la frecuencia de los términos dentro del ejemplo y reduce el peso de los que aparecen en muchos documentos. Se emplean frecuencia sublineal, normalización L2 y un máximo de 100.000 términos. El vocabulario y los pesos IDF se aprenden exclusivamente en train.
+
+La regresión logística aprende a asociar esos vectores con las funciones de cita. Se usan pesos de clase balanceados para dar mayor importancia relativa a las clases poco frecuentes, el optimizador \texttt{lbfgs}, un máximo de 2.000 iteraciones y semilla 42. Para A se concatena contexto, título y resumen; para B, contexto y fragmentos por rango. En ambas entradas se eliminan las marcas HTML de cita conservando su texto, sin añadir encabezados de sección ni limitar la longitud por tokens.
+
+Las configuraciones r1, r2 y r3 se expresan mediante la tupla $(n_{\max},\mathrm{min\_df},C)$: $n_{\max}$ es la longitud máxima de los n-gramas (1: palabras; 2: palabras y pares consecutivos), \texttt{min\_df} es el mínimo de ejemplos de entrenamiento en que debe aparecer un término y $C$ es el inverso de la intensidad de regularización (un valor mayor penaliza menos los coeficientes). La Tabla~\ref{tab:tfconfig} hace explícitas las tres combinaciones.
+
+\begin{table}[t]
+\centering\small
+\caption{Configuraciones TF-IDF y regresión logística, ejecutadas tanto para A como para B.}\label{tab:tfconfig}
+\begin{tabular}{lcrr}\toprule
+Configuración & N-gramas & \texttt{min\_df} & $C$\\\midrule
+r1 & 1 & 1 & 0,5\\
+r2 & 1--2 & 2 & 1,0\\
+r3 & 1--2 & 3 & 2,0\\\bottomrule
+\end{tabular}
+\end{table}
+
+Se entrenan seis modelos: tres configuraciones para cada entrada. La selección usa el mayor Macro-F1-9 en dev, es decir, el promedio del F1 de las nueve etiquetas, con el mismo peso para cada clase. La configuración r3 obtiene el mejor resultado de validación en ambas entradas; únicamente esos ganadores se evalúan en test, sin reentrenar con dev. Las combinaciones exploran conjuntamente vocabulario y regularización, por lo que se interpretan como configuraciones completas.
+
+\subsection{Ajuste de SciBERT y control de contexto}
+Se utiliza \texttt{allenai/scibert\_scivocab\_uncased}, un encoder preentrenado para texto científico \cite{scibert}, con una cabeza de clasificación de nueve salidas. A diferencia del baseline, la entrada incluye la sección del citante cuando está disponible; B añade también la sección de cada chunk. La variante \emph{solo contexto} elimina la información del citado, conservando el encuadre del citante, para medir si A/B aportan más que ese control.
+
+La tokenización forma pares de secuencias: contexto y evidencia del citado. Se limita a 512 tokens con \texttt{longest\_first}, recortando la secuencia más larga; no se reserva una cuota uniforme para cada chunk. Este detalle es relevante porque B concatena los fragmentos por rango y los últimos pueden perder presencia. El modelo se ajusta con entropía cruzada ponderada por frecuencias de train, optimizador AdamW y planificación lineal de la tasa de aprendizaje.
+
+\begin{table}[t]
+\centering\small
+\caption{Configuración reproducida del notebook ejecutado de SciBERT \cite{repo}.}\label{tab:hp}
+\begin{tabularx}{\columnwidth}{@{}lY@{}}\toprule
+Parámetro & Valor\\\midrule
+Semillas & 42, 43, 44\\
+Tasa de aprendizaje & $2\times10^{-5}$\\
+Épocas máximas / paciencia & 5 / 2\\
+Lote / acumulación & 8 / 2 (efectivo nominal: 16)\\
+Lote de evaluación & 32\\
+Warmup / weight decay & 0,10 / 0,01\\
+Norma máxima de gradiente & 1,0\\
+Longitud / selección & 512 / Macro-F1-9 en dev\\\bottomrule
+\end{tabularx}
+\end{table}
+
+Para cada semilla y entrada se conserva el estado con mayor Macro-F1-9 en dev y se evalúa ese estado en test. Se ejecutan tres semillas para cada una de las tres entradas, sin escoger la mejor semilla por test. Las cifras agregadas son medias de métricas de corridas independientes, no métricas de un ensamble. El notebook también reejecuta el baseline TF-IDF sobre sus mismas particiones y reproduce los resultados iniciales, fortaleciendo la comparación interna.
+
+El registro experimental conserva versiones, hashes de las particiones, hiperparámetros y predicciones por instancia. Esto permite reconstruir tablas y contrastes sin usar identificadores de corrida como contenido central del informe. Para reproducir la comparación deben preservarse además el orden de las etiquetas, la política de truncamiento y las diferencias de preprocesamiento: los contrastes entre familias no aíslan exclusivamente el efecto del encoder.
+
+\subsection{Qwen+LoRA: espacio para la incorporación}
+La siguiente incorporación es un modelo Qwen adaptado con LoRA, que introduce actualizaciones de bajo rango en el ajuste del modelo \cite{lora}. Su inclusión constituye una evolución del alcance: la propuesta inicial dejaba LoRA fuera del núcleo comparativo. La comparación actual lo incorpora como tercera familia, manteniendo la pregunta A/B.
+
+\noindent\fbox{\begin{minipage}{0.94\columnwidth}\small
+\textbf{Resultados pendientes de integración.} Se completarán versión y tamaño de Qwen, módulos adaptados, rango y escala LoRA, cuantización si aplica, formato de entrada/salida, longitud máxima, semillas, hiperparámetros y criterio de selección. Se reportarán A/B sobre la misma versión de datos que los modelos comparados. 
+\vspace{1.0cm}
+\end{minipage}}
+
+\begin{table*}[t]
+\centering\small
+\caption{Resultados de test sobre 3.232 instancias particionadas. Macro-9 usa las nueve etiquetas iniciales; Macro-5 solo las cinco presentes en test.}\label{tab:results}
+\begin{tabular}{llrrrr}\toprule
+Modelo & Entrada & Macro-F1-9 & Macro-F1-5 & F1 ponderado & Exactitud\\\midrule
+Referencia mayoritaria & Clase más frecuente de train & 0,0521 & 0,0939 & -- & 0,3066\\
+TF-IDF + regresión logística & A & 0,1663 & 0,2993 & 0,4049 & 0,3745\\
+TF-IDF + regresión logística & B & 0,1286 & 0,2315 & 0,3413 & 0,3045\\\midrule
+SciBERT & Solo contexto & \textbf{0,2625} & \textbf{0,4724} & 0,5781 & 0,5706\\
+SciBERT & A & 0,2611 & 0,4701 & \textbf{0,5848} & \textbf{0,5754}\\
+SciBERT & B & 0,2545 & 0,4582 & 0,5745 & 0,5665\\\midrule
+Qwen+LoRA & A / B & \multicolumn{4}{c}{Pendiente: sin resultados incorporados}\\\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Métricas y contraste pareado}
+Para cada clase, la \textbf{precisión} indica qué proporción de sus predicciones es correcta, y la \textbf{exhaustividad} (recall) qué proporción de sus ejemplos reales se recupera. El \textbf{F1} combina ambas mediante su media armónica:
+\[
+ F1_k=\frac{2P_kR_k}{P_k+R_k},\qquad
+ \mathrm{Macro\text{-}F1}_{K}=\frac{1}{K}\sum_{k=1}^{K}F1_k.
+\]
+El \textbf{Macro-F1-9} promedia las nueve etiquetas del conjunto inicial y es el criterio común de selección en dev. El \textbf{Macro-F1-5} promedia únicamente las cinco clases con ejemplos en test, facilitando la lectura del desempeño sobre la cobertura disponible. Se fija en cero el F1 cuando su cálculo es indefinido. El \textbf{F1 ponderado} promedia los F1 según el número de ejemplos reales de cada clase; la \textbf{exactitud} es la proporción de predicciones correctas sobre todos los ejemplos. Por ello, Macro-F1 destaca el comportamiento por función, mientras el ponderado y la exactitud reflejan más las clases frecuentes.
+
+El notebook de SciBERT calcula 10.000 remuestreos bootstrap pareados para diferencias de Macro-F1-9, tanto por instancia como por artículo citante. Se prioriza el segundo en la interpretación porque las citas de un mismo documento no son independientes. En cada remuestreo se conserva el emparejamiento de predicciones y se promedian las métricas de las semillas. Los intervalos expresan incertidumbre sobre este test; no representan la variación de todas las posibles particiones ni validan la taxonomía nueva.
+
+\section{Resultados obtenidos}
+\subsection{Selección y resultados del baseline}
+La Tabla~\ref{tab:tfdev} resume la búsqueda en validación. r3 alcanza el mayor Macro-F1-9 para A (0,2696) y B (0,2209), por lo que establece la referencia de cada estrategia. En test obtiene 0,1663 para A y 0,1286 para B, frente a 0,0521 de la referencia que siempre predice la clase más frecuente de train. El baseline aporta así una referencia superior a la predicción constante en Macro-F1 y permite medir el beneficio posterior del ajuste contextual. La diferencia entre dev y test se analiza junto con su distinta composición documental y cobertura de clases.
+
+\begin{table}[t]
+\centering\small
+\caption{Selección del baseline en dev. Se destaca el ganador por entrada; todas las filas usan Macro-F1-9.}\label{tab:tfdev}
+\begin{tabular}{lrrrr}\toprule
+ & \multicolumn{2}{c}{Entrada A} & \multicolumn{2}{c}{Entrada B}\\
+Config. & Macro-F1 & Exactitud & Macro-F1 & Exactitud\\\midrule
+r1 & 0,2190 & 0,3136 & 0,1900 & 0,3279\\
+r2 & 0,2503 & 0,3381 & 0,2113 & 0,3544\\
+r3 & \textbf{0,2696} & 0,3849 & \textbf{0,2209} & 0,3727\\\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Comparación conjunta sobre el conjunto inicial}
+La Tabla~\ref{tab:results} reúne los resultados sobre los mismos 486 ejemplos de test. TF-IDF queda como referencia compacta, mientras SciBERT permite contrastar representaciones y el aporte del citado. En SciBERT se presentan medias de tres semillas; la desviación estándar de Macro-F1-9 es 0,0053 para contexto, 0,0033 para A y 0,0059 para B.
+
+
+
+TF-IDF favorece A, con una diferencia B$-$A de $-0{,}0377$ en Macro-F1-9. En SciBERT la diferencia media es menor: $-0{,}0066$. El control de contexto alcanza 0,2625, ligeramente por encima de A y B; por tanto, en este corte no se observa una mejora clara al añadir información del citado. La Figura~\ref{fig:bars} muestra la comparación sin representar los resultados pendientes como ceros.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=\columnwidth,height=5.2cm,ybar,bar width=12pt,ymin=0,ymax=0.32,ylabel={Macro-F1-9},symbolic x coords={TF-IDF,SciBERT},xtick=data,legend style={at={(0.5,1.02)},anchor=south,legend columns=2,draw=none},ymajorgrids=true,grid style={gray!20},enlarge x limits=0.55]
+\addplot[fill=blue!60,draw=blue!70] coordinates {(TF-IDF,0.1663) (SciBERT,0.2611)};
+\addplot[fill=orange!75,draw=orange!90!black] coordinates {(TF-IDF,0.1286) (SciBERT,0.2545)};
+\legend{A,B}
+\end{axis}
+\end{tikzpicture}
+\caption{Comparación A/B. SciBERT: media de tres semillas. El control solo contexto obtiene 0,2625; Qwen+LoRA está pendiente.}\label{fig:bars}
+\end{figure}
+
+\begin{table}[t]
+\centering\small
+\caption{Diferencias de Macro-F1-9 e IC 95\% mediante bootstrap pareado por artículo citante.}\label{tab:ci}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrr}\toprule
+Contraste SciBERT & Diferencia & IC 95\%\\\midrule
+B $-$ A & $-0,0066$ & [$-0,0194$; $0,0087$]\\
+A $-$ contexto & $-0,0013$ & [$-0,0187$; $0,0139$]\\
+B $-$ contexto & $-0,0079$ & [$-0,0214$; $0,0049$]\\
+A $-$ TF-IDF A & $0,0949$ & [$0,0578$; $0,1354$]\\
+B $-$ TF-IDF B & $0,1259$ & [$0,0908$; $0,1714$]\\\bottomrule
+\end{tabular}
+\end{table}
+
+Los intervalos por documento para SciBERT frente a TF-IDF quedan por encima de cero en A y B. En cambio, los contrastes entre A, B y contexto incluyen cero (Tabla~\ref{tab:ci}). Esto respalda una ventaja de las configuraciones de SciBERT evaluadas frente al baseline sobre este test, pero no una superioridad concluyente entre sus fuentes de información.
+
+\subsection{Cobertura, errores y truncamiento}
+Las funciones frecuentes tienen mejor desempeño que las minoritarias. Para SciBERT A, el F1 medio es 0,6831 en Background, 0,5881 en Uses y 0,6037 en Comparison, frente a 0,2911 en Extends y 0,1843 en Motivation. En el baseline A esos dos últimos valores son 0,0789 y 0,1250. La mejora global no elimina la dificultad de las funciones con poco soporte, y nada permite inferir el desempeño de las cuatro clases ausentes.
+
+La auditoría de longitud del notebook muestra que B excede 512 tokens en 47,4\% de train, 38,1\% de dev y 50,2\% de test. En A las tasas son 5,5\%, 0,2\% y 2,3\%. La medición permite identificar un ajuste concreto para el siguiente ciclo: distribuir el presupuesto de tokens entre los fragmentos. En la configuración actual, B utiliza la evidencia recuperada que permanece después del recorte a 512 tokens.
+
+\section{Análisis de los resultados obtenidos. Reflexión sobre los retos encontrados y cómo proseguir}
+\subsection{Qué permiten concluir los experimentos}
+El avance establece un protocolo comparable y muestra que SciBERT mejora el baseline léxico, pero no confirma la hipótesis de que los fragmentos locales superen al título y resumen. Tampoco demuestra que la evidencia del citado sea innecesaria: el control de contexto compite con A/B en un test pequeño, concentrado en 16 documentos y limitado a cinco funciones de origen MultiCite. Es posible que muchas decisiones se resuelvan mediante señales del citante, pero esa explicación debe contrastarse en una evaluación con mayor cobertura.
+
+La diferencia entre familias combina arquitectura, preentrenamiento, ajuste y preprocesamiento. SciBERT incorpora secciones y opera con un presupuesto de tokens; TF-IDF no. Por tanto, la comparación describe sistemas completos bajo una población común, no un experimento que varíe únicamente el encoder. Para aislar mecanismos conviene mantener constante el preprocesamiento y añadir ablaciones explícitas de secciones, longitud y cantidad de fragmentos.
+
+La paridad A/B protege la comparación frente a cambios de ejemplos, pero restringe su dominio: solo incluye citas cuyo documento citado pudo recuperarse. Los trabajos sin cuerpo accesible pueden diferir en antigüedad, disciplina o forma de publicación. El aprovechamiento reducido del embudo inicial es así un resultado metodológico que debe reportarse, no solo un problema de almacenamiento. Recuperar más documentos amplía cobertura, pero no garantiza que desaparezca ese sesgo de disponibilidad.
+
+\subsection{Calidad de etiquetas y cambios frente a la propuesta}
+La versión ampliada refina la representación de las funciones: Basis se distingue de Extends y conserva su sentido de fundamento intelectual, mientras Improvement reúne las extensiones y modificaciones. Las reglas operativas hacen explícita esta decisión y permiten concentrar la revisión en los límites entre categorías. Motivation puede expresar necesidad de métodos o datos sin formular explícitamente un vacío; la absorción de Future Work en Gap también requiere examinar el contexto. La validación debe centrarse en estos límites y en los casos compuestos, sin deducir certeza semántica a partir de \texttt{mapping\_type}.
+
+Seleccionar la primera etiqueta permite una línea base reproducible de clasificación disyunta, pero no sustituye la adjudicación de función dominante. Se propone comparar ese criterio con revisión contextual y, como análisis de sensibilidad, con la exclusión de casos \texttt{partial}. El orden original no debe reinterpretarse como prioridad humana si el esquema de origen no lo garantiza. La documentación, los archivos exportados y la versión de código que genere el siguiente conjunto deberán quedar vinculados mediante un manifiesto común.
+
+La propuesta contemplaba preetiquetado asistido y validación humana del test. El conjunto actual combina anotaciones humanas heredadas y reglas léxicas; no equivale todavía a un corpus completamente validado bajo las nueve funciones objetivo. Se mantiene la revisión humana de la prueba como trabajo pendiente, separando la etiqueta de origen, la asignación automática y la etiqueta adjudicada. Asimismo, el ajuste Qwen+LoRA y el paso de chunks de hasta 300 palabras a un umbral aproximado de 110 son cambios que deben documentarse frente al plan inicial.
+
+\subsection{Siguiente ciclo: evidencia, cobertura y expansión}
+Primero se evaluará la pertinencia de una muestra de fragmentos recuperados y se medirá qué proporción de cada rango sobrevive al tokenizador. Un presupuesto explícito por fragmento o una clasificación por fragmento con agregación permitirán comprobar si el recorte explica parte de la diferencia A/B. Estas alternativas deben seleccionarse en dev; los puntajes de similitud no reemplazan juicios de relevancia ni métricas de recuperación con referencias verificadas.
+
+Después se congelará una versión del conjunto ampliado, con particiones agrupadas, cobertura por función y controles de concentración documental. Se reejecutarán TF-IDF, SciBERT y Qwen+LoRA sobre esa misma versión. No se compararán como si fueran equivalentes resultados del conjunto inicial y del ampliado: cambian la taxonomía, la procedencia, el volumen y la dificultad. La diversidad de citantes debe medirse además de la proporción de filas por partición.
+
+La ampliación priorizará Gap, Improvement, Originator y Basis, cuyos déficits son mayores. Aunque faltan 9.926 instancias para alcanzar 18.000 en total, completar 2.000 por clase exige añadir 10.171 en las clases deficitarias, porque Further Reading ya excede su cuota en 245. Alcanzar el volumen total no basta para afirmar balance. Se reportarán tasas de admisión y descarte por fuente y clase, distinguiendo falta de texto, problemas de identidad, ambigüedad de etiqueta y duplicación.
+
+Como ruta de expansión se ha diseñado recuperación dirigida de cuerpos faltantes y supervisión débil mediante inferencia de lenguaje natural. El protocolo propuesto acepta candidatos con puntaje superior a 0,85 y margen de 0,25 frente a la segunda función, absteniéndose en otros casos. La calibración de estos umbrales se realizará sobre ejemplos revisados antes de ampliar su aplicación. Los candidatos aceptados conservarán su procedencia automática y los destinados a test requerirán revisión humana independiente.
+
+El trabajo realizado articula tres componentes: construcción de pares documentales completos, homologación explícita de etiquetas y evaluación reproducible de modelos. La expansión a 8.074 instancias constituye progreso verificable en disponibilidad y alineación del esquema, mientras la validación de la anotación, el balance de clases y la utilidad de los fragmentos siguen siendo las preguntas experimentales prioritarias.
+
+\begin{thebibliography}{9}\small
+\bibitem{multicite} A. Lauscher et al. (2022). \emph{MultiCite: Modeling Realistic Citations Requires Moving Beyond the Single-Sentence Single-Label Setting}. NAACL. \href{https://aclanthology.org/2022.naacl-main.137/}{ACL Anthology}.
+\bibitem{unarxive} T. Saier et al. (2023). \emph{unarXive 2022: All arXiv Publications Pre-Processed for NLP, Including Structured Full-Text and Citation Network}. \href{https://arxiv.org/abs/2303.14957}{arXiv:2303.14957}.
+\bibitem{lyu} D. Lyu et al. (2021). \emph{The classification of citing motivations: a meta-synthesis}. Scientometrics. \href{https://doi.org/10.1007/s11192-021-03908-z}{doi:10.1007/s11192-021-03908-z}.
+\bibitem{scibert} I. Beltagy, K. Lo y A. Cohan (2019). \emph{SciBERT: A Pretrained Language Model for Scientific Text}. EMNLP-IJCNLP. \href{https://aclanthology.org/D19-1371/}{ACL Anthology}.
+\bibitem{lora} E. J. Hu et al. (2022). \emph{LoRA: Low-Rank Adaptation of Large Language Models}. ICLR. \href{https://arxiv.org/abs/2106.09685}{arXiv:2106.09685}.
+\bibitem{repo} EvidenCite (2026). \emph{Código y notebooks experimentales}. \href{https://github.com/d-leandro/EvidenCite/tree/main/notebooks}{Repositorio del proyecto}. Resultados contrastados con \texttt{02\_scibert\_ab.ipynb}; conteos auditados sobre los JSONL inicial y ampliado suministrados para este avance.
+\end{thebibliography}
+\end{document}

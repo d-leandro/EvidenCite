@@ -83,3 +83,26 @@ assets-*.md
 repo-*.txt
 repo-template*
 spec_dataset_*.md
+
+# --- Archivos latex -----
+
+# Auxiliares de compilación (pdflatex / latexmk)
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex*
+
+# Bibliografía (BibTeX / Biber)
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*-blx.bib
+
+# Conversión automática de gráficos EPS a PDF
+*-eps-converted-to.pdf
+
+# Ignorar el PDF compilado del artículo (opcional)
+docs/informe/*.pdf
