@@ -473,6 +473,17 @@ class DatasetBuilder:
             )
             instances.append(instance)
 
+            if idx % 100 == 0 or idx == len(selected_candidates):
+                elapsed = time.time() - start_time
+                logger.info(
+                    "Progreso ensamblado: [%d/%d] (%.1f%%) | Instancias válidas: %d | Tiempo transcurrido: %.1fs",
+                    idx,
+                    len(selected_candidates),
+                    idx / len(selected_candidates) * 100,
+                    len(instances),
+                    elapsed,
+                )
+
         logger.info(
             "Instancias pares 1:1 construidas con éxito: %d | Descartadas por falta de chunks: %d | Descartadas por falta de abstract: %d",
             len(instances),

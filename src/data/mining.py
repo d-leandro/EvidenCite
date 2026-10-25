@@ -260,15 +260,27 @@ class MultiCiteAdapter:
 
         for k in candidate_keys:
             is_cached, cached = self.s2_client._get_from_cache(k)
-            if is_cached and cached:
+            if is_cached:
                 return cached
 
         # Si skip_network es True, no realizar llamadas HTTP
         if self.skip_network:
             return None
 
-        query = f"{author} {year}" if author and year else raw_mention.strip()
-        return self.s2_client.search_paper_by_title(query)
+        # Filtro estricto de ruido: descartar menciones sin autor o sin año canónico (ej. '5,', '[16,', '9]', 'same approach')
+        if not (author and year and len(author) >= 2 and 1950 <= year <= 2026):
+            # Guardar tombstone en caché para no volver a evaluar esta mención con ruido
+            for k in candidate_keys:
+                self.s2_client._save_to_cache(k, None)
+            return None
+
+        query = f"{author} {year}"
+        metadata = self.s2_client.search_paper_by_title(query)
+        # Asociar resultado (o tombstone) a todas las claves candidatas para cache hits directos O(1)
+        for k in candidate_keys:
+            self.s2_client._save_to_cache(k, metadata)
+
+        return metadata
 
     def process_split(self, split_name: str, limit: Optional[int] = None) -> Generator[CitingContext, None, None]:
         """Procesa una partición (train.json, dev.json o test.json) de MultiCite."""

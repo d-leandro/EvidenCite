@@ -39,7 +39,7 @@ class S2ClientConfig(BaseModel):
         description="Ruta a la base de datos SQLite para caché persistente de consultas",
     )
     rate_limit_delay: float = Field(
-        default=1.0,
+        default=10.0,
         description="Segundos mínimos de espera entre peticiones sucesivas",
     )
     timeout_seconds: int = Field(
@@ -47,7 +47,7 @@ class S2ClientConfig(BaseModel):
         description="Timeout de petición HTTP en segundos",
     )
     max_retries: int = Field(
-        default=3,
+        default=5,
         description="Número máximo de reintentos ante 429 o errores transitorios 5xx",
     )
     backoff_factor: float = Field(
@@ -95,9 +95,9 @@ class SemanticScholarClient:
         self.config = config or S2ClientConfig()
         self.api_key = self.config.api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 
-        # Ajustar delay por defecto si se dispone de API key
-        if self.api_key and self.config.rate_limit_delay == 1.0:
-            self.rate_limit_delay = 0.1
+        # Ajustar delay por defecto a 10.0s para el endpoint de búsqueda libre (100% de éxito empírico)
+        if self.api_key and self.config.rate_limit_delay in (1.0, 1.2):
+            self.rate_limit_delay = 10.0
         else:
             self.rate_limit_delay = self.config.rate_limit_delay
 
@@ -214,28 +214,36 @@ class SemanticScholarClient:
                         response.raise_for_status()
 
                     retry_after = response.headers.get("Retry-After")
-                    if retry_after and retry_after.isdigit():
-                        wait_time = float(retry_after) + 0.5
-                    else:
-                        wait_time = self.config.backoff_factor ** attempt
+                    try:
+                        if retry_after is not None:
+                            val = float(retry_after)
+                            wait_time = val if val < 1.0 else val + 1.0
+                        else:
+                            wait_time = max(15.0, 15.0 * attempt)
+                    except (ValueError, TypeError):
+                        wait_time = max(15.0, 15.0 * attempt)
+
                     logger.warning(
-                        "Rate limit alcanzado (HTTP 429) en intento %d/%d. Esperando %.1fs...",
+                        "Rate limit alcanzado (HTTP 429) en intento %d/%d. Esperando %.1fs para enfriamiento...",
                         attempt,
                         self.config.max_retries,
                         wait_time,
                     )
                     time.sleep(wait_time)
+                    self.last_request_time = time.time()
                     continue
 
                 response.raise_for_status()
 
             except (requests.RequestException, requests.Timeout) as exc:
+                self.last_request_time = time.time()
                 if attempt == self.config.max_retries:
                     logger.error("Error definitivo en petición a %s tras %d intentos: %s", endpoint, attempt, exc)
                     raise
-                wait_time = self.config.backoff_factor ** attempt
+                wait_time = max(15.0, 15.0 * attempt)
                 logger.warning("Falla transitoria en %s: %s. Reintentando en %.1fs...", endpoint, exc, wait_time)
                 time.sleep(wait_time)
+                self.last_request_time = time.time()
 
         return None
 
