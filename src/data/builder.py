@@ -416,6 +416,7 @@ class DatasetBuilder:
         # Si hay servicio NLI disponible y candidatos sin etiqueta, cubrir clases con déficit
         if self.nli_tagger is not None and unlabeled_pool and quota_per_class:
             buffer = self.config.nli_config.quota_buffer if self.config.nli_config else 300
+            chunk_size = getattr(self.config.nli_config, "candidate_chunk_size", 1000) if self.config.nli_config else 1000
             target_with_buffer = quota_per_class + buffer
 
             active_deficits = {
@@ -426,25 +427,80 @@ class DatasetBuilder:
 
             if any(v > 0 for v in active_deficits.values()):
                 logger.info(
-                    "Clases deficitarias detectadas para NLI: %s. Evaluando %d candidatos sin etiqueta...",
+                    "Clases deficitarias detectadas para NLI: %s. Evaluando hasta %d candidatos sin etiqueta en lotes de %d...",
                     {k: v for k, v in active_deficits.items() if v > 0},
                     len(unlabeled_pool),
+                    chunk_size,
                 )
-                nli_results = self.nli_tagger.tag_batch(unlabeled_pool)
 
-                for cand, res in zip(unlabeled_pool, nli_results):
-                    if res and res.is_accepted and res.top1_class in active_deficits:
-                        target_class = res.top1_class
-                        if active_deficits[target_class] > 0:
-                            cand_copy = dict(cand)
-                            cand_copy["normalized_label"] = target_class
-                            cand_copy["original_label"] = f"nli_deberta:{target_class}"
-                            cand_copy["label_source"] = "weak_nli"
-                            cand_copy["is_gold"] = False
-                            cand_copy["confidence_score"] = res.top1_confidence
-                            cand_copy["margin"] = res.margin
-                            by_class_mined[target_class].append(cand_copy)
-                            active_deficits[target_class] -= 1
+                # Barajar el pool sin etiqueta determinísticamente para maximizar diversidad de artículos
+                rng.shuffle(unlabeled_pool)
+
+                evaluated_candidates = 0
+                total_accepted = 0
+
+                for chunk_start in range(0, len(unlabeled_pool), chunk_size):
+                    # Parada temprana global si todas las clases cubrieron su cuota + buffer
+                    if not any(v > 0 for v in active_deficits.values()):
+                        logger.info(
+                            "Parada temprana (Early Stopping): todas las clases deficitarias alcanzaron la meta (%d). "
+                            "Candidatos evaluados: %d/%d | Aceptados: %d.",
+                            target_with_buffer,
+                            evaluated_candidates,
+                            len(unlabeled_pool),
+                            total_accepted,
+                        )
+                        break
+
+                    t_chunk_start = time.time()
+                    chunk_candidates = unlabeled_pool[chunk_start : chunk_start + chunk_size]
+                    evaluated_candidates += len(chunk_candidates)
+
+                    nli_results = self.nli_tagger.tag_batch(chunk_candidates)
+
+                    chunk_accepted = 0
+                    for cand, res in zip(chunk_candidates, nli_results):
+                        if res and res.is_accepted and res.top1_class in active_deficits:
+                            target_class = res.top1_class
+                            if active_deficits[target_class] > 0:
+                                cand_copy = dict(cand)
+                                cand_copy["normalized_label"] = target_class
+                                cand_copy["original_label"] = f"nli_deberta:{target_class}"
+                                cand_copy["label_source"] = "weak_nli"
+                                cand_copy["is_gold"] = False
+                                cand_copy["confidence_score"] = res.top1_confidence
+                                cand_copy["margin"] = res.margin
+                                by_class_mined[target_class].append(cand_copy)
+                                active_deficits[target_class] -= 1
+                                total_accepted += 1
+                                chunk_accepted += 1
+
+                    chunk_elapsed = time.time() - t_chunk_start
+                    chunk_num = (chunk_start // chunk_size) + 1
+                    total_chunks = (len(unlabeled_pool) + chunk_size - 1) // chunk_size
+                    logger.info(
+                        "Bloque NLI [%d/%d] completado: %d candidatos evaluados (Total acumulado: %d/%d) | "
+                        "Aceptados en este bloque: %d (Total acumulados: %d) | Tiempo bloque: %.1fs",
+                        chunk_num,
+                        total_chunks,
+                        len(chunk_candidates),
+                        evaluated_candidates,
+                        len(unlabeled_pool),
+                        chunk_accepted,
+                        total_accepted,
+                        chunk_elapsed,
+                    )
+                    logger.info(
+                        "Déficits restantes por clase: %s",
+                        {k: v for k, v in active_deficits.items() if v > 0},
+                    )
+
+                logger.info(
+                    "Etiquetado NLI completado: %d candidatos evaluados, %d aceptados. Déficits finales pendientes: %s",
+                    evaluated_candidates,
+                    total_accepted,
+                    {k: v for k, v in active_deficits.items() if v > 0},
+                )
 
         if not quota_per_class:
             all_selected = []

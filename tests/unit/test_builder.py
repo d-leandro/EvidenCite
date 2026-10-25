@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import MagicMock
+
 import pytest
 
 from src.data.builder import (
@@ -246,4 +248,73 @@ def test_builder_nli_tagger_integration():
     metrics = builder._compute_metrics([], {"train": [], "dev": [], "test": []}, elapsed_sec=0.5)
     assert "nli_weak_supervision" in metrics
     assert metrics["nli_weak_supervision"]["accepted_per_class"]["Gap"] == 1
+
+
+def test_builder_nli_chunked_early_stopping():
+    """Valida la evaluación en lotes y la parada temprana (Early Stopping) cuando se cubren los déficits."""
+    from src.data.schemas import NLITaggingResult
+    from src.data.weak_supervision.nli_tagger import NLITagger, NLITaggerConfig
+
+    mock_tagger = MagicMock(spec=NLITagger)
+    # Cada vez que se invoque, retorna que los 2 candidatos del lote son 'Gap' aceptados
+    mock_tagger.tag_batch.side_effect = lambda batch: [
+        NLITaggingResult(
+            context_id=cand["context_id"],
+            top1_class="Gap",
+            is_accepted=True,
+            top1_confidence=0.95,
+            margin=0.30,
+        )
+        for cand in batch
+    ]
+
+    # Cuota objetivo = 2, buffer = 0 -> solo necesita 2 instancias de Gap
+    config = BuilderConfig(
+        quota_per_class=2,
+        nli_config=NLITaggerConfig(quota_buffer=0, candidate_chunk_size=2),
+    )
+
+    builder = DatasetBuilder.__new__(DatasetBuilder)
+    builder.config = config
+    builder.nli_tagger = mock_tagger
+
+    # 10 candidatos sin etiqueta en el pool
+    unlabeled_candidates = [
+        {
+            "context_id": f"unlabeled_{i:02d}",
+            "citation_context": f"Context {i} <cite>Ref</cite>",
+            "normalized_label": None,
+            "original_label": None,
+            "is_gold": False,
+            "source_dataset": "unarxive_mined",
+        }
+        for i in range(10)
+    ]
+
+    # Pre-poblar las otras 8 clases con 2 instancias Gold cada una
+    # de modo que la única clase deficitaria sea 'Gap' (déficit = 2)
+    from src.data.builder import CANONICAL_9_CLASSES
+    gold_candidates = [
+        {
+            "context_id": f"gold_{cls}_{j}",
+            "citation_context": f"Gold context for {cls}",
+            "normalized_label": cls,
+            "original_label": cls,
+            "is_gold": True,
+            "source_dataset": "multicite",
+        }
+        for cls in CANONICAL_9_CLASSES
+        if cls != "Gap"
+        for j in range(2)
+    ]
+
+    candidates = gold_candidates + unlabeled_candidates
+    balanced = builder.apply_quota_and_balance(candidates, quota_per_class=2)
+
+    # El lote es de 2 items. El primer lote completa el déficit de 2 para Gap.
+    # Debe detenerse inmediatamente sin evaluar los otros 4 lotes (8 candidatos restantes)
+    assert mock_tagger.tag_batch.call_count == 1
+    gap_items = [x for x in balanced if x.get("normalized_label") == "Gap"]
+    assert len(gap_items) == 2
+
 
