@@ -401,14 +401,19 @@ class UnarxiveMiner:
             if not sentence.citations:
                 continue
 
-            # Evaluar si la oración contiene patrones de clases huérfanas
+            # Evaluar si la oración contiene patrones léxicos de clases huérfanas
             matched_label = self.match_orphan_class(sentence.text)
-            if not matched_label:
-                continue
 
             for cite_marker in sentence.citations:
                 target_ref = cite_marker.ref_key
                 bib_entry: Optional[BibliographyEntry] = paper.bibliography.get(target_ref)
+
+                target_cited_id = bib_entry.arxiv_id if bib_entry else None
+                has_cited_chunks = bool(target_cited_id and target_cited_id in self.known_arxiv_ids)
+
+                # Si NO tiene regla léxica Y TAMPOCO tiene chunks para paridad 1:1, se descarta:
+                if not matched_label and not has_cited_chunks:
+                    continue
 
                 # Definir ventana estricta m=3 oraciones respetando límites de la sección:
                 # - Si la cita está al inicio (i=0): ventana hacia adelante [s_i, s_{i+1}, s_{i+2}]
@@ -443,9 +448,6 @@ class UnarxiveMiner:
 
                 citation_context = " ".join(window_parts)
 
-                target_cited_id = bib_entry.arxiv_id if bib_entry else None
-                has_cited_chunks = bool(target_cited_id and target_cited_id in self.known_arxiv_ids)
-
                 target_cited_title = (bib_entry.title if bib_entry and bib_entry.title else None) or self.known_titles.get(target_cited_id or "")
                 target_cited_abstract = self.known_abstracts.get(target_cited_id or "") if has_cited_chunks else None
 
@@ -468,7 +470,7 @@ class UnarxiveMiner:
                     has_cited_chunks=has_cited_chunks,
                     original_label=matched_label,
                     normalized_label=matched_label,
-                    label_source="heuristic_rule",
+                    label_source="heuristic_rule" if matched_label else "unarxive_mined",
                     is_gold=False,
                 )
 
@@ -583,7 +585,7 @@ class MiningPipeline:
                             if context.has_cited_chunks:
                                 stats["has_cited_chunks_true"] += 1
 
-                            lbl = context.normalized_label or "Unknown"
+                            lbl = context.normalized_label or "Unlabeled"
                             stats["label_distribution"][lbl] = stats["label_distribution"].get(lbl, 0) + 1
 
                             if stats["total_records"] % 1000 == 0:

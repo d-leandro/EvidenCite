@@ -319,3 +319,69 @@ def test_mining_pipeline_force_and_idempotency(tmp_path):
     stats = pipeline.run()
     assert stats["total_records"] == 0
     assert out_file.read_text(encoding="utf-8") == ""
+
+
+def test_unarxive_miner_unlabeled_parity_retention():
+    """Valida que citas sin regla léxica se retengan si tienen chunks (has_cited_chunks=True) y se descarten si no."""
+    known_ids = {"1901.99999"}  # Solo ref_chunked tiene chunks en el corpus
+    miner = UnarxiveMiner(known_arxiv_ids=known_ids)
+
+    paper = StructuredPaper(
+        paper_id="2201.00001",
+        id_source="arxiv",
+        title="Sample Paper",
+        abstract="Abstract sample.",
+        sections=[
+            StructuredSection(
+                section_idx=0,
+                heading="Related Work",
+                sentences=[
+                    StructuredSentence(
+                        sent_idx=0,
+                        # Oración sin ningún patrón léxico de clase huérfana
+                        text="In this task we investigate {{cite:ref_no_chunks}} and {{cite:ref_chunked}}.",
+                        citations=[
+                            CitationMarker(
+                                marker_text="{{cite:ref_no_chunks}}",
+                                char_start=28,
+                                char_end=53,
+                                ref_key="ref_no_chunks",
+                            ),
+                            CitationMarker(
+                                marker_text="{{cite:ref_chunked}}",
+                                char_start=58,
+                                char_end=81,
+                                ref_key="ref_chunked",
+                            ),
+                        ],
+                    )
+                ],
+            )
+        ],
+        bibliography={
+            "ref_no_chunks": BibliographyEntry(
+                title="Paper Without Chunks",
+                arxiv_id="1801.11111",
+                raw_text="Paper Without Chunks, 2018",
+            ),
+            "ref_chunked": BibliographyEntry(
+                title="Paper With Chunks",
+                arxiv_id="1901.99999",
+                raw_text="Paper With Chunks, 2019",
+            ),
+        },
+    )
+
+    contexts = list(miner.mine_paper(paper))
+
+    # Debe descartar ref_no_chunks (sin regla y sin chunks) y conservar ref_chunked
+    assert len(contexts) == 1
+    ctx = contexts[0]
+    assert ctx.target_ref_key == "ref_chunked"
+    assert ctx.target_cited_id == "1901.99999"
+    assert ctx.has_cited_chunks is True
+    assert ctx.original_label is None
+    assert ctx.normalized_label is None
+    assert ctx.label_source == "unarxive_mined"
+    assert ctx.is_gold is False
+
