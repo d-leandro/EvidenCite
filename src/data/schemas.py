@@ -120,8 +120,13 @@ class AnnotationMetadata(BaseModel):
     source_dataset: str = Field(..., description="Dataset de origen: multicite, unarxive_mined, acl_arc")
     original_label: Optional[str] = Field(default=None, description="Etiqueta original en el corpus de procedencia")
     mapping_type: Optional[str] = Field(default=None, description="'exact', 'partial', 'heuristic' o null")
-    label_source: str = Field(default="human_gold", description="'human_gold', 'inherited', 'heuristic_rule', 'llm_panel'")
+    label_source: str = Field(
+        default="human_gold",
+        description="'human_gold', 'inherited', 'heuristic_rule', 'weak_nli', 'llm_panel'",
+    )
     is_gold: bool = Field(default=True, description="True si proviene de anotación experta humana")
+    confidence_score: Optional[float] = Field(default=None, description="Probabilidad softmax de top-1 en NLI")
+    margin: Optional[float] = Field(default=None, description="Margen de separación entre top-1 y top-2")
     panel_agreement: Optional[float] = Field(default=None, description="Concordancia del panel de jueces LLM (Actividad A2)")
     split: Optional[str] = Field(default=None, description="Partición del dataset: 'train', 'dev', o 'test'")
 
@@ -156,6 +161,18 @@ class DatasetInstance(BaseModel):
     citing_paper: CitingPaperInfo = Field(..., description="Metadatos y contexto del artículo citante")
     citation_context: str = Field(..., description="Ventana de cita m=3 con marcador <cite>...</cite>")
     cited_paper: CitedPaperInfo = Field(..., description="Información completa del artículo citado (Config A y B)")
+
+
+class NLITaggingResult(BaseModel):
+    """Resultado detallado de la inferencia NLI para una cita candidata."""
+
+    context_id: str = Field(..., description="Identificador del contexto de cita evaluado")
+    top1_class: Optional[str] = Field(default=None, description="Clase canónica predicha si superó los umbrales")
+    is_accepted: bool = Field(..., description="True si cumplió P_top1 >= theta_conf y delta >= theta_margin")
+    top1_confidence: float = Field(..., description="Probabilidad softmax de la hipótesis ganadora")
+    margin: float = Field(..., description="Diferencia de probabilidad entre top-1 y top-2")
+    class_probabilities: Dict[str, float] = Field(default_factory=dict, description="Distribución posterior completa")
+    reason_rejected: Optional[str] = Field(default=None, description="'low_confidence', 'low_margin' o null")
 
 
 
