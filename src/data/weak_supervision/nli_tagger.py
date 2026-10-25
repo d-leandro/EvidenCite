@@ -70,15 +70,16 @@ class NLITaggerConfig:
     """Configuración del servicio de inferencia NLI."""
 
     enabled: bool = True
-    model_name_or_path: str = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+    model_name_or_path: str = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
     device: str = "auto"
-    batch_size: int = 16
+    batch_size: int = 32
     max_length: int = 512
     fp16: bool = True
     confidence_threshold: float = 0.85
     margin_threshold: float = 0.25
     temperature: float = 1.0
     quota_buffer: int = 300
+    candidate_chunk_size: int = 1000
     hypotheses: Dict[str, str] = field(default_factory=lambda: dict(CANONICAL_NLI_HYPOTHESES))
 
     @classmethod
@@ -313,8 +314,9 @@ class DeBERTaInferenceEngine:
         batch_size = max(1, self.config.batch_size)
         extracted_entailment_logits: List[float] = []
 
+        total_batches = (total_pairs + batch_size - 1) // batch_size
         with torch.no_grad():
-            for start_idx in range(0, total_pairs, batch_size):
+            for batch_idx, start_idx in enumerate(range(0, total_pairs, batch_size), start=1):
                 end_idx = min(start_idx + batch_size, total_pairs)
                 batch_p = flat_premises[start_idx:end_idx]
                 batch_h = flat_hypotheses[start_idx:end_idx]
@@ -339,6 +341,17 @@ class DeBERTaInferenceEngine:
                 del inputs
                 del outputs
                 del logits
+
+                # Log periódico cada 50 lotes para visibilidad en tiempo real
+                if batch_idx % 50 == 0 or end_idx == total_pairs:
+                    logger.info(
+                        "Inferencia NLI en progreso: lote [%d/%d] (%.1f%%) | Pares evaluados: %d/%d",
+                        batch_idx,
+                        total_batches,
+                        (end_idx / total_pairs) * 100,
+                        end_idx,
+                        total_pairs,
+                    )
 
         # Reconstruir la matriz estructurada [n_premises, n_hypotheses]
         idx = 0
