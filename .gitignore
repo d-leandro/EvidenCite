@@ -83,3 +83,12 @@ assets-*.md
 repo-*.txt
 repo-template*
 spec_dataset_*.md
+
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
