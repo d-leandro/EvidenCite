@@ -16,3 +16,16 @@ split_ratios:
   test: 0.15
 seed: 42
 force: false
+
+# Configuración del Servicio NLI Reutilizable (Actividad A2 / ADR-10)
+nli:
+  enabled: true
+  model_name_or_path: "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+  device: "auto"               # 'auto', 'mps', 'cuda', 'cpu'
+  batch_size: 16
+  max_length: 512
+  fp16: true
+  confidence_threshold: 0.85   # Probabilidad mínima softmax de top-1
+  margin_threshold: 0.25       # Margen mínimo entre top-1 y top-2
+  temperature: 1.0
+  quota_buffer: 300            # Holgura de instancias por clase ante mal-formaciones

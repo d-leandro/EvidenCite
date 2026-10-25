@@ -38,6 +38,7 @@ from src.data.schemas import (
     DatasetInstance,
     RetrievedChunk,
 )
+from src.data.weak_supervision.nli_tagger import NLITagger, NLITaggerConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +76,7 @@ class BuilderConfig:
     test_ratio: float = 0.15
     seed: int = 42
     force: bool = False
+    nli_config: Optional[NLITaggerConfig] = None
 
     @classmethod
     def from_yaml(cls, yaml_path: Union[str, Path]) -> "BuilderConfig":
@@ -88,6 +90,9 @@ class BuilderConfig:
             data = yaml.safe_load(f) or {}
 
         ratios = data.get("split_ratios", {})
+        nli_raw = data.get("nli")
+        nli_cfg = NLITaggerConfig.from_dict(nli_raw) if nli_raw is not None else None
+
         return cls(
             input_contexts_path=Path(data.get("input_contexts_path", cls.input_contexts_path)),
             papers_path=Path(data.get("papers_path", cls.papers_path)),
@@ -101,6 +106,7 @@ class BuilderConfig:
             test_ratio=float(ratios.get("test", cls.test_ratio)),
             seed=int(data.get("seed", cls.seed)),
             force=bool(data.get("force", cls.force)),
+            nli_config=nli_cfg,
         )
 
 
@@ -322,8 +328,9 @@ class DatasetBuilder:
         self,
         config: Optional[BuilderConfig] = None,
         retriever: Optional[SciBERTRetriever] = None,
+        nli_tagger: Optional[NLITagger] = None,
     ) -> None:
-        """Inicializa el ensamblador y prepara el motor de recuperación semántica."""
+        """Inicializa el ensamblador y prepara el motor de recuperación semántica y NLI."""
         self.config = config or BuilderConfig()
         random.seed(self.config.seed)
 
@@ -333,6 +340,14 @@ class DatasetBuilder:
             logger.info("Inicializando SciBERTRetriever con config: %s", self.config.retrieval_config_path)
             retrieval_conf = RetrievalConfig.from_yaml(self.config.retrieval_config_path)
             self.retriever = SciBERTRetriever(config=retrieval_conf)
+
+        if nli_tagger is not None:
+            self.nli_tagger = nli_tagger
+        elif self.config.nli_config and self.config.nli_config.enabled:
+            logger.info("Inicializando servicio NLITagger para supervisión débil...")
+            self.nli_tagger = NLITagger(config=self.config.nli_config)
+        else:
+            self.nli_tagger = None
 
     def load_candidates(self) -> Tuple[List[Dict[str, Any]], Set[str]]:
         """Lee data/processed/citing_contexts.jsonl y filtra instancias con paridad 1:1 inicial.
@@ -381,25 +396,64 @@ class DatasetBuilder:
         quota_per_class: Optional[int],
     ) -> List[Dict[str, Any]]:
         """Aplica balanceo y límite de cuota por clase canónica, priorizando is_gold=True (RF-05)."""
-        if not quota_per_class:
-            return candidates
-
         rng = random.Random(self.config.seed)
         by_class_gold: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         by_class_mined: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        unlabeled_pool: List[Dict[str, Any]] = []
 
         for c in candidates:
             raw_label = c.get("normalized_label") or c.get("original_label")
             canon_label, _ = map_to_canonical_label(raw_label)
-            label_key = canon_label or "Uncategorized"
 
-            if c.get("is_gold"):
-                by_class_gold[label_key].append(c)
+            if canon_label:
+                if c.get("is_gold"):
+                    by_class_gold[canon_label].append(c)
+                else:
+                    by_class_mined[canon_label].append(c)
             else:
-                by_class_mined[label_key].append(c)
+                unlabeled_pool.append(c)
+
+        # Si hay servicio NLI disponible y candidatos sin etiqueta, cubrir clases con déficit
+        if self.nli_tagger is not None and unlabeled_pool and quota_per_class:
+            buffer = self.config.nli_config.quota_buffer if self.config.nli_config else 300
+            target_with_buffer = quota_per_class + buffer
+
+            active_deficits = {
+                cls_name: target_with_buffer - (len(by_class_gold[cls_name]) + len(by_class_mined[cls_name]))
+                for cls_name in CANONICAL_9_CLASSES
+                if (len(by_class_gold[cls_name]) + len(by_class_mined[cls_name])) < target_with_buffer
+            }
+
+            if any(v > 0 for v in active_deficits.values()):
+                logger.info(
+                    "Clases deficitarias detectadas para NLI: %s. Evaluando %d candidatos sin etiqueta...",
+                    {k: v for k, v in active_deficits.items() if v > 0},
+                    len(unlabeled_pool),
+                )
+                nli_results = self.nli_tagger.tag_batch(unlabeled_pool)
+
+                for cand, res in zip(unlabeled_pool, nli_results):
+                    if res and res.is_accepted and res.top1_class in active_deficits:
+                        target_class = res.top1_class
+                        if active_deficits[target_class] > 0:
+                            cand_copy = dict(cand)
+                            cand_copy["normalized_label"] = target_class
+                            cand_copy["original_label"] = f"nli_deberta:{target_class}"
+                            cand_copy["label_source"] = "weak_nli"
+                            cand_copy["is_gold"] = False
+                            cand_copy["confidence_score"] = res.top1_confidence
+                            cand_copy["margin"] = res.margin
+                            by_class_mined[target_class].append(cand_copy)
+                            active_deficits[target_class] -= 1
+
+        if not quota_per_class:
+            all_selected = []
+            for pool in list(by_class_gold.values()) + list(by_class_mined.values()):
+                all_selected.extend(pool)
+            return all_selected
 
         balanced: List[Dict[str, Any]] = []
-        for label_key in set(list(by_class_gold.keys()) + list(by_class_mined.keys())):
+        for label_key in CANONICAL_9_CLASSES:
             gold_pool = by_class_gold[label_key]
             mined_pool = by_class_mined[label_key]
 
@@ -417,7 +471,7 @@ class DatasetBuilder:
 
             balanced.extend(selected_class)
             logger.info(
-                "Clase '%s': seleccionadas %d (Gold: %d, Mined: %d)",
+                "Clase '%s': seleccionadas %d (Gold: %d, Mined/NLI: %d)",
                 label_key,
                 len(selected_class),
                 sum(1 for x in selected_class if x.get("is_gold")),
@@ -484,8 +538,10 @@ class DatasetBuilder:
                 source_dataset=item.get("source_dataset", "unknown"),
                 original_label=item.get("original_label") or raw_label,
                 mapping_type=mapping_type,
-                label_source=item.get("label_source", "human_gold"),
+                label_source=item.get("label_source", "human_gold" if item.get("is_gold") else "heuristic_rule"),
                 is_gold=bool(item.get("is_gold", True)),
+                confidence_score=item.get("confidence_score"),
+                margin=item.get("margin"),
                 panel_agreement=None,
                 split=None,  # Asignado en la siguiente etapa
             )
@@ -599,7 +655,7 @@ class DatasetBuilder:
         leakage_train_dev = len(train_papers.intersection(dev_papers))
         leakage_dev_test = len(dev_papers.intersection(test_papers))
 
-        return {
+        metrics = {
             "total_instances": total,
             "elapsed_seconds": round(elapsed_sec, 2),
             "parity_verification": {
@@ -627,6 +683,11 @@ class DatasetBuilder:
                 "mean_top1_similarity": round(sum(top1_sim_scores) / len(top1_sim_scores), 4) if top1_sim_scores else 0,
             },
         }
+
+        if getattr(self, "nli_tagger", None) is not None:
+            metrics["nli_weak_supervision"] = self.nli_tagger.get_telemetry()
+
+        return metrics
 
 
 def parse_arguments() -> argparse.Namespace:

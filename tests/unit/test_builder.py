@@ -161,3 +161,89 @@ def test_builder_metrics_computation():
     assert metrics["leakage_verification"]["zero_leakage_guaranteed"] is True
     assert metrics["splits"]["train"]["count"] == 1
     assert metrics["splits"]["dev"]["count"] == 1
+
+
+def test_builder_nli_tagger_integration():
+    """Valida la integración en memoria de NLITagger en DatasetBuilder para cubrir clases deficitarias."""
+    from unittest.mock import MagicMock
+    from src.data.schemas import NLITaggingResult
+    from src.data.weak_supervision.nli_tagger import NLITagger, NLITaggerConfig
+
+    mock_tagger = MagicMock(spec=NLITagger)
+    mock_tagger.tag_batch.return_value = [
+        NLITaggingResult(
+            context_id="unlabeled_01",
+            top1_class="Gap",
+            is_accepted=True,
+            top1_confidence=0.92,
+            margin=0.40,
+            class_probabilities={"Gap": 0.92, "Background": 0.08},
+        ),
+        NLITaggingResult(
+            context_id="unlabeled_02",
+            top1_class=None,
+            is_accepted=False,
+            top1_confidence=0.60,
+            margin=0.10,
+            reason_rejected="low_confidence",
+        ),
+    ]
+    mock_tagger.get_telemetry.return_value = {
+        "total_evaluated": 2,
+        "total_accepted": 1,
+        "total_rejected": 1,
+        "accepted_per_class": {"Gap": 1},
+    }
+
+    config = BuilderConfig(
+        quota_per_class=5,
+        nli_config=NLITaggerConfig(quota_buffer=2),
+    )
+
+    builder = DatasetBuilder.__new__(DatasetBuilder)
+    builder.config = config
+    builder.nli_tagger = mock_tagger
+
+    candidates = [
+        # 1 instancia Gold de Background
+        {
+            "context_id": "c_gold_bg",
+            "citation_context": "Background context",
+            "normalized_label": "Background",
+            "is_gold": True,
+            "source_dataset": "multicite",
+        },
+        # 2 candidatos sin etiqueta
+        {
+            "context_id": "unlabeled_01",
+            "citation_context": "Gap context: problem remains unsolved <cite>X</cite>",
+            "normalized_label": None,
+            "original_label": None,
+            "is_gold": False,
+            "source_dataset": "unarxive_mined",
+        },
+        {
+            "context_id": "unlabeled_02",
+            "citation_context": "Ambiguous context <cite>Y</cite>",
+            "normalized_label": None,
+            "original_label": None,
+            "is_gold": False,
+            "source_dataset": "unarxive_mined",
+        },
+    ]
+
+    balanced = builder.apply_quota_and_balance(candidates, quota_per_class=5)
+
+    # Debe contener 1 Background (Gold) y 1 Gap (enriquecido por NLI)
+    gap_items = [x for x in balanced if x.get("normalized_label") == "Gap"]
+    assert len(gap_items) == 1
+    assert gap_items[0]["label_source"] == "weak_nli"
+    assert gap_items[0]["confidence_score"] == 0.92
+    assert gap_items[0]["margin"] == 0.40
+    assert gap_items[0]["is_gold"] is False
+
+    # Validar telemetría en métricas
+    metrics = builder._compute_metrics([], {"train": [], "dev": [], "test": []}, elapsed_sec=0.5)
+    assert "nli_weak_supervision" in metrics
+    assert metrics["nli_weak_supervision"]["accepted_per_class"]["Gap"] == 1
+
