@@ -23,11 +23,11 @@ nli:
   # Alternativa configurable: "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli" (435M params, ~18.5 min/bloque).
   model_name_or_path: "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
   device: "auto"               # 'auto', 'mps', 'cuda', 'cpu'
-  batch_size: 16
+  batch_size: 32
   max_length: 512
   fp16: true
-  confidence_threshold: 0.85   # Probabilidad mínima softmax de top-1
-  margin_threshold: 0.25       # Margen mínimo entre top-1 y top-2
-  temperature: 1.0
+  confidence_threshold: 0.70   # Calibrado para 9 clases (6.3x sobre azar 11.1%)
+  margin_threshold: 0.15       # Margen mínimo entre top-1 y top-2
+  temperature: 0.7             # Sharpening de logits para destacar hipótesis dominante
   quota_buffer: 300            # Holgura de instancias por clase ante mal-formaciones
   candidate_chunk_size: 1000   # Tamaño de lote de candidatos para parada temprana (Early Stopping)

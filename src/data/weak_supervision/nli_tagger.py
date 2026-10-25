@@ -75,9 +75,9 @@ class NLITaggerConfig:
     batch_size: int = 32
     max_length: int = 512
     fp16: bool = True
-    confidence_threshold: float = 0.85
-    margin_threshold: float = 0.25
-    temperature: float = 1.0
+    confidence_threshold: float = 0.70
+    margin_threshold: float = 0.15
+    temperature: float = 0.7
     quota_buffer: int = 300
     candidate_chunk_size: int = 1000
     hypotheses: Dict[str, str] = field(default_factory=lambda: dict(CANONICAL_NLI_HYPOTHESES))
