@@ -318,3 +318,35 @@ def test_builder_nli_chunked_early_stopping():
     assert len(gap_items) == 2
 
 
+def test_builder_preserves_quota_buffer_in_selection():
+    """Valida que apply_quota_and_balance conserve quota_per_class + quota_buffer sin recortar la holgura."""
+    from src.data.weak_supervision.nli_tagger import NLITaggerConfig
+
+    config = BuilderConfig(
+        quota_per_class=5,
+        nli_config=NLITaggerConfig(quota_buffer=2),
+    )
+
+    builder = DatasetBuilder.__new__(DatasetBuilder)
+    builder.config = config
+    builder.nli_tagger = None
+
+    # 10 candidatos minados para Background: debe seleccionar 5 + 2 = 7 (y no truncar en 5)
+    candidates = [
+        {
+            "context_id": f"mined_bg_{i}",
+            "citation_context": f"Background context {i}",
+            "normalized_label": "Background",
+            "original_label": "Background",
+            "is_gold": False,
+            "source_dataset": "unarxive_mined",
+        }
+        for i in range(10)
+    ]
+
+    balanced = builder.apply_quota_and_balance(candidates, quota_per_class=5)
+    bg_items = [x for x in balanced if x.get("normalized_label") == "Background"]
+    assert len(bg_items) == 7
+
+
+

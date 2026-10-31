@@ -361,6 +361,11 @@ class DatasetBuilder:
         candidates: List[Dict[str, Any]] = []
         missing_abstract_pids: Set[str] = set()
 
+        # Filtrar anticipadamente si el retriever ya tiene el índice de chunks cargado en memoria
+        loaded_chunk_pids = getattr(self.retriever, "_chunks_by_paper", None) if getattr(self, "retriever", None) else None
+        enforce_chunk_index = bool(loaded_chunk_pids)
+        skipped_not_in_chunk_index = 0
+
         with open(contexts_path, "r", encoding="utf-8") as f:
             for line_idx, line in enumerate(f, start=1):
                 line_str = line.strip()
@@ -378,14 +383,20 @@ class DatasetBuilder:
                 if not target_cited_id:
                     continue
 
+                if enforce_chunk_index and str(target_cited_id) not in loaded_chunk_pids:
+                    skipped_not_in_chunk_index += 1
+                    continue
+
                 if not data.get("target_cited_abstract"):
                     missing_abstract_pids.add(str(target_cited_id))
 
                 candidates.append(data)
 
         logger.info(
-            "Candidatos iniciales con has_cited_chunks=True: %d (con abstract ausente en registro: %d)",
+            "Candidatos iniciales con has_cited_chunks=True y chunks indexados: %d "
+            "(omitidos sin chunks en índice: %d, con abstract ausente en registro: %d)",
             len(candidates),
+            skipped_not_in_chunk_index,
             len(missing_abstract_pids),
         )
         return candidates, missing_abstract_pids
@@ -413,11 +424,12 @@ class DatasetBuilder:
             else:
                 unlabeled_pool.append(c)
 
+        buffer = self.config.nli_config.quota_buffer if self.config.nli_config else 0
+        target_with_buffer = (quota_per_class + buffer) if quota_per_class else None
+
         # Si hay servicio NLI disponible y candidatos sin etiqueta, cubrir clases con déficit
-        if self.nli_tagger is not None and unlabeled_pool and quota_per_class:
-            buffer = self.config.nli_config.quota_buffer if self.config.nli_config else 300
+        if self.nli_tagger is not None and unlabeled_pool and target_with_buffer:
             chunk_size = getattr(self.config.nli_config, "candidate_chunk_size", 1000) if self.config.nli_config else 1000
-            target_with_buffer = quota_per_class + buffer
 
             active_deficits = {
                 cls_name: target_with_buffer - (len(by_class_gold[cls_name]) + len(by_class_mined[cls_name]))
@@ -502,7 +514,7 @@ class DatasetBuilder:
                     {k: v for k, v in active_deficits.items() if v > 0},
                 )
 
-        if not quota_per_class:
+        if not target_with_buffer:
             all_selected = []
             for pool in list(by_class_gold.values()) + list(by_class_mined.values()):
                 all_selected.extend(pool)
@@ -517,19 +529,22 @@ class DatasetBuilder:
             rng.shuffle(mined_pool)
 
             selected_class: List[Dict[str, Any]] = []
-            # Priorizar Gold
-            if len(gold_pool) >= quota_per_class:
-                selected_class.extend(gold_pool[:quota_per_class])
+            # Priorizar Gold y preservar la holgura (quota_per_class + quota_buffer)
+            if len(gold_pool) >= target_with_buffer:
+                selected_class.extend(gold_pool[:target_with_buffer])
             else:
                 selected_class.extend(gold_pool)
-                needed = quota_per_class - len(selected_class)
+                needed = target_with_buffer - len(selected_class)
                 selected_class.extend(mined_pool[:needed])
 
             balanced.extend(selected_class)
             logger.info(
-                "Clase '%s': seleccionadas %d (Gold: %d, Mined/NLI: %d)",
+                "Clase '%s': seleccionadas %d / %d (cuota=%d + holgura=%d | Gold: %d, Mined/NLI: %d)",
                 label_key,
                 len(selected_class),
+                target_with_buffer,
+                quota_per_class,
+                buffer,
                 sum(1 for x in selected_class if x.get("is_gold")),
                 sum(1 for x in selected_class if not x.get("is_gold")),
             )
@@ -541,16 +556,40 @@ class DatasetBuilder:
         start_time = time.time()
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. Cargar candidatos con has_cited_chunks = True
+        # 1. Cargar candidatos con has_cited_chunks = True (y presentes en índice de chunks)
         candidates, missing_abstract_pids = self.load_candidates()
 
-        # 2. Resolver abstracts de rescate si aplica (RF-03)
+        # 2. Resolver abstracts de rescate y filtrar candidatos sin abstract ANTES de selección/NLI (RF-03)
         abstracts_cache: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
         if missing_abstract_pids:
             abstracts_cache = load_missing_paper_abstracts(self.config.papers_path, missing_abstract_pids)
 
-        # 3. Aplicar cuota y balance si está configurada (RF-05)
-        selected_candidates = self.apply_quota_and_balance(candidates, self.config.quota_per_class)
+        valid_candidates: List[Dict[str, Any]] = []
+        pre_discarded_no_abstract = 0
+        for item in candidates:
+            target_cited_id = str(item["target_cited_id"])
+            cited_abstract = item.get("target_cited_abstract")
+            if not cited_abstract and target_cited_id in abstracts_cache:
+                rescued_title, rescued_abstract = abstracts_cache[target_cited_id]
+                if rescued_abstract:
+                    item["target_cited_abstract"] = rescued_abstract
+                    if not item.get("target_cited_title") and rescued_title:
+                        item["target_cited_title"] = rescued_title
+                    cited_abstract = rescued_abstract
+            if not cited_abstract:
+                pre_discarded_no_abstract += 1
+                continue
+            valid_candidates.append(item)
+
+        if pre_discarded_no_abstract > 0:
+            logger.info(
+                "Pre-filtrado de abstracts completado: %d candidatos válidos retenidos (%d omitidos sin abstract disponible).",
+                len(valid_candidates),
+                pre_discarded_no_abstract,
+            )
+
+        # 3. Aplicar cuota (+ holgura) y balance si está configurada (RF-05)
+        selected_candidates = self.apply_quota_and_balance(valid_candidates, self.config.quota_per_class)
 
         # 4. Ensamble de instancias con recuperación densa de Top-k chunks
         logger.info("Ensamblando %d instancias y recuperando Top-%d chunks con SciBERT...", len(selected_candidates), self.config.k_chunks)

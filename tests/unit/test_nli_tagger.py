@@ -40,10 +40,10 @@ def test_nli_tagger_config_defaults_and_overrides():
     """Valida la carga de configuración por defecto y sobreescrituras desde dict."""
     cfg = NLITaggerConfig()
     assert cfg.enabled is True
-    assert cfg.confidence_threshold == 0.70
+    assert cfg.confidence_threshold == 0.50
     assert cfg.margin_threshold == 0.15
     assert cfg.quota_buffer == 300
-    assert cfg.temperature == 0.7
+    assert cfg.temperature == 0.6
     assert cfg.batch_size == 32
 
     # Sobreescritura desde diccionario con claves adicionales ignoradas

@@ -75,9 +75,9 @@ class NLITaggerConfig:
     batch_size: int = 32
     max_length: int = 512
     fp16: bool = True
-    confidence_threshold: float = 0.70
+    confidence_threshold: float = 0.50
     margin_threshold: float = 0.15
-    temperature: float = 0.7
+    temperature: float = 0.6
     quota_buffer: int = 300
     candidate_chunk_size: int = 1000
     hypotheses: Dict[str, str] = field(default_factory=lambda: dict(CANONICAL_NLI_HYPOTHESES))
@@ -148,8 +148,8 @@ class NLIPurityFilter:
     def evaluate_prediction(
         context_id: str,
         class_probabilities: Dict[str, float],
-        confidence_threshold: float = 0.85,
-        margin_threshold: float = 0.25,
+        confidence_threshold: float = 0.50,
+        margin_threshold: float = 0.15,
     ) -> NLITaggingResult:
         """Evalúa una distribución posterior contra los dos umbrales de pureza.
 
