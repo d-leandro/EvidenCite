@@ -38,6 +38,7 @@ from src.data.schemas import (
     DatasetInstance,
     RetrievedChunk,
 )
+from src.data.weak_supervision.nli_tagger import NLITagger, NLITaggerConfig
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,11 +48,11 @@ logger = logging.getLogger(__name__)
 
 CANONICAL_9_CLASSES = [
     "Background",
-    "Uses",
+    "Gap",
+    "Basis",
     "Comparison",
-    "Extends",
-    "Motivation",
-    "Future Work",
+    "Application",
+    "Improvement",
     "Evidence",
     "Originator",
     "Further Reading",
@@ -75,6 +76,7 @@ class BuilderConfig:
     test_ratio: float = 0.15
     seed: int = 42
     force: bool = False
+    nli_config: Optional[NLITaggerConfig] = None
 
     @classmethod
     def from_yaml(cls, yaml_path: Union[str, Path]) -> "BuilderConfig":
@@ -88,6 +90,9 @@ class BuilderConfig:
             data = yaml.safe_load(f) or {}
 
         ratios = data.get("split_ratios", {})
+        nli_raw = data.get("nli")
+        nli_cfg = NLITaggerConfig.from_dict(nli_raw) if nli_raw is not None else None
+
         return cls(
             input_contexts_path=Path(data.get("input_contexts_path", cls.input_contexts_path)),
             papers_path=Path(data.get("papers_path", cls.papers_path)),
@@ -101,6 +106,7 @@ class BuilderConfig:
             test_ratio=float(ratios.get("test", cls.test_ratio)),
             seed=int(data.get("seed", cls.seed)),
             force=bool(data.get("force", cls.force)),
+            nli_config=nli_cfg,
         )
 
 
@@ -114,25 +120,49 @@ def map_to_canonical_label(raw_label: Optional[str]) -> Tuple[Optional[str], Opt
         return None, None
 
     raw_clean = raw_label.strip()
-    is_compound = ";" in raw_clean
-    primary = raw_clean.split(";")[0].strip()
+    is_compound = (";" in raw_clean) or (" " in raw_clean and not any(raw_clean.lower().startswith(x) for x in ["future work", "further reading", "identification of", "improvement"]))
+
+    if ";" in raw_clean:
+        primary = raw_clean.split(";")[0].strip()
+    elif is_compound:
+        if raw_clean.lower().startswith(("future work", "future_work")):
+            primary = "future work"
+        elif raw_clean.lower().startswith("further reading"):
+            primary = "further reading"
+        elif raw_clean.lower().startswith("identification of"):
+            primary = "originator"
+        elif raw_clean.lower().startswith("improvement"):
+            primary = "improvement"
+        else:
+            primary = raw_clean.split()[0].strip()
+    else:
+        primary = raw_clean
+
+    primary_norm = primary.replace("_", " ").strip().lower()
 
     mapping_table = {
-        "Background": "Background",
-        "Uses": "Uses",
-        "Differences": "Comparison",
-        "Similarities": "Comparison",
-        "Comparison": "Comparison",
-        "Extends": "Extends",
-        "Basis": "Extends",
-        "Motivation": "Motivation",
-        "Future Work": "Future Work",
-        "Evidence": "Evidence",
-        "Originator": "Originator",
-        "Further Reading": "Further Reading",
+        "background": "Background",
+        "uses": "Application",
+        "application": "Application",
+        "differences": "Comparison",
+        "similarities": "Comparison",
+        "comparison": "Comparison",
+        "extends": "Improvement",
+        "improvement": "Improvement",
+        "improvement / modification": "Improvement",
+        "basis": "Basis",
+        "motivation": "Gap",
+        "future work": "Gap",
+        "future": "Gap",
+        "gap": "Gap",
+        "evidence": "Evidence",
+        "originator": "Originator",
+        "identification of the originator": "Originator",
+        "identification of": "Originator",
+        "further reading": "Further Reading",
     }
 
-    canonical = mapping_table.get(primary)
+    canonical = mapping_table.get(primary_norm)
     if not canonical:
         return None, None
 
@@ -183,6 +213,20 @@ def load_missing_paper_abstracts(
     return resolved
 
 
+def compute_group_rarity_key(
+    group_item: Tuple[str, List[DatasetInstance]],
+    class_totals: Counter,
+) -> Tuple[int, int]:
+    """Calcula la clave de ordenamiento por rareza para un grupo de citas (paper citante).
+
+    Prioriza papers que contienen las clases con menor frecuencia global (rarest class first),
+    desempatando por tamaño de grupo decreciente para acomodar bloques grandes al inicio.
+    """
+    _, group_instances = group_item
+    min_freq = min((class_totals[inst.label] for inst in group_instances if inst.label), default=0)
+    return (min_freq, -len(group_instances))
+
+
 def group_stratified_split(
     instances: List[DatasetInstance],
     train_ratio: float = 0.70,
@@ -217,15 +261,14 @@ def group_stratified_split(
         for split, ratio in [("train", train_ratio), ("dev", dev_ratio), ("test", test_ratio)]
     }
 
-    # 3. Asignación voraz ordenada (Greedy Allocation)
+    # 3. Asignación voraz balanceada por necesidad de clase (Rarity-Prioritized Allocation)
     splits: Dict[str, List[DatasetInstance]] = {"train": [], "dev": [], "test": []}
     current_counts = {"train": 0, "dev": 0, "test": 0}
     current_class_counts: Dict[str, Counter] = {"train": Counter(), "dev": Counter(), "test": Counter()}
 
-    # Ordenar grupos por tamaño decreciente y desempatar con aleatoriedad reproducible
+    # Ordenar grupos priorizando papers que contienen las clases más escasas (rarest class first)
     group_items = list(paper_groups.items())
-    rng.shuffle(group_items)
-    group_items.sort(key=lambda x: len(x[1]), reverse=True)
+    group_items.sort(key=lambda item: compute_group_rarity_key(item, class_totals))
 
     for paper_id, group_instances in group_items:
         group_size = len(group_instances)
@@ -240,14 +283,18 @@ def group_stratified_split(
             if capacity <= 0 and split_name != "train":
                 continue
 
-            # Penalización por desviación en cuota de instancias y balance de clases
-            size_error = abs((current_counts[split_name] + group_size) - target_counts[split_name])
-            class_error = sum(
-                abs((current_class_counts[split_name][c] + group_class_dist[c]) - target_class_counts[split_name].get(c, 0))
+            # Penalización normalizada por tamaño
+            size_error = abs((current_counts[split_name] + group_size) - target_counts[split_name]) / target_counts[split_name]
+            
+            # Déficit relativo para las clases contenidas en este paper
+            class_deficit = sum(
+                max(0, (target_class_counts[split_name].get(c, 0) - (current_class_counts[split_name][c] + group_class_dist[c])))
+                / max(1, target_class_counts[split_name].get(c, 1))
                 for c in group_class_dist
             )
 
-            score = size_error + 2.0 * class_error
+            # Minimizar error de tamaño mientras se maximiza la cobertura de clases deficitarias
+            score = size_error - 2.5 * class_deficit
             if score < best_score:
                 best_score = score
                 best_split = split_name
@@ -281,8 +328,9 @@ class DatasetBuilder:
         self,
         config: Optional[BuilderConfig] = None,
         retriever: Optional[SciBERTRetriever] = None,
+        nli_tagger: Optional[NLITagger] = None,
     ) -> None:
-        """Inicializa el ensamblador y prepara el motor de recuperación semántica."""
+        """Inicializa el ensamblador y prepara el motor de recuperación semántica y NLI."""
         self.config = config or BuilderConfig()
         random.seed(self.config.seed)
 
@@ -292,6 +340,14 @@ class DatasetBuilder:
             logger.info("Inicializando SciBERTRetriever con config: %s", self.config.retrieval_config_path)
             retrieval_conf = RetrievalConfig.from_yaml(self.config.retrieval_config_path)
             self.retriever = SciBERTRetriever(config=retrieval_conf)
+
+        if nli_tagger is not None:
+            self.nli_tagger = nli_tagger
+        elif self.config.nli_config and self.config.nli_config.enabled:
+            logger.info("Inicializando servicio NLITagger para supervisión débil...")
+            self.nli_tagger = NLITagger(config=self.config.nli_config)
+        else:
+            self.nli_tagger = None
 
     def load_candidates(self) -> Tuple[List[Dict[str, Any]], Set[str]]:
         """Lee data/processed/citing_contexts.jsonl y filtra instancias con paridad 1:1 inicial.
@@ -304,6 +360,11 @@ class DatasetBuilder:
 
         candidates: List[Dict[str, Any]] = []
         missing_abstract_pids: Set[str] = set()
+
+        # Filtrar anticipadamente si el retriever ya tiene el índice de chunks cargado en memoria
+        loaded_chunk_pids = getattr(self.retriever, "_chunks_by_paper", None) if getattr(self, "retriever", None) else None
+        enforce_chunk_index = bool(loaded_chunk_pids)
+        skipped_not_in_chunk_index = 0
 
         with open(contexts_path, "r", encoding="utf-8") as f:
             for line_idx, line in enumerate(f, start=1):
@@ -322,14 +383,20 @@ class DatasetBuilder:
                 if not target_cited_id:
                     continue
 
+                if enforce_chunk_index and str(target_cited_id) not in loaded_chunk_pids:
+                    skipped_not_in_chunk_index += 1
+                    continue
+
                 if not data.get("target_cited_abstract"):
                     missing_abstract_pids.add(str(target_cited_id))
 
                 candidates.append(data)
 
         logger.info(
-            "Candidatos iniciales con has_cited_chunks=True: %d (con abstract ausente en registro: %d)",
+            "Candidatos iniciales con has_cited_chunks=True y chunks indexados: %d "
+            "(omitidos sin chunks en índice: %d, con abstract ausente en registro: %d)",
             len(candidates),
+            skipped_not_in_chunk_index,
             len(missing_abstract_pids),
         )
         return candidates, missing_abstract_pids
@@ -340,25 +407,121 @@ class DatasetBuilder:
         quota_per_class: Optional[int],
     ) -> List[Dict[str, Any]]:
         """Aplica balanceo y límite de cuota por clase canónica, priorizando is_gold=True (RF-05)."""
-        if not quota_per_class:
-            return candidates
-
         rng = random.Random(self.config.seed)
         by_class_gold: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         by_class_mined: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        unlabeled_pool: List[Dict[str, Any]] = []
 
         for c in candidates:
             raw_label = c.get("normalized_label") or c.get("original_label")
             canon_label, _ = map_to_canonical_label(raw_label)
-            label_key = canon_label or "Uncategorized"
 
-            if c.get("is_gold"):
-                by_class_gold[label_key].append(c)
+            if canon_label:
+                if c.get("is_gold"):
+                    by_class_gold[canon_label].append(c)
+                else:
+                    by_class_mined[canon_label].append(c)
             else:
-                by_class_mined[label_key].append(c)
+                unlabeled_pool.append(c)
+
+        buffer = self.config.nli_config.quota_buffer if self.config.nli_config else 0
+        target_with_buffer = (quota_per_class + buffer) if quota_per_class else None
+
+        # Si hay servicio NLI disponible y candidatos sin etiqueta, cubrir clases con déficit
+        if self.nli_tagger is not None and unlabeled_pool and target_with_buffer:
+            chunk_size = getattr(self.config.nli_config, "candidate_chunk_size", 1000) if self.config.nli_config else 1000
+
+            active_deficits = {
+                cls_name: target_with_buffer - (len(by_class_gold[cls_name]) + len(by_class_mined[cls_name]))
+                for cls_name in CANONICAL_9_CLASSES
+                if (len(by_class_gold[cls_name]) + len(by_class_mined[cls_name])) < target_with_buffer
+            }
+
+            if any(v > 0 for v in active_deficits.values()):
+                logger.info(
+                    "Clases deficitarias detectadas para NLI: %s. Evaluando hasta %d candidatos sin etiqueta en lotes de %d...",
+                    {k: v for k, v in active_deficits.items() if v > 0},
+                    len(unlabeled_pool),
+                    chunk_size,
+                )
+
+                # Barajar el pool sin etiqueta determinísticamente para maximizar diversidad de artículos
+                rng.shuffle(unlabeled_pool)
+
+                evaluated_candidates = 0
+                total_accepted = 0
+
+                for chunk_start in range(0, len(unlabeled_pool), chunk_size):
+                    # Parada temprana global si todas las clases cubrieron su cuota + buffer
+                    if not any(v > 0 for v in active_deficits.values()):
+                        logger.info(
+                            "Parada temprana (Early Stopping): todas las clases deficitarias alcanzaron la meta (%d). "
+                            "Candidatos evaluados: %d/%d | Aceptados: %d.",
+                            target_with_buffer,
+                            evaluated_candidates,
+                            len(unlabeled_pool),
+                            total_accepted,
+                        )
+                        break
+
+                    t_chunk_start = time.time()
+                    chunk_candidates = unlabeled_pool[chunk_start : chunk_start + chunk_size]
+                    evaluated_candidates += len(chunk_candidates)
+
+                    nli_results = self.nli_tagger.tag_batch(chunk_candidates)
+
+                    chunk_accepted = 0
+                    for cand, res in zip(chunk_candidates, nli_results):
+                        if res and res.is_accepted and res.top1_class in active_deficits:
+                            target_class = res.top1_class
+                            if active_deficits[target_class] > 0:
+                                cand_copy = dict(cand)
+                                cand_copy["normalized_label"] = target_class
+                                cand_copy["original_label"] = f"nli_deberta:{target_class}"
+                                cand_copy["label_source"] = "weak_nli"
+                                cand_copy["is_gold"] = False
+                                cand_copy["confidence_score"] = res.top1_confidence
+                                cand_copy["margin"] = res.margin
+                                by_class_mined[target_class].append(cand_copy)
+                                active_deficits[target_class] -= 1
+                                total_accepted += 1
+                                chunk_accepted += 1
+
+                    chunk_elapsed = time.time() - t_chunk_start
+                    chunk_num = (chunk_start // chunk_size) + 1
+                    total_chunks = (len(unlabeled_pool) + chunk_size - 1) // chunk_size
+                    logger.info(
+                        "Bloque NLI [%d/%d] completado: %d candidatos evaluados (Total acumulado: %d/%d) | "
+                        "Aceptados en este bloque: %d (Total acumulados: %d) | Tiempo bloque: %.1fs",
+                        chunk_num,
+                        total_chunks,
+                        len(chunk_candidates),
+                        evaluated_candidates,
+                        len(unlabeled_pool),
+                        chunk_accepted,
+                        total_accepted,
+                        chunk_elapsed,
+                    )
+                    logger.info(
+                        "Déficits restantes por clase: %s",
+                        {k: v for k, v in active_deficits.items() if v > 0},
+                    )
+
+                logger.info(
+                    "Etiquetado NLI completado: %d candidatos evaluados, %d aceptados. Déficits finales pendientes: %s",
+                    evaluated_candidates,
+                    total_accepted,
+                    {k: v for k, v in active_deficits.items() if v > 0},
+                )
+
+        if not target_with_buffer:
+            all_selected = []
+            for pool in list(by_class_gold.values()) + list(by_class_mined.values()):
+                all_selected.extend(pool)
+            return all_selected
 
         balanced: List[Dict[str, Any]] = []
-        for label_key in set(list(by_class_gold.keys()) + list(by_class_mined.keys())):
+        for label_key in CANONICAL_9_CLASSES:
             gold_pool = by_class_gold[label_key]
             mined_pool = by_class_mined[label_key]
 
@@ -366,19 +529,22 @@ class DatasetBuilder:
             rng.shuffle(mined_pool)
 
             selected_class: List[Dict[str, Any]] = []
-            # Priorizar Gold
-            if len(gold_pool) >= quota_per_class:
-                selected_class.extend(gold_pool[:quota_per_class])
+            # Priorizar Gold y preservar la holgura (quota_per_class + quota_buffer)
+            if len(gold_pool) >= target_with_buffer:
+                selected_class.extend(gold_pool[:target_with_buffer])
             else:
                 selected_class.extend(gold_pool)
-                needed = quota_per_class - len(selected_class)
+                needed = target_with_buffer - len(selected_class)
                 selected_class.extend(mined_pool[:needed])
 
             balanced.extend(selected_class)
             logger.info(
-                "Clase '%s': seleccionadas %d (Gold: %d, Mined: %d)",
+                "Clase '%s': seleccionadas %d / %d (cuota=%d + holgura=%d | Gold: %d, Mined/NLI: %d)",
                 label_key,
                 len(selected_class),
+                target_with_buffer,
+                quota_per_class,
+                buffer,
                 sum(1 for x in selected_class if x.get("is_gold")),
                 sum(1 for x in selected_class if not x.get("is_gold")),
             )
@@ -390,16 +556,40 @@ class DatasetBuilder:
         start_time = time.time()
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. Cargar candidatos con has_cited_chunks = True
+        # 1. Cargar candidatos con has_cited_chunks = True (y presentes en índice de chunks)
         candidates, missing_abstract_pids = self.load_candidates()
 
-        # 2. Resolver abstracts de rescate si aplica (RF-03)
+        # 2. Resolver abstracts de rescate y filtrar candidatos sin abstract ANTES de selección/NLI (RF-03)
         abstracts_cache: Dict[str, Tuple[Optional[str], Optional[str]]] = {}
         if missing_abstract_pids:
             abstracts_cache = load_missing_paper_abstracts(self.config.papers_path, missing_abstract_pids)
 
-        # 3. Aplicar cuota y balance si está configurada (RF-05)
-        selected_candidates = self.apply_quota_and_balance(candidates, self.config.quota_per_class)
+        valid_candidates: List[Dict[str, Any]] = []
+        pre_discarded_no_abstract = 0
+        for item in candidates:
+            target_cited_id = str(item["target_cited_id"])
+            cited_abstract = item.get("target_cited_abstract")
+            if not cited_abstract and target_cited_id in abstracts_cache:
+                rescued_title, rescued_abstract = abstracts_cache[target_cited_id]
+                if rescued_abstract:
+                    item["target_cited_abstract"] = rescued_abstract
+                    if not item.get("target_cited_title") and rescued_title:
+                        item["target_cited_title"] = rescued_title
+                    cited_abstract = rescued_abstract
+            if not cited_abstract:
+                pre_discarded_no_abstract += 1
+                continue
+            valid_candidates.append(item)
+
+        if pre_discarded_no_abstract > 0:
+            logger.info(
+                "Pre-filtrado de abstracts completado: %d candidatos válidos retenidos (%d omitidos sin abstract disponible).",
+                len(valid_candidates),
+                pre_discarded_no_abstract,
+            )
+
+        # 3. Aplicar cuota (+ holgura) y balance si está configurada (RF-05)
+        selected_candidates = self.apply_quota_and_balance(valid_candidates, self.config.quota_per_class)
 
         # 4. Ensamble de instancias con recuperación densa de Top-k chunks
         logger.info("Ensamblando %d instancias y recuperando Top-%d chunks con SciBERT...", len(selected_candidates), self.config.k_chunks)
@@ -443,8 +633,10 @@ class DatasetBuilder:
                 source_dataset=item.get("source_dataset", "unknown"),
                 original_label=item.get("original_label") or raw_label,
                 mapping_type=mapping_type,
-                label_source=item.get("label_source", "human_gold"),
+                label_source=item.get("label_source", "human_gold" if item.get("is_gold") else "heuristic_rule"),
                 is_gold=bool(item.get("is_gold", True)),
+                confidence_score=item.get("confidence_score"),
+                margin=item.get("margin"),
                 panel_agreement=None,
                 split=None,  # Asignado en la siguiente etapa
             )
@@ -558,7 +750,7 @@ class DatasetBuilder:
         leakage_train_dev = len(train_papers.intersection(dev_papers))
         leakage_dev_test = len(dev_papers.intersection(test_papers))
 
-        return {
+        metrics = {
             "total_instances": total,
             "elapsed_seconds": round(elapsed_sec, 2),
             "parity_verification": {
@@ -586,6 +778,11 @@ class DatasetBuilder:
                 "mean_top1_similarity": round(sum(top1_sim_scores) / len(top1_sim_scores), 4) if top1_sim_scores else 0,
             },
         }
+
+        if getattr(self, "nli_tagger", None) is not None:
+            metrics["nli_weak_supervision"] = self.nli_tagger.get_telemetry()
+
+        return metrics
 
 
 def parse_arguments() -> argparse.Namespace:

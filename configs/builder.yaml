@@ -16,3 +16,18 @@ split_ratios:
   test: 0.15
 seed: 42
 force: false
+
+# Configuración del Servicio NLI Reutilizable (Actividad A2 / ADR-10)
+nli:
+  # Modelo default: DeBERTa-v3-base (86M params, ~3.5 min/bloque).
+  # Alternativa configurable: "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli" (435M params, ~18.5 min/bloque).
+  model_name_or_path: "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
+  device: "auto"               # 'auto', 'mps', 'cuda', 'cpu'
+  batch_size: 32
+  max_length: 512
+  fp16: true
+  confidence_threshold: 0.50   # Calibrado en el Simplex 9-clases (4.5x sobre azar 11.1%, consciente de co-localización)
+  margin_threshold: 0.15       # Margen mínimo entre top-1 y top-2 (P1/P2 >= 1.43x)
+  temperature: 0.6             # Sharpening de logits para suprimir piso de ruido de clases genéricas
+  quota_buffer: 300            # Holgura de instancias por clase preservada hasta el dataset final
+  candidate_chunk_size: 1000   # Tamaño de lote de candidatos para parada temprana (Early Stopping)
