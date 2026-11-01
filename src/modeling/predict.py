@@ -37,7 +37,7 @@ from src.modeling.evaluate import (
     compute_a6_metrics,
 )
 from src.modeling.prompts import (
-    RespuestaLLM,
+    LLMResponse,
     build_llm_messages,
 )
 
@@ -599,15 +599,15 @@ def _clean_json_text(raw_text: str) -> str:
     return cleaned
 
 
-def parse_llm_json_response(raw_text: str) -> Tuple[RespuestaLLM, bool]:
-    """Valida una respuesta textual del LLM contra el contrato RespuestaLLM (Forma 2)."""
+def parse_llm_json_response(raw_text: str) -> Tuple[LLMResponse, bool]:
+    """Valida una respuesta textual del LLM contra el contrato LLMResponse (Forma 2)."""
     try:
         cleaned = _clean_json_text(raw_text)
-        parsed = RespuestaLLM.model_validate_json(cleaned)
+        parsed = LLMResponse.model_validate_json(cleaned)
         return parsed, True
     except Exception:
         uniform = {cls_name: round(1.0 / 9.0, 4) for cls_name in CANONICAL_9_CLASSES}
-        fallback = RespuestaLLM.model_validate(
+        fallback = LLMResponse.model_validate(
             {"predicted_label": "Background", "scores": uniform, "rationale": "Fallback parsing error"}
         )
         return fallback, False
@@ -690,7 +690,7 @@ class LLMApiPredictor(BasePredictor):
     def _call_openai_or_ollama(
         self,
         messages: List[Dict[str, str]],
-    ) -> Tuple[RespuestaLLM, bool, int, int, int]:
+    ) -> Tuple[LLMResponse, bool, int, int, int]:
         client = self._get_or_create_client()
         if self.llm_config.enforce_structured_output:
             completion = client.beta.chat.completions.parse(
@@ -698,13 +698,13 @@ class LLMApiPredictor(BasePredictor):
                 messages=messages,
                 temperature=self.llm_config.temperature,
                 max_tokens=self.llm_config.max_output_tokens,
-                response_format=RespuestaLLM,
+                response_format=LLMResponse,
             )
             usage = getattr(completion, "usage", None)
             in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
             out_tok = int(getattr(usage, "completion_tokens", 0) or 0)
             parsed_msg = completion.choices[0].message.parsed
-            if isinstance(parsed_msg, RespuestaLLM):
+            if isinstance(parsed_msg, LLMResponse):
                 return parsed_msg, True, in_tok, out_tok, 0
             raw_content = completion.choices[0].message.content or ""
             resp, valid = parse_llm_json_response(raw_content)
@@ -726,7 +726,7 @@ class LLMApiPredictor(BasePredictor):
     def _call_gemini_native(
         self,
         messages: List[Dict[str, str]],
-    ) -> Tuple[RespuestaLLM, bool, int, int, int]:
+    ) -> Tuple[LLMResponse, bool, int, int, int]:
         from google.genai import types
 
         client = self._get_or_create_client()
@@ -750,7 +750,7 @@ class LLMApiPredictor(BasePredictor):
         }
         if self.llm_config.enforce_structured_output:
             config_kwargs["response_mime_type"] = "application/json"
-            config_kwargs["response_schema"] = RespuestaLLM
+            config_kwargs["response_schema"] = LLMResponse
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
         response = client.models.generate_content(
@@ -765,7 +765,7 @@ class LLMApiPredictor(BasePredictor):
         thought_tok = int(getattr(usage, "thoughts_token_count", 0) or 0)
 
         parsed_obj = getattr(response, "parsed", None)
-        if isinstance(parsed_obj, RespuestaLLM):
+        if isinstance(parsed_obj, LLMResponse):
             return parsed_obj, True, in_tok, out_tok, thought_tok
 
         raw_text = getattr(response, "text", "") or ""

@@ -43,6 +43,8 @@ from src.modeling.predict import (
 )
 from src.modeling.prompts import (
     CANONICAL_CLASS_DEFINITIONS,
+    LLMResponse,
+    NineClassScores,
     RespuestaLLM,
     ScoresNueveClases,
     build_llm_messages,
@@ -64,6 +66,8 @@ __all__ = [
     "FocalLoss",
     "InferenceRequest",
     "LLMApiPredictor",
+    "LLMResponse",
+    "NineClassScores",
     "OperationalMetricsA7",
     "PairedSignificanceResult",
     "PredictionRecord",

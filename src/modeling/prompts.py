@@ -64,7 +64,7 @@ CANONICAL_CLASS_DEFINITIONS: Dict[str, str] = {
 }
 
 
-class ScoresNueveClases(BaseModel):
+class NineClassScores(BaseModel):
     """Vector estructurado con los 9 puntajes de pertenencia en [0.0, 1.0] (Forma 2 aprobada)."""
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -99,7 +99,7 @@ class ScoresNueveClases(BaseModel):
         return [canonical_map[cls_name] for cls_name in CANONICAL_9_CLASSES]
 
 
-class RespuestaLLM(BaseModel):
+class LLMResponse(BaseModel):
     """Contrato estricto de respuesta JSON para GPT-4o / Gemini en la Actividad A5."""
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
@@ -108,7 +108,7 @@ class RespuestaLLM(BaseModel):
         ...,
         description="Etiqueta canónica predicha (debe coincidir con la clase de mayor puntaje).",
     )
-    scores: ScoresNueveClases = Field(
+    scores: NineClassScores = Field(
         ...,
         description="Puntajes de confianza en [0.0, 1.0] para cada una de las 9 clases canónicas.",
     )
@@ -195,7 +195,7 @@ def build_llm_messages(
             scores_dict = {
                 c: (0.92 if c == lbl else 0.01) for c in CANONICAL_9_CLASSES
             }
-            exemplar_resp = RespuestaLLM.model_validate(
+            exemplar_resp = LLMResponse.model_validate(
                 {"predicted_label": lbl, "scores": scores_dict}
             )
             messages.append(

@@ -32,7 +32,7 @@ from src.modeling.predict import (
     run_llm_api_experiment,
 )
 from src.modeling.prompts import (
-    RespuestaLLM,
+    LLMResponse,
     build_llm_messages,
 )
 from src.modeling.train import run_training_experiment
@@ -232,7 +232,7 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
     assert "Experiments:" not in msgs_gen[-1]["content"]
 
     # 2. Parseo JSON válido e inválido (Forma 2 con alias 'Further Reading')
-    valid_json = RespuestaLLM.model_validate(
+    valid_json = LLMResponse.model_validate(
         {
             "predicted_label": "Comparison",
             "scores": {c: (0.9 if c == "Comparison" else 0.01) for c in CANONICAL_9_CLASSES},
@@ -299,7 +299,7 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
     inst = make_synthetic_instance(idx=10, label="Basis", citing_section="Methodology")
     rep_cfg = InputRepresentationConfig(configuration="A")
 
-    parsed_resp = RespuestaLLM.model_validate(
+    parsed_resp = LLMResponse.model_validate(
         {
             "predicted_label": "Basis",
             "scores": {c: (0.95 if c == "Basis" else 0.01) for c in CANONICAL_9_CLASSES},
