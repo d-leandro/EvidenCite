@@ -56,6 +56,30 @@ def test_load_all_declarative_yaml_configs() -> None:
         assert cfg.input_representation.configuration == expected_rep
         assert cfg.input_representation.max_seq_length == 512
         assert cfg.input_representation.enforce_per_chunk_budget is True
+        # Verifica herencia estricta de base.yaml (Single Source of Truth)
+        assert cfg.seed == base_cfg.seed == 42
+        assert cfg.device == base_cfg.device == "auto"
+
+
+def test_base_config_inheritance_and_override(tmp_path: Path) -> None:
+    """Verifica que la configuración base se herede correctamente y admita overrides locales."""
+    custom_base = tmp_path / "custom_base.yaml"
+    custom_base.write_text("seed: 999\ndevice: 'cpu'\n", encoding="utf-8")
+
+    # Sub-config sin seed ni device: debe heredar de custom_base
+    cfg = load_experiment_config(Path("configs/model_config_a.yaml"), custom_base)
+    assert cfg.seed == 999
+    assert cfg.device == "cpu"
+
+    # Sub-config con override explícito: debe prevalecer el valor específico
+    exp_override = tmp_path / "exp_override.yaml"
+    exp_override.write_text(
+        "experiment_name: 'test_exp'\nmodel_family: 'tfidf'\nseed: 777\n",
+        encoding="utf-8",
+    )
+    cfg_override = load_experiment_config(exp_override, custom_base)
+    assert cfg_override.seed == 777
+    assert cfg_override.device == "cpu"
 
 
 def test_invalid_configs_raise_validation_error() -> None:

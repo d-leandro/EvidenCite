@@ -1,8 +1,6 @@
 # Extensión A4/A5 — LLM Liviano de Pesos Abiertos Fine-Tuned con PEFT/LoRA (SEQ_CLS)
 experiment_name: "llm_lora_config_b"
 model_family: "llm_lora"
-seed: 42
-device: "auto"
 
 input_representation:
   configuration: "B"
@@ -41,4 +39,3 @@ llm_lora:
   dynamic_padding: true
   fp16: false
   bf16: false
-

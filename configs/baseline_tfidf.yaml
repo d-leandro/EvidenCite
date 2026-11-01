@@ -1,7 +1,6 @@
 # Línea base clásica: TF-IDF + LogisticRegression balanceada
 experiment_name: "baseline_tfidf_config_a"
 model_family: "tfidf"
-seed: 42
 
 input_representation:
   configuration: "A"
@@ -22,4 +21,3 @@ tfidf:
   c_penalty: 1.0
   class_weight: "balanced"
   max_iter: 1000
-
