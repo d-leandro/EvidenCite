@@ -78,15 +78,28 @@ class PipelineConfig:
     skip_seminal: bool = False
 
     @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path]) -> "PipelineConfig":
-        """Carga la configuración desde un archivo YAML externo."""
+    def from_yaml(
+        cls,
+        yaml_path: Union[str, Path],
+        base_path: Optional[Union[str, Path]] = Path("configs/base.yaml"),
+    ) -> "PipelineConfig":
+        """Carga la configuración desde un archivo YAML externo, heredando de base_path si existe."""
         path = Path(yaml_path)
+        base_dict: Dict[str, Any] = {}
+        if base_path is not None:
+            bp = Path(base_path)
+            if bp.exists():
+                with open(bp, "r", encoding="utf-8") as f:
+                    base_dict = yaml.safe_load(f) or {}
+
         if not path.exists():
             logger.warning("Archivo de configuración %s no encontrado. Usando defaults.", path)
-            return cls()
+            return cls(seed=int(base_dict.get("seed", cls.seed)))
 
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+
+        seed_val = int(data.get("seed", base_dict.get("seed", cls.seed)))
 
         return cls(
             raw_unarxive_dir=Path(data.get("raw_unarxive_dir", cls.raw_unarxive_dir)),
@@ -98,7 +111,7 @@ class PipelineConfig:
             dataset_dir=Path(data.get("dataset_dir", cls.dataset_dir)),
             builder_config_path=Path(data.get("builder_config_path", cls.builder_config_path)),
             retrieval_config_path=Path(data.get("retrieval_config_path", cls.retrieval_config_path)),
-            seed=int(data.get("seed", cls.seed)),
+            seed=seed_val,
             force=bool(data.get("force", cls.force)),
             skip_seminal=bool(data.get("skip_seminal", cls.skip_seminal)),
         )

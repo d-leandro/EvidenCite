@@ -1,4 +1,4 @@
-# Configuración base transversal (Actividades A4–A7)
+# Configuración base transversal del proyecto (Actividades A1–A7)
 seed: 42
 device: "auto"
 
@@ -9,4 +9,3 @@ paths:
   output_dir: "models"
   mlflow_tracking_uri: ""  # http://ip:puerto del servidor; vacío: MLFLOW_IP, MLFLOW_TRACKING_URI o mlflow_ip.txt
   mlflow_experiment_name: "EvidenCite-A4-A7"
-

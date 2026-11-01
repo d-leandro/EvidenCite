@@ -16,6 +16,9 @@ from src.config.schema import (
     resolve_canonical_label,
     resolve_device,
 )
+from src.data.builder import BuilderConfig
+from src.data.pipeline import PipelineConfig
+from src.data.retrieval import RetrievalConfig
 
 
 def test_canonical_9_classes_mapping() -> None:
@@ -101,4 +104,42 @@ def test_resolve_device() -> None:
     """Verifica resolución de dispositivo explícito y automático."""
     assert resolve_device("cpu") == "cpu"
     assert resolve_device("auto") in ("cuda", "mps", "cpu")
+
+
+def test_data_pipeline_configs_inherit_base(tmp_path: Path) -> None:
+    """Verifica que los configs de datos hereden seed y device de configs/base.yaml (SSOT)."""
+    # 1. Carga directa: heredan los defaults de configs/base.yaml (seed=42, device=auto)
+    pipe_cfg = PipelineConfig.from_yaml(Path("configs/data_pipeline.yaml"))
+    assert pipe_cfg.seed == 42
+
+    builder_cfg = BuilderConfig.from_yaml(Path("configs/builder.yaml"))
+    assert builder_cfg.seed == 42
+    assert builder_cfg.nli_config is not None
+    assert builder_cfg.nli_config.device == "auto"
+
+    retrieval_cfg = RetrievalConfig.from_yaml(Path("configs/retrieval.yaml"))
+    assert retrieval_cfg.seed == 42
+    assert retrieval_cfg.device == "auto"
+
+    # 2. Carga con base_path personalizado: propaga seed y device a todos los módulos
+    custom_base = tmp_path / "custom_base.yaml"
+    custom_base.write_text("seed: 1234\ndevice: 'cuda'\n", encoding="utf-8")
+
+    pipe_custom = PipelineConfig.from_yaml(Path("configs/data_pipeline.yaml"), base_path=custom_base)
+    assert pipe_custom.seed == 1234
+
+    builder_custom = BuilderConfig.from_yaml(Path("configs/builder.yaml"), base_path=custom_base)
+    assert builder_custom.seed == 1234
+    assert builder_custom.nli_config is not None
+    assert builder_custom.nli_config.device == "cuda"
+
+    retrieval_custom = RetrievalConfig.from_yaml(Path("configs/retrieval.yaml"), base_path=custom_base)
+    assert retrieval_custom.seed == 1234
+    assert retrieval_custom.device == "cuda"
+
+    # 3. Override local en YAML particular prevalece sobre base.yaml
+    custom_pipe_yaml = tmp_path / "custom_pipe.yaml"
+    custom_pipe_yaml.write_text("seed: 888\n", encoding="utf-8")
+    pipe_override = PipelineConfig.from_yaml(custom_pipe_yaml, base_path=custom_base)
+    assert pipe_override.seed == 888
 
