@@ -77,13 +77,35 @@ class DummyWordTokenizer:
 
     def __call__(
         self,
-        text: str,
+        text: str | List[str],
         text_pair: Optional[str] = None,
         padding: bool | str = "max_length",
         truncation: bool | str = True,
         max_length: int = 512,
         return_tensors: str = "pt",
+        add_special_tokens: bool = True,
     ) -> dict[str, torch.Tensor]:
+        if isinstance(text, list):
+            single_items = [
+                self(
+                    t,
+                    padding=False,
+                    truncation=truncation,
+                    max_length=max_length,
+                    return_tensors="pt",
+                    add_special_tokens=add_special_tokens,
+                )
+                for t in text
+            ]
+            squeezed = [
+                {
+                    "input_ids": it["input_ids"].squeeze(0),
+                    "attention_mask": it["attention_mask"].squeeze(0),
+                }
+                for it in single_items
+            ]
+            return self.pad(squeezed, padding=padding, max_length=max_length if padding == "max_length" else None)
+
         ids_a = self.encode(text, add_special_tokens=False)
         ids_b = self.encode(text_pair, add_special_tokens=False) if text_pair is not None else []
 

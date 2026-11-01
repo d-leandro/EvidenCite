@@ -39,14 +39,13 @@ from src.modeling.predict import (
     predict_tfidf_batch,
     predict_transformer_batch,
     prepare_inference_citing_context,
+    resolve_request_evidence,
     run_llm_api_experiment,
 )
 from src.modeling.prompts import (
     CANONICAL_CLASS_DEFINITIONS,
     LLMResponse,
     NineClassScores,
-    RespuestaLLM,
-    ScoresNueveClases,
     build_llm_messages,
     format_user_prompt,
 )
@@ -71,8 +70,6 @@ __all__ = [
     "OperationalMetricsA7",
     "PairedSignificanceResult",
     "PredictionRecord",
-    "RespuestaLLM",
-    "ScoresNueveClases",
     "TechnicalMetricsA6",
     "TfidfPredictor",
     "TransformerPredictor",
@@ -98,6 +95,7 @@ __all__ = [
     "predict_tfidf_batch",
     "predict_transformer_batch",
     "prepare_inference_citing_context",
+    "resolve_request_evidence",
     "run_llm_api_experiment",
     "run_training_experiment",
     "train_tfidf_baseline",

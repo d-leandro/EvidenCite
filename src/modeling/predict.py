@@ -89,6 +89,10 @@ class InferenceRequest(BaseModel):
         default=None,
         description="ID de arXiv del paper citado para resolución automática por el orquestador en A8.",
     )
+    cited_pdf_path: Optional[Path] = Field(
+        default=None,
+        description="Ruta a un archivo PDF local del paper citado (cuando no reside en arXiv).",
+    )
     cited_title: Optional[str] = Field(
         default=None,
         description="Título del paper citado (usado en Configuración A).",
@@ -100,6 +104,10 @@ class InferenceRequest(BaseModel):
     cited_chunks: Optional[List[str]] = Field(
         default=None,
         description="Lista de chunks de evidencia del paper citado (usado en Configuración B).",
+    )
+    cited_chunk_sections: Optional[List[str]] = Field(
+        default=None,
+        description="Encabezados de sección correspondientes a cada chunk en cited_chunks.",
     )
     instance_id: Optional[str] = Field(
         default=None,
@@ -114,6 +122,7 @@ class InferenceRequest(BaseModel):
         abstract: Optional[str] = None
         paper_id: Optional[str] = None
         chunks_text: List[str] = []
+        chunks_sections: List[str] = []
 
         if cited is not None:
             if isinstance(cited, dict):
@@ -125,10 +134,16 @@ class InferenceRequest(BaseModel):
                     chunks_raw,
                     key=lambda c: c.get("rank", 999) if isinstance(c, dict) else getattr(c, "rank", 999),
                 )
-                chunks_text = [
-                    (c.get("text", "") if isinstance(c, dict) else getattr(c, "text", ""))
-                    for c in chunks_sorted
-                ]
+                for c in chunks_sorted:
+                    txt = (c.get("text", "") if isinstance(c, dict) else getattr(c, "text", "")).strip()
+                    sec_h = (
+                        c.get("section_heading", "")
+                        if isinstance(c, dict)
+                        else getattr(c, "section_heading", "")
+                    ).strip()
+                    if txt:
+                        chunks_text.append(txt)
+                        chunks_sections.append(sec_h)
             else:
                 title = getattr(cited, "title", None)
                 abstract = getattr(cited, "abstract", None)
@@ -138,13 +153,12 @@ class InferenceRequest(BaseModel):
                     chunks_raw,
                     key=lambda c: getattr(c, "rank", 999) if hasattr(c, "rank") else 999,
                 )
-                chunks_text = [
-                    getattr(c, "text", "")
-                    for c in chunks_sorted
-                    if getattr(c, "text", "")
-                ]
-
-        chunks_clean = [t for t in chunks_text if t]
+                for c in chunks_sorted:
+                    txt = (getattr(c, "text", "") or "").strip()
+                    sec_h = (getattr(c, "section_heading", "") or "").strip()
+                    if txt:
+                        chunks_text.append(txt)
+                        chunks_sections.append(sec_h)
 
         citing = getattr(instance, "citing_paper", None)
         sec: Optional[str] = None
@@ -161,9 +175,90 @@ class InferenceRequest(BaseModel):
             cited_arxiv_id=paper_id,
             cited_title=title,
             cited_abstract=abstract,
-            cited_chunks=chunks_clean or None,
+            cited_chunks=chunks_text or None,
+            cited_chunk_sections=chunks_sections or None,
             instance_id=instance.instance_id,
         )
+
+
+def resolve_request_evidence(
+    request: InferenceRequest,
+    retriever: Optional[Any] = None,
+    docling_parser: Optional[Any] = None,
+    arxiv_resolver: Optional[Any] = None,
+    max_chunk_words: int = 110,
+    top_k: int = 3,
+) -> InferenceRequest:
+    """Completa un InferenceRequest resolviendo automáticamente la evidencia del paper citado:
+
+    1. Si request ya cuenta con cited_chunks (Config B) y cited_title/cited_abstract (Config A),
+       lo retorna sin cambios.
+    2. Si request.cited_pdf_path está presente (PDF subido desde UI o local):
+       - Extrae el StructuredPaper mediante docling_parser.parse_pdf_to_structured_paper(...)
+       - Segmenta los chunks discursivos con chunk_paper(..., max_words=max_chunk_words)
+       - Recupera los Top-k chunks con retriever.retrieve_from_chunks(citing_context, chunks, k=top_k)
+       - Pobla cited_title, cited_abstract, cited_chunks y cited_chunk_sections.
+    3. Si request.cited_arxiv_id está presente:
+       - Ejecuta el mismo flujo de segmentación y recuperación a partir de arxiv_resolver.resolve_paper(...).
+    """
+    prepared_ctx = request.citing_context
+    if request.target_citation and "<cite>" not in prepared_ctx:
+        prepared_ctx = prepare_inference_citing_context(prepared_ctx, request.target_citation)
+
+    has_config_a = bool(request.cited_title or request.cited_abstract)
+    has_config_b = bool(request.cited_chunks)
+    if has_config_a and has_config_b:
+        return request.model_copy(update={"citing_context": prepared_ctx})
+
+    if request.cited_pdf_path is None and request.cited_arxiv_id is None:
+        return request.model_copy(update={"citing_context": prepared_ctx})
+
+    from src.data.chunking import chunk_paper
+    from src.data.ingestion.arxiv_resolver import ArxivPaperResolver, DoclingPDFParser
+    from src.data.retrieval import SciBERTRetriever
+
+    structured_paper = None
+    if request.cited_pdf_path is not None:
+        parser = docling_parser if docling_parser is not None else DoclingPDFParser()
+        structured_paper = parser.parse_pdf_to_structured_paper(
+            request.cited_pdf_path,
+            title=request.cited_title,
+            abstract=request.cited_abstract,
+        )
+    elif request.cited_arxiv_id is not None:
+        resolver = arxiv_resolver if arxiv_resolver is not None else ArxivPaperResolver()
+        structured_paper = resolver.resolve_paper(request.cited_arxiv_id)
+
+    if structured_paper is None:
+        return request.model_copy(update={"citing_context": prepared_ctx})
+
+    resolved_title = request.cited_title or structured_paper.title
+    resolved_abstract = request.cited_abstract or structured_paper.abstract
+    resolved_chunks = request.cited_chunks
+    resolved_sections = request.cited_chunk_sections
+
+    if not resolved_chunks:
+        all_chunks = chunk_paper(structured_paper.model_dump(), max_words=max_chunk_words)
+        if all_chunks:
+            active_retriever = retriever if retriever is not None else SciBERTRetriever()
+            top_retrieved = active_retriever.retrieve_from_chunks(
+                citation_context=prepared_ctx,
+                chunks=all_chunks,
+                k=top_k,
+                cache_key=structured_paper.paper_id,
+            )
+            resolved_chunks = [c.text for c in top_retrieved]
+            resolved_sections = [c.section_heading for c in top_retrieved]
+
+    return request.model_copy(
+        update={
+            "citing_context": prepared_ctx,
+            "cited_title": resolved_title,
+            "cited_abstract": resolved_abstract,
+            "cited_chunks": resolved_chunks,
+            "cited_chunk_sections": resolved_sections,
+        }
+    )
 
 
 class PredictionRecord(BaseModel):
@@ -237,14 +332,20 @@ class BasePredictor(ABC):
             )
             req = req.model_copy(update={"citing_context": prepared_ctx})
 
-        # Validación de evidencia según la configuración del modelo
+        # Validación y resolución bajo demanda de evidencia según la configuración del modelo
         cfg_mode = self.rep_config.configuration.upper()
         if cfg_mode == "A":
+            if not req.cited_title and not req.cited_abstract:
+                if req.cited_pdf_path is not None or req.cited_arxiv_id is not None:
+                    req = resolve_request_evidence(req, top_k=self.rep_config.top_k_chunks)
             if not req.cited_title and not req.cited_abstract:
                 raise ValueError(
                     "Configuración A requiere 'cited_title' o 'cited_abstract' como evidencia."
                 )
         elif cfg_mode == "B":
+            if not req.cited_chunks:
+                if req.cited_pdf_path is not None or req.cited_arxiv_id is not None:
+                    req = resolve_request_evidence(req, top_k=self.rep_config.top_k_chunks)
             if not req.cited_chunks:
                 raise ValueError(
                     "Configuración B requiere al menos un chunk en 'cited_chunks' como evidencia."
@@ -253,31 +354,12 @@ class BasePredictor(ABC):
         return req
 
     def _format_request_text(self, req: InferenceRequest) -> str:
-        """Formatea el request como texto único según la configuración de representación."""
-        ctx = req.citing_context
-        if self.rep_config.strip_cite_tags:
-            ctx = re.sub(r"</?cite>", "", ctx)
-
-        if self.rep_config.include_citing_section and req.rhetorical_section:
-            ctx = f"{req.rhetorical_section}: {ctx}"
-
-        evidence_parts: List[str] = []
-        cfg_mode = self.rep_config.configuration.upper()
-        if cfg_mode == "A":
-            if req.cited_title:
-                evidence_parts.append(req.cited_title)
-            if req.cited_abstract:
-                evidence_parts.append(req.cited_abstract)
-        elif cfg_mode == "B":
-            if req.cited_chunks:
-                evidence_parts.extend(req.cited_chunks[: self.rep_config.top_k_chunks])
-
-        if evidence_parts:
-            return f"{ctx}\n" + ". ".join(evidence_parts)
-        return ctx
+        """Formatea el request como texto único usando el mismo contrato de entrenamiento."""
+        return format_instance_as_single_text(self._to_dataset_instance(req), self.rep_config)
 
     def _to_dataset_instance(self, req: InferenceRequest) -> DatasetInstance:
         """Crea una instancia sintética en memoria compatible con CitationIntentDataset y prompts."""
+        sections_list = req.cited_chunk_sections or []
         cited_dict: Dict[str, Any] = {
             "id": req.cited_arxiv_id or "cited_adhoc",
             "title": req.cited_title,
@@ -285,7 +367,9 @@ class BasePredictor(ABC):
             "retrieved_chunks": [
                 {
                     "chunk_id": f"chk_{i}",
-                    "section_heading": "Section",
+                    "section_heading": (
+                        sections_list[i] if i < len(sections_list) else ""
+                    ),
                     "text": chk,
                     "similarity_score": 1.0,
                     "rank": i + 1,
@@ -456,52 +540,40 @@ class TransformerPredictor(BasePredictor):
         device: str = "auto",
         model_name: Optional[str] = None,
     ) -> "TransformerPredictor":
+        path_obj = Path(model_dir)
         path_str = str(model_dir)
         tokenizer = AutoTokenizer.from_pretrained(path_str)
-        model = AutoModelForSequenceClassification.from_pretrained(path_str)
-        name = model_name or Path(path_str).name
+
+        if (path_obj / "adapter_config.json").exists():
+            from peft import PeftConfig, PeftModel
+            from transformers import AutoConfig
+            from src.modeling.heads import ensure_tokenizer_padding
+
+            peft_cfg = PeftConfig.from_pretrained(path_str)
+            base_name = str(peft_cfg.base_model_name_or_path)
+            hf_config = AutoConfig.from_pretrained(
+                base_name,
+                num_labels=len(CANONICAL_9_CLASSES),
+                id2label=ID_TO_LABEL,
+                label2id=LABEL_TO_ID,
+            )
+            base_model = AutoModelForSequenceClassification.from_pretrained(
+                base_name,
+                config=hf_config,
+                ignore_mismatched_sizes=True,
+            )
+            ensure_tokenizer_padding(tokenizer, base_model)
+            model: torch.nn.Module = PeftModel.from_pretrained(base_model, path_str)
+        else:
+            model = AutoModelForSequenceClassification.from_pretrained(path_str)
+
+        name = model_name or path_obj.name
         return cls(
             model=model,
             tokenizer=tokenizer,
             rep_config=rep_config,
             device=device,
             model_name=name,
-        )
-
-    def _to_dataset_instance(self, req: InferenceRequest) -> DatasetInstance:
-        """Crea una instancia sintética en memoria compatible con CitationIntentDataset."""
-        cited_dict: Dict[str, Any] = {
-            "id": req.cited_arxiv_id or "cited_adhoc",
-            "title": req.cited_title,
-            "abstract": req.cited_abstract,
-            "retrieved_chunks": [
-                {
-                    "chunk_id": f"chk_{i}",
-                    "section_heading": "Section",
-                    "text": chk,
-                    "similarity_score": 1.0,
-                    "rank": i + 1,
-                }
-                for i, chk in enumerate(req.cited_chunks or [])
-            ],
-        }
-        citing_dict: Dict[str, Any] = {
-            "id": "citing_adhoc",
-            "id_source": "arxiv",
-            "rhetorical_section": req.rhetorical_section or "Unknown Section",
-        }
-        meta_dict: Dict[str, Any] = {
-            "source_dataset": "adhoc_inference",
-            "is_gold": False,
-        }
-
-        return DatasetInstance(
-            instance_id=req.instance_id or "adhoc_inference",
-            label="Background",  # Placeholder
-            annotation_metadata=meta_dict,  # type: ignore[arg-type]
-            citing_paper=citing_dict,  # type: ignore[arg-type]
-            citation_context=req.citing_context,
-            cited_paper=cited_dict,  # type: ignore[arg-type]
         )
 
     def predict(

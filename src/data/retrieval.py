@@ -19,7 +19,7 @@ import logging
 from pathlib import Path
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 # Garantizar que la raíz del proyecto esté en sys.path para ejecuciones como script
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -321,6 +321,58 @@ class SciBERTRetriever:
                 )
             )
 
+        return results
+
+    def retrieve_from_chunks(
+        self,
+        citation_context: str,
+        chunks: Sequence[CitedChunk],
+        k: Optional[int] = None,
+        cache_key: Optional[str] = None,
+    ) -> List[RetrievedChunk]:
+        """Codifica chunks ad-hoc en memoria (con caché opcional por cache_key/paper_id)
+        y retorna los Top-k RetrievedChunk ordenados por similitud coseno con citation_context.
+        """
+        if not chunks:
+            return []
+
+        k_val = k if k is not None else self.config.k
+        effective_key = cache_key or (chunks[0].paper_id if chunks[0].paper_id else None)
+
+        if effective_key and effective_key in self._paper_embeddings_cache:
+            cached_chunks, chunk_embeddings = self._paper_embeddings_cache[effective_key]
+            chunks_list = cached_chunks
+        else:
+            chunks_list = list(chunks)
+            chunk_texts = [c.text for c in chunks_list]
+            chunk_embeddings = self.encode_texts(chunk_texts)
+            if effective_key:
+                self._paper_embeddings_cache[effective_key] = (chunks_list, chunk_embeddings)
+
+        m_chunks = len(chunks_list)
+        if m_chunks == 0:
+            return []
+
+        query_vec = self.encode_texts([citation_context])
+        sim_scores = torch.matmul(query_vec, chunk_embeddings.T).squeeze(0)
+        if sim_scores.ndim == 0:
+            sim_scores = sim_scores.unsqueeze(0)
+
+        actual_k = min(k_val, m_chunks)
+        top_scores, top_indices = torch.topk(sim_scores, k=actual_k, largest=True, sorted=True)
+
+        results: List[RetrievedChunk] = []
+        for rank_idx, (score, idx) in enumerate(zip(top_scores.tolist(), top_indices.tolist()), start=1):
+            target_chunk = chunks_list[idx]
+            results.append(
+                RetrievedChunk(
+                    chunk_id=target_chunk.chunk_id,
+                    section_heading=target_chunk.section_heading,
+                    text=target_chunk.text,
+                    similarity_score=float(score),
+                    rank=rank_idx,
+                )
+            )
         return results
 
     def clear_cache(self) -> None:
