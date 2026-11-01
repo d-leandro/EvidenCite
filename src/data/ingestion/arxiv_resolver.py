@@ -6,11 +6,13 @@ y segmentación atómica de oraciones compatible con el contrato canónico del p
 """
 
 from enum import Enum
+import hashlib
 import json
 import logging
 from pathlib import Path
 import random
 import re
+import tempfile
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import xml.etree.ElementTree as ET
@@ -443,6 +445,105 @@ class DoclingPDFParser:
         except Exception as exc:
             logger.error("Fallo durante la extracción de secciones con Docling en %s: %s", pdf_path.name, exc)
             return []
+
+    def parse_pdf_to_structured_paper(
+        self,
+        pdf_source: Union[str, Path, bytes],
+        paper_id: Optional[str] = None,
+        title: Optional[str] = None,
+        abstract: Optional[str] = None,
+    ) -> Optional[StructuredPaper]:
+        """Convierte un PDF local (o bytes subidos desde UI) en un StructuredPaper en memoria.
+
+        - Si 'pdf_source' es bytes, utiliza un archivo temporal seguro durante el parseo.
+        - Si 'title' o 'abstract' no se proveen, los infiere automáticamente de los bloques
+          extraídos por Docling.
+        - Filtra secciones excluidas (References, Acknowledgments) con is_excluded_heading()
+          y segmenta oraciones con split_sentences().
+        """
+        tmp_path: Optional[Path] = None
+        try:
+            if isinstance(pdf_source, bytes):
+                sha_prefix = hashlib.sha256(pdf_source).hexdigest()[:12]
+                effective_id = paper_id or f"pdf_{sha_prefix}"
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+                    tmp_file.write(pdf_source)
+                    tmp_path = Path(tmp_file.name)
+                target_path = tmp_path
+            else:
+                target_path = Path(pdf_source)
+                effective_id = paper_id or target_path.stem or "pdf_adhoc"
+
+            raw_sections = self.extract_sections(target_path)
+            if not raw_sections:
+                return None
+
+            inferred_title = title
+            inferred_abstract = abstract
+
+            for idx, raw_sec in enumerate(raw_sections):
+                heading_clean = raw_sec.heading.strip()
+                heading_lower = heading_clean.lower()
+                if not inferred_abstract and (
+                    heading_lower == "abstract" or heading_lower.startswith("abstract")
+                ):
+                    inferred_abstract = raw_sec.raw_text.strip()
+                if (
+                    idx == 0
+                    and not inferred_title
+                    and heading_lower not in ("content", "abstract", "introduction")
+                    and not is_excluded_heading(heading_clean)
+                ):
+                    inferred_title = heading_clean
+
+            structured_sections: List[StructuredSection] = []
+            sent_idx = 0
+
+            for raw_sec in raw_sections:
+                if is_excluded_heading(raw_sec.heading):
+                    continue
+
+                raw_sents = split_sentences(raw_sec.raw_text)
+                sec_sentences: List[StructuredSentence] = []
+
+                for s in raw_sents:
+                    clean_s = s.strip()
+                    if len(clean_s) > 15:
+                        sec_sentences.append(
+                            StructuredSentence(sent_idx=sent_idx, text=clean_s, citations=[])
+                        )
+                        sent_idx += 1
+
+                if sec_sentences:
+                    structured_sections.append(
+                        StructuredSection(
+                            section_idx=len(structured_sections),
+                            heading=raw_sec.heading,
+                            sentences=sec_sentences,
+                        )
+                    )
+
+            if not structured_sections:
+                return None
+
+            if not inferred_abstract and structured_sections:
+                inferred_abstract = " ".join(
+                    s.text for s in structured_sections[0].sentences[:5]
+                )
+
+            return StructuredPaper(
+                paper_id=effective_id,
+                id_source="pdf_upload",
+                title=inferred_title or effective_id,
+                abstract=inferred_abstract or "",
+                discipline="Computer Science",
+                categories=["cs.AI"],
+                sections=structured_sections,
+                bibliography={},
+            )
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                tmp_path.unlink(missing_ok=True)
 
 
 class ArxivPaperResolver:

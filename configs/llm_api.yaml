@@ -1,0 +1,31 @@
+# Actividad A5 — LLMs Comerciales Zero/Few-Shot vía API (OpenAI GPT-4o / Google Gemini)
+experiment_name: "llm_api_config_b"
+model_family: "llm_api"
+seed: 42
+
+input_representation:
+  configuration: "B"
+  include_citing_section: true
+  include_cited_section: true
+  max_seq_length: 512
+  enforce_per_chunk_budget: true
+  top_k_chunks: 3
+  strip_cite_tags: false
+
+llm_api:
+  provider: "openai"
+  model_name: "gpt-4o-mini"
+  api_key_env: "OPENAI_API_KEY"
+  base_url: null
+  temperature: 0.0
+  max_output_tokens: 512
+  thinking_budget: 0
+  prompt_mode: "section_conditioned"
+  num_few_shot: 0
+  enforce_structured_output: true
+  cache_path: "models/llm_api_cache.jsonl"
+  cost_per_1m_input_tokens_usd: 0.15
+  cost_per_1m_output_tokens_usd: 0.60
+  max_retries: 3
+  timeout_seconds: 60.0
+

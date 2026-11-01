@@ -1,0 +1,34 @@
+# Actividad A4 — Configuración B (Propuesta Enriquecida: Citante + Top-3 Chunks del Citado con su Sección)
+experiment_name: "scibert_config_b"
+model_family: "encoder"
+seed: 42
+device: "auto"
+
+input_representation:
+  configuration: "B"
+  include_citing_section: true
+  include_cited_section: true
+  max_seq_length: 512
+  enforce_per_chunk_budget: true
+  top_k_chunks: 3
+  strip_cite_tags: false
+
+encoder:
+  pretrained_model_name_or_path: "allenai/scibert_scivocab_uncased"
+  learning_rate: 2.0e-5
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 32
+  gradient_accumulation_steps: 1
+  num_train_epochs: 5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  classifier_dropout: 0.1
+  loss_type: "weighted_ce"
+  class_weight_scheme: "balanced"
+  focal_gamma: 2.0
+  early_stopping_patience: 2
+  dynamic_padding: true
+  fp16: false
+  bf16: false
+

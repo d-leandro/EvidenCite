@@ -5,18 +5,26 @@ description = "Local Citation Recommendation and Rhetorical Function Classificat
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "accelerate>=1.15.0",
+    "beautifulsoup4>=4.15.0",
+    "bitsandbytes>=0.50.2",
+    "docling>=2.142.0",
+    "google-genai>=2.34.0",
+    "httpx>=0.28.1",
+    "joblib>=1.6.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.11.2",
+    "mlflow>=3.17.2",
+    "numpy>=2.4.6",
+    "openai>=3.42.0",
+    "pandas>=3.1.0",
+    "peft>=0.21.2",
     "pydantic>=2.14.1",
     "pyyaml>=6.0.3",
     "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
     "torch>=2.14.1",
     "transformers>=5.20.2",
-    "peft>=0.21.2",
-    "accelerate>=1.15.0",
-    "bitsandbytes>=0.50.2",
-    "mlflow-skinny>=3.17.2",
-    "scikit-learn>=1.9.1",
-    "jupyter>=1.1.1",
-    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]

@@ -1,0 +1,103 @@
+"""Paquete de modelamiento, entrenamiento, inferencia y evaluación (Actividades A4–A8)."""
+
+from src.modeling.dataset import (
+    CitationIntentDataset,
+    compute_split_sha256,
+    format_instance_as_single_text,
+    format_instance_parts,
+    load_jsonl_instances,
+)
+from src.modeling.evaluate import (
+    OperationalMetricsA7,
+    PairedSignificanceResult,
+    TechnicalMetricsA6,
+    compute_a6_metrics,
+    compute_hf_metrics,
+    paired_significance_test,
+)
+from src.modeling.heads import (
+    build_encoder_classifier,
+    build_lora_classifier,
+    build_sequence_classifier,
+    count_model_parameters,
+    ensure_tokenizer_padding,
+)
+from src.modeling.loss import (
+    FocalLoss,
+    build_loss_fn,
+    compute_class_weights,
+)
+from src.modeling.predict import (
+    BasePredictor,
+    InferenceRequest,
+    LLMApiPredictor,
+    PredictionRecord,
+    TfidfPredictor,
+    TransformerPredictor,
+    create_predictor,
+    parse_llm_json_response,
+    predict_tfidf_batch,
+    predict_transformer_batch,
+    prepare_inference_citing_context,
+    resolve_request_evidence,
+    run_llm_api_experiment,
+)
+from src.modeling.prompts import (
+    CANONICAL_CLASS_DEFINITIONS,
+    LLMResponse,
+    NineClassScores,
+    build_llm_messages,
+    format_user_prompt,
+)
+from src.modeling.train import (
+    ExperimentRunArtifact,
+    WeightedSequenceTrainer,
+    run_training_experiment,
+    train_tfidf_baseline,
+    train_transformer_experiment,
+)
+
+__all__ = [
+    "BasePredictor",
+    "CANONICAL_CLASS_DEFINITIONS",
+    "CitationIntentDataset",
+    "ExperimentRunArtifact",
+    "FocalLoss",
+    "InferenceRequest",
+    "LLMApiPredictor",
+    "LLMResponse",
+    "NineClassScores",
+    "OperationalMetricsA7",
+    "PairedSignificanceResult",
+    "PredictionRecord",
+    "TechnicalMetricsA6",
+    "TfidfPredictor",
+    "TransformerPredictor",
+    "WeightedSequenceTrainer",
+    "build_encoder_classifier",
+    "build_llm_messages",
+    "build_lora_classifier",
+    "build_loss_fn",
+    "build_sequence_classifier",
+    "compute_a6_metrics",
+    "compute_class_weights",
+    "compute_hf_metrics",
+    "compute_split_sha256",
+    "count_model_parameters",
+    "create_predictor",
+    "ensure_tokenizer_padding",
+    "format_instance_as_single_text",
+    "format_instance_parts",
+    "format_user_prompt",
+    "load_jsonl_instances",
+    "paired_significance_test",
+    "parse_llm_json_response",
+    "predict_tfidf_batch",
+    "predict_transformer_batch",
+    "prepare_inference_citing_context",
+    "resolve_request_evidence",
+    "run_llm_api_experiment",
+    "run_training_experiment",
+    "train_tfidf_baseline",
+    "train_transformer_experiment",
+]
