@@ -168,6 +168,9 @@ class CitationIntentDataset(Dataset):
         self.max_length = self.rep_config.max_seq_length
         self.label_to_id = label_to_id if label_to_id is not None else dict(LABEL_TO_ID)
         self.dynamic_padding = dynamic_padding
+        # Cada instancia se tokeniza una sola vez (lora.zip): las épocas siguientes y las longitudes que usa
+        # group_by_length leen de aquí
+        self._cache: Dict[int, Dict[str, torch.Tensor]] = {}
 
         if instances is not None:
             self.instances: List[DatasetInstance] = list(instances)
@@ -179,6 +182,8 @@ class CitationIntentDataset(Dataset):
         return len(self.instances)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        if idx in self._cache:
+            return self._cache[idx]
         inst = self.instances[idx]
         text_citing, text_cited = format_instance_parts(
             inst,
@@ -220,5 +225,6 @@ class CitationIntentDataset(Dataset):
         if canonical_lbl and canonical_lbl in self.label_to_id:
             item["labels"] = torch.tensor(self.label_to_id[canonical_lbl], dtype=torch.long)
 
+        self._cache[idx] = item
         return item
 

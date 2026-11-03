@@ -1,0 +1,6 @@
+transformers>=5.20.2
+peft>=0.21.2
+accelerate
+bitsandbytes
+mlflow-skinny
+torchao>=0.16
