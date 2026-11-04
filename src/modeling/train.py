@@ -210,6 +210,15 @@ def _scheduler_args(name: str, total_steps: int, threshold: float) -> Tuple[str,
         }
     return name, {}  # linear, cosine
 
+def _compilar_por_bloques(model: torch.nn.Module, modo: Optional[str] = None) -> int:
+    """Compila en su lugar cada bloque del transformer (las 36 capas de Qwen3, las 12 de BERT) con lote y longitud
+    dinámicos. Los bloques comparten código: se compila el primero y los demás reutilizan el resultado."""
+    for modulo in model.modules():
+        if isinstance(modulo, torch.nn.ModuleList) and len(modulo) > 1 and len({type(m) for m in modulo}) == 1:
+            for bloque in modulo:
+                bloque.compile(dynamic=True, mode=modo)
+            return len(modulo)
+    return 0
 
 def _log_to_mlflow_safe(
     config: ExperimentConfig,
@@ -538,12 +547,10 @@ def train_transformer_experiment(
         train_sampling_strategy="group_by_length" if sub_cfg.group_by_length else "random",
         gradient_checkpointing=sub_cfg.gradient_checkpointing,
         gradient_checkpointing_kwargs={"use_reentrant": False} if sub_cfg.gradient_checkpointing else None,
-        torch_compile=compile_model,
-        torch_compile_mode=sub_cfg.torch_compile_mode if compile_model else None,
     )
 
     # Relleno dinámico hasta un múltiplo de 8 en CUDA (tensor cores), de 64 al compilar (menos formas distintas)
-    pad_multiple = (64 if compile_model else 8) if cuda else None
+    pad_multiple = 8 if cuda else None
     collator = (
         DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=pad_multiple)
         if sub_cfg.dynamic_padding
@@ -554,6 +561,10 @@ def train_transformer_experiment(
         # EVA inicia el adaptador con las activaciones de los primeros lotes de train
         eva_loader = DataLoader(train_ds, batch_size=sub_cfg.per_device_train_batch_size, collate_fn=collator)
         initialize_eva(model, itertools.islice(eva_loader, 8), autocast_dtype)  # type: ignore[arg-type]
+
+    if compile_model:
+        bloques = _compilar_por_bloques(model, sub_cfg.torch_compile_mode)
+        print(f"torch.compile: {bloques} bloques compilados en su lugar, con formas dinámicas")
 
     callbacks: List[Any] = [
         EarlyStoppingCallback(
@@ -582,6 +593,9 @@ def train_transformer_experiment(
 
     t0 = time.perf_counter()
     trainer.train()
+    if compile_model:
+        from torch._dynamo.utils import counters
+        print(f"torch.compile: {counters['stats']['unique_graphs']} grafos compilados")
     train_wall_time = time.perf_counter() - t0
     if registro is not None:  # el mejor punto que eligió el early stopping y los pasos entrenados
         registro.metricas(
