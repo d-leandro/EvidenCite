@@ -7,6 +7,10 @@ import os
 from pathlib import Path
 import shutil
 import time
+import sys
+from tqdm.std import tqdm as tqdm_texto
+from transformers import ProgressCallback
+from transformers.trainer_utils import has_length
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import joblib
@@ -163,6 +167,33 @@ class WeightedSequenceTrainer(Trainer):
 
         return (loss, outputs) if return_outputs else loss
 
+class BarraTexto(ProgressCallback):
+    """Barras de texto de tqdm, como en lora.zip. Dentro de un kernel de Jupyter (y por eso con `colab exec`) el
+    Trainer usa NotebookProgressCallback, una tabla HTML que se redibuja en cada paso: por la CLI cada redibujo
+    llega como texto nuevo."""
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        if state.is_world_process_zero:
+            self.training_bar = tqdm_texto(total=state.max_steps, desc="entrenando", unit="paso",
+                                           ncols=100, mininterval=2, file=sys.stdout)
+        self.current_step = 0
+
+    def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
+        if state.is_world_process_zero and has_length(eval_dataloader):
+            if self.prediction_bar is None:
+                self.prediction_bar = tqdm_texto(total=len(eval_dataloader), desc="evaluando", unit="lote",
+                                                 ncols=100, mininterval=2, leave=False, file=sys.stdout)
+            self.prediction_bar.update(1)
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if not state.is_world_process_zero or self.training_bar is None or not logs:
+            return
+        if "loss" in logs:  # pérdida y tasa dentro de la barra, sin una línea nueva cada LOG_CADA pasos
+            self.training_bar.set_postfix(loss=f"{logs['loss']:.4f}", lr=f"{logs.get('learning_rate', 0):.1e}",
+                                          refresh=False)
+        if "eval_f1_macro" in logs:  # una línea por evaluación de dev
+            self.training_bar.write(f"época {logs.get('epoch', 0):.2f} · dev: pérdida {logs['eval_loss']:.4f}"
+                                    f" · macro-F1 {logs['eval_f1_macro']:.4f}", file=sys.stdout)
 
 def _extract_label_ids(instances: Sequence[DatasetInstance]) -> List[int]:
     label_ids: List[int] = []
@@ -590,6 +621,12 @@ def train_transformer_experiment(
         autocast_dtype=autocast_dtype,
         lora_config=sub_cfg if config.model_family == "llm_lora" else None,
     )
+
+    # La barra de texto en lugar de la tabla de Jupyter (o de la barra de tqdm.auto fuera de Jupyter)
+    for callback in list(trainer.callback_handler.callbacks):
+        if type(callback).__name__ in ("NotebookProgressCallback", "ProgressCallback"):
+            trainer.remove_callback(callback)
+            trainer.add_callback(BarraTexto())
 
     t0 = time.perf_counter()
     trainer.train()
