@@ -1,27 +1,58 @@
-"""Registro de la corrida en MLflow desde un hilo aparte, sin frenar el entrenamiento si el servidor se
-cae (celda 11).
+"""Registro de la corrida en un servidor de MLflow desde un hilo aparte, sin frenar el entrenamiento si el servidor
+se cae (registro_mlflow.py de lora.zip).
+
+abrir_mlflow crea la corrida al empezar, así que se ve en RUNNING mientras entrena; RealTimeMLflowCallback le pasa lo
+que registra el Trainer, y train.py envía al final las métricas A6/A7, los archivos y el mejor modelo (columna Models)
+y la cierra en FINISHED (o FAILED si falla). Si no hay servidor, avisa y los resultados quedan en local.
+descargar_modelo baja de MLflow el mejor modelo de una corrida, para quien lo consume (create_predictor).
 """
 
+import contextlib
+import json
+import os
+import platform
 import queue
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
-from dataclasses import asdict
+import warnings
 from datetime import datetime, timedelta
+from importlib import metadata
 from pathlib import Path
 
 import numpy as np
+import torch
 from tqdm import tqdm
+from transformers import TrainerCallback
 
-from configuracion import Config
-from entorno import titulo
+from src.config.schema import ExperimentConfig
+
+# Cliente de MLflow: pocos reintentos y espera corta por pedido. Si el servidor cae, quien reintenta es RegistroMLflow,
+# en segundo plano y sin frenar el entrenamiento.
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "2")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", "1")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "30")
+os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")  # mlflow 3 manda estadísticas de uso a sus servidores
+os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 try:
-    from mlflow import MlflowClient  # registro en MLflow, solo con MLFLOW_IP (pip install mlflow-skinny)
-    from mlflow.entities import Metric, Param, RunTag
+    from mlflow import MlflowClient
+    from mlflow.entities import LoggedModelOutput, Metric, Param, RunTag
 except ImportError:
-    MlflowClient = Metric = Param = RunTag = None
+    MlflowClient = LoggedModelOutput = Metric = Param = RunTag = None
+
+AVISO_SIN_SERVIDOR = "servidor de MLflow no encontrado, los resultados se guardarán localmente"
+# Si se define (python -m src.modeling lo hace), la salida de la consola se sube a la corrida como salida.log.
+SALIDA_CONSOLA: Path | None = None
+
+
+class MLflowNoEncontrado(UserWarning):
+    """Advertencia de que no hay servidor de MLflow: los resultados se guardan en local."""
+
+
+warnings.simplefilter("always", MLflowNoEncontrado)  # se muestra en cada corrida, no solo la primera vez
 
 
 class RegistroMLflow:
@@ -40,11 +71,8 @@ class RegistroMLflow:
       --allowed-hosts del servidor, se trata como caída y se reintenta.
     - cerrar() espera a que se envíe lo pendiente. Con el servidor caído espera como mucho hasta `espera_min`
       minutos después de que dejó de responder. Si no vuelve, cierra sin MLflow y la corrida queda en RUNNING e
-      incompleta en el servidor. Los resultados locales no dependen de nada de esto.
+      incompleta en el servidor; cerrar() devuelve False y train.py conserva los resultados en local.
     """
-
-    CAMPOS_FILA = {"train": ("perdida", "lr", "norma_grad", "ejemplos_por_s", "epoca"),
-                   "dev": ("macro_f1", "f1_macro_9", "f1_macro_5", "f1_weighted", "accuracy", "perdida")}
 
     def __init__(self, ip: str, experimento: str, nombre: str, espera_min: float, archivo_ip: Path,
                  reintento_s: float = 30.0):
@@ -52,7 +80,7 @@ class RegistroMLflow:
         self.ip, self.experimento, self.nombre, self.archivo_ip = ip, experimento, nombre, Path(archivo_ip)
         self.espera_s, self.reintento_s = espera_min * 60, reintento_s
         self.inicio_ms = int(time.time() * 1000)
-        self.uri = self.cliente = self.run_id = self.experimento_id = None
+        self.uri = self.cliente = self.run_id = self.experimento_id = self.modelo_id = None
         self.cola = queue.Queue()
         self.pendientes, self.enviados = [], []    # lo que falta enviar y lo ya enviado (por si hay que reenviar)
         self.caido_desde = None                    # time.monotonic() del primer intento fallido de la caída actual
@@ -82,33 +110,45 @@ class RegistroMLflow:
         for i in range(0, len(items), 1000):
             self.cola.put(("datos", {"metrics": items[i:i + 1000]}))
 
-    def registrar_fila(self, tipo: str, fila: dict) -> None:
-        """Pasa a MLflow una fila del registro de entrenamiento ("train") o de una evaluación de dev ("dev")."""
-        self.metricas({f"{tipo}/{k}": fila.get(k) for k in self.CAMPOS_FILA[tipo]}, fila["paso"])
+    def artefacto(self, archivo: Path) -> None:
+        """Encola un archivo como artefacto de la corrida."""
+        self.cola.put(("artefacto", (str(archivo), None)))
 
-    def artefactos(self, carpeta: Path, excluir: tuple = ()) -> None:
-        """Encola cada archivo de `carpeta` como artefacto, con su subcarpeta. Salta las subcarpetas de `excluir`."""
-        carpeta = Path(carpeta)
-        for archivo in sorted(p for p in carpeta.rglob("*") if p.is_file()):
-            relativo = archivo.relative_to(carpeta)
-            if relativo.parts[0] not in excluir:
-                destino = None if relativo.parent == Path(".") else relativo.parent.as_posix()
-                self.cola.put(("artefacto", (str(archivo), destino)))
+    def modelo(self, nombre: str, carpetas: dict, tipo: str, parametros: dict) -> None:
+        """Encola el mejor modelo: un modelo registrado de la corrida (columna Models) con los archivos de `carpetas`
+        ({subcarpeta en el modelo o None para la raíz: carpeta local}). Las carpetas deben existir hasta cerrar()."""
+        self.cola.put(("modelo", {"nombre": nombre, "carpetas": {k: str(v) for k, v in carpetas.items()},
+                                  "tipo": tipo, "parametros": {k: str(v)[:6000] for k, v in parametros.items()},
+                                  "model_id": None}))
 
     def cerrar(self, estado: str = "FINISHED", esperar: bool = True) -> bool:
-        """Encola el cierre con `estado` y espera al hilo. Devuelve True si todo llegó a MLflow.
+        """Encola el cierre con `estado` y espera al hilo. Devuelve True si todo llegó a MLflow, sin descartes.
 
         Con esperar=False (corrida que falló o se interrumpió) no espera a un servidor caído.
         """
         self.cola.put(("fin", (estado, esperar)))
         self.hilo.join()
-        return not self.abandonado and self.run_id is not None
+        return not self.abandonado and self.run_id is not None and self.descartados == 0
 
     def url_corrida(self) -> str | None:
         """Dirección de la corrida en la interfaz de MLflow, o None si todavía no se creó."""
         if self.run_id is None:
             return None
         return f"{self.uri}/#/experiments/{self.experimento_id}/runs/{self.run_id}"
+
+    def _subir_modelo(self, estado: dict) -> None:
+        """Crea el modelo registrado ligado a la corrida, sube sus archivos y lo deja en READY. Si falla a mitad, el
+        reintento sigue con el mismo modelo (model_id queda en `estado`)."""
+        if estado["model_id"] is None:
+            modelo = self.cliente.create_logged_model(self.experimento_id, name=estado["nombre"],
+                                                      source_run_id=self.run_id, params=estado["parametros"],
+                                                      model_type=estado["tipo"])
+            self.cliente.log_outputs(self.run_id, [LoggedModelOutput(modelo.model_id, step=0)])
+            estado["model_id"] = modelo.model_id
+        for destino, carpeta in estado["carpetas"].items():
+            self.cliente.log_model_artifacts(estado["model_id"], carpeta, destino)
+        self.cliente.finalize_logged_model(estado["model_id"], "READY")
+        self.modelo_id = estado["model_id"]
 
     # Lo que hace el hilo.
     @staticmethod
@@ -132,7 +172,7 @@ class RegistroMLflow:
             candidatas.append(self.archivo_ip.read_text(encoding="utf-8").strip())
         except OSError:
             pass
-        uris = [c if c.startswith(("http://", "https://")) else f"http://{c}" for c in candidatas if c]
+        uris = [c if "://" in c else f"http://{c}" for c in candidatas if c]
         return list(dict.fromkeys(uris))
 
     def _conectar(self) -> bool:
@@ -150,8 +190,8 @@ class RegistroMLflow:
             alguna_responde = True
             if uri == self.uri and not verificar:
                 return True
-            cliente = self.cliente if uri == self.uri else MlflowClient(tracking_uri=uri)
             try:
+                cliente = self.cliente if uri == self.uri else MlflowClient(tracking_uri=uri)
                 if self.run_id is not None:
                     try:
                         cliente.get_run(self.run_id)
@@ -231,6 +271,8 @@ class RegistroMLflow:
                     return True
                 if tipo == "artefacto":
                     self.cliente.log_artifact(self.run_id, contenido[0], contenido[1])
+                elif tipo == "modelo":
+                    self._subir_modelo(contenido)
                 else:
                     lote, n = self._tomar_lote(maximo)
                     self.cliente.log_batch(self.run_id, metrics=lote["metrics"], params=lote["params"], tags=lote["tags"])
@@ -242,13 +284,15 @@ class RegistroMLflow:
                 if codigo == "RESOURCE_DOES_NOT_EXIST" and self.recreaciones < 3:
                     self._olvidar_corrida()
                     return False
-                if tipo == "artefacto" and codigo != "INVALID_PARAMETER_VALUE" and self._acepta_pedidos():
+                if tipo in ("artefacto", "modelo") and codigo != "INVALID_PARAMETER_VALUE" and self._acepta_pedidos():
                     # El servidor funciona pero el archivo no se pudo subir (por ejemplo, guarda los artefactos en
-                    # S3 sin pasarlos por él y aquí no hay credenciales): se salta ese archivo y se sigue.
+                    # S3 sin pasarlos por él y aquí no hay credenciales): se salta ese archivo y se sigue. La corrida
+                    # queda incompleta y train.py conserva los resultados en local.
                     self.descartados += 1
+                    nombre = Path(contenido[0]).name if tipo == "artefacto" else f"el modelo {contenido['nombre']}"
                     if self.descartados <= 3:
-                        self._avisar(f"no pude subir {Path(contenido[0]).name} ({type(e).__name__}: {str(e)[:150]}); "
-                                     "el servidor responde, así que salto ese archivo")
+                        self._avisar(f"no pude subir {nombre} ({type(e).__name__}: {str(e)[:150]}); "
+                                     "el servidor responde, así que lo salto")
                     self.pendientes.pop(0)
                     continue
                 if codigo != "INVALID_PARAMETER_VALUE":
@@ -319,8 +363,8 @@ class RegistroMLflow:
                     limite = self.caido_desde + self.espera_s
                     if not fin[1] or time.monotonic() >= limite:
                         self.abandonado = True
-                        self._avisar("el servidor no volvió a tiempo: cierro sin MLflow. Los resultados locales están "
-                                     "completos; en MLflow la corrida quedó incompleta.")
+                        self._avisar("el servidor no volvió a tiempo: cierro sin MLflow. Los resultados quedan en "
+                                     "local; en MLflow la corrida quedó incompleta.")
                         return
                     if not self.avise_espera:
                         self.avise_espera = True
@@ -336,72 +380,156 @@ def archivo_ip_mlflow(colab: bool) -> Path:
     return Path("/content/mlflow_ip.txt") if colab else Path("mlflow_ip.txt")
 
 
-def abrir_mlflow(cfg: Config, colab: bool, versiones: dict) -> RegistroMLflow | None:
-    """Abre el registro en MLflow si MLFLOW_IP está definido y encola la Config como parámetros; si no, devuelve None.
+def en_colab() -> bool:
+    """True en un runtime de Google Colab, desde la interfaz web o desde la CLI."""
+    return "COLAB_RELEASE_TAG" in os.environ
 
-    No espera al servidor: el entrenamiento empieza igual y el hilo avisa enseguida si no responde.
-    """
-    if not cfg.mlflow_ip:
-        return None
+
+def versiones() -> dict:
+    """Versión de Python y de las librerías del entrenamiento (None si no está instalada), para las etiquetas."""
+    v = {"python": platform.python_version()}
+    for paquete in ("torch", "transformers", "peft", "accelerate", "bitsandbytes", "mlflow", "mlflow-skinny"):
+        try:
+            v[paquete] = metadata.version(paquete)
+        except metadata.PackageNotFoundError:
+            v[paquete] = None
+    return v
+
+
+def parametros_experimento(cfg: ExperimentConfig) -> dict:
+    """Los parámetros que registraba train.py más todos los de la familia (tasa, lotes, LoRA, optimizaciones)."""
+    rep = cfg.input_representation
+    familia = getattr(cfg, cfg.model_family, None)
+    return {
+        "experiment_name": cfg.experiment_name,
+        "model_family": cfg.model_family,
+        "configuration": rep.configuration,
+        "seed": cfg.seed,
+        "max_seq_length": rep.max_seq_length,
+        "enforce_per_chunk_budget": rep.enforce_per_chunk_budget,
+        **(familia.model_dump() if familia is not None else {}),
+    }
+
+
+def direcciones_mlflow(uri_config: str = "", colab: bool = False) -> list[str]:
+    """Servidores de MLflow candidatos, en orden: el de la configuración (paths.mlflow_tracking_uri), las variables
+    MLFLOW_TRACKING_URI y MLFLOW_IP, y la IP escrita en mlflow_ip.txt. Solo servidores http(s)."""
+    candidatas = [uri_config, os.environ.get("MLFLOW_TRACKING_URI", ""), os.environ.get("MLFLOW_IP", "")]
+    try:
+        candidatas.append(archivo_ip_mlflow(colab).read_text(encoding="utf-8").strip())
+    except OSError:
+        pass
+    uris = [c.strip().rstrip("/") if "://" in c else f"http://{c.strip()}" for c in candidatas if c and c.strip()]
+    return [u for u in dict.fromkeys(uris) if u.startswith(("http://", "https://"))]
+
+
+def _servidor(uri_config: str, colab: bool) -> tuple[str | None, str]:
+    """El primer servidor candidato que responde, o None con el motivo."""
     if MlflowClient is None:
-        raise ImportError("MLFLOW_IP está definido pero mlflow no está instalado: pip install mlflow-skinny")
-    titulo("MLflow")
-    print(f"  servidor {cfg.mlflow_ip} · experimento {cfg.mlflow_experimento} · corrida {cfg.nombre_corrida}")
-    registro = RegistroMLflow(cfg.mlflow_ip, cfg.mlflow_experimento, cfg.nombre_corrida, cfg.mlflow_espera_min,
-                              archivo_ip_mlflow(colab))
-    # strategy, model, seed y selection_metric con los nombres de la rama SciBERT, para agrupar y comparar corridas
-    registro.parametros(asdict(cfg) | {"strategy": cfg.configuracion, "model": cfg.modelo, "seed": cfg.semilla,
-                                       "selection_metric": "dev_f1_macro_present"})
-    registro.etiquetas({f"version.{k}": v for k, v in versiones.items()})
+        return None, "el paquete mlflow no está instalado"
+    candidatas = direcciones_mlflow(uri_config, colab)
+    if not candidatas:
+        return None, "no hay dirección: define MLFLOW_IP o escríbela en mlflow_ip.txt"
+    for _ in range(2):  # un segundo intento por si el primero coincide con un corte breve
+        for uri in candidatas:
+            if RegistroMLflow._responde(uri):
+                return uri, ""
+        time.sleep(2)
+    return None, f"no responde {', '.join(candidatas)}"
+
+
+def abrir_mlflow(cfg: ExperimentConfig, colab: bool, versiones: dict) -> RegistroMLflow | None:
+    """Abre la corrida en el servidor de MLflow y encola sus parámetros, versiones y GPU. La corrida queda en
+    RUNNING hasta que train.py la cierra.
+
+    Si ningún servidor candidato (direcciones_mlflow) responde, lanza la advertencia AVISO_SIN_SERVIDOR y devuelve
+    None: los resultados se guardan en local. Si el servidor se cae después, RegistroMLflow reintenta.
+    """
+    uri, motivo = _servidor(cfg.paths.mlflow_tracking_uri, colab)
+    if uri is None:
+        warnings.warn(f"{AVISO_SIN_SERVIDOR} en {cfg.paths.output_dir / cfg.experiment_name} ({motivo})",
+                      MLflowNoEncontrado, stacklevel=2)
+        return None
+    experimento = cfg.paths.mlflow_experiment_name
+    print(f"MLflow: {uri} · experimento {experimento} · corrida {cfg.experiment_name}")
+    registro = RegistroMLflow(uri, experimento, cfg.experiment_name,
+                              float(os.environ.get("MLFLOW_ESPERA_MIN", "20")), archivo_ip_mlflow(colab))
+    registro.parametros(parametros_experimento(cfg))
+    gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    registro.etiquetas({"gpu": gpu, **{f"version.{k}": v for k, v in versiones.items()}})
     return registro
 
 
-def metricas_finales(salida: dict) -> dict:
-    """Aplana para MLflow las métricas finales de cada split (global, por clase y por fuente) y el resumen.
+def _corrida_terminada(cliente, experimento: str, nombre: str):
+    """La última corrida FINISHED de `experimento` llamada `nombre` (o con ese id), o None."""
+    exp = cliente.get_experiment_by_name(experimento)
+    if exp is None:
+        return None
+    corridas = cliente.search_runs([exp.experiment_id], f"attributes.run_name = '{nombre}'",
+                                   order_by=["attributes.start_time DESC"])
+    corridas = [c for c in corridas if c.info.status == "FINISHED"]
+    return cliente.get_run(corridas[0].info.run_id) if corridas else None
 
-    Dev va como dev_final/..., para no mezclarse con la curva dev/... del entrenamiento; test va como test/...
-    Además van test_accuracy, test_f1_macro_9, test_f1_macro_present, test_f1_weighted, train_seconds, latency_ms y
-    best_epoch, con los nombres y las definiciones de la rama SciBERT (02_scibert_ab), para compararlas en MLflow, y
-    test_f1_macro_5, que en test vale lo mismo que test_f1_macro_present.
+
+def existe_en_mlflow(cfg: ExperimentConfig, colab: bool = False) -> bool:
+    """True si el servidor ya tiene una corrida FINISHED con el nombre de la configuración."""
+    uri, _ = _servidor(cfg.paths.mlflow_tracking_uri, colab)
+    if uri is None:
+        return False
+    return _corrida_terminada(MlflowClient(tracking_uri=uri), cfg.paths.mlflow_experiment_name,
+                              cfg.experiment_name) is not None
+
+
+def descargar_modelo(cfg: ExperimentConfig, destino: Path | None = None) -> Path:
+    """Descarga de MLflow el mejor modelo de la corrida cfg.experiment_name y devuelve su carpeta.
+
+    Trae lo que train.py registró como modelo: los .safetensors con su config y tokenizador (encoder o adaptador
+    LoRA) o tfidf_pipeline.joblib. Sin `destino`, va a una carpeta temporal: nada queda en la carpeta del proyecto.
     """
-    m = {}
-    for split, r in salida["resultados"].items():
-        x, p = r["metricas"], "dev_final" if split == "dev" else split
-        m |= {f"{p}/{k}": x[k] for k in ("macro_f1", "f1_macro_9", "f1_macro_5", "f1_weighted", "accuracy", "ece", "n",
-                                         "segundos", "ejemplos_por_s")}
-        if x["macro_f1_ic95"]:
-            m[f"{p}/macro_f1_ic95_inf"], m[f"{p}/macro_f1_ic95_sup"] = x["macro_f1_ic95"]
-        for clase, v in x["por_clase"].items():
-            m |= {f"{p}/{k}/{clase}": v[k] for k in ("f1", "precision", "recall", "soporte")}
-        for fuente, v in x["por_fuente"].items():
-            m |= {f"{p}/fuente/{fuente}/{k}": v[k] for k in ("macro_f1", "accuracy", "n")}
-        m |= {f"{p}/predicciones/{clase}": n for clase, n in x["predicciones_por_clase"].items()}
-    resumen = salida["resumen"]
-    m |= {f"entrenamiento/{k}": v for k, v in resumen["entrenamiento"].items()}
-    m |= {f"adaptador/{k}": resumen["lora"][k] for k in ("entrenables", "totales", "porcentaje")}
-    m["compilacion/segundos"] = resumen["compilacion"]["segundos"]
-    m["segundos_totales"] = resumen["segundos_totales"]
-    if "test" in salida["resultados"]:
-        t = salida["resultados"]["test"]["metricas"]
-        m |= {"test_accuracy": t["accuracy"], "test_f1_macro_9": t["f1_macro_9"], "test_f1_macro_5": t["f1_macro_5"],
-              "test_f1_macro_present": t["macro_f1"], "test_f1_weighted": t["f1_weighted"],
-              "latency_ms": 1000 * t["segundos"] / t["n"]}
-    m |= {"train_seconds": resumen["entrenamiento"]["segundos"], "best_epoch": resumen["seleccion"]["mejor_epoca"]}
-    return m
+    from mlflow.artifacts import download_artifacts
+
+    uri, motivo = _servidor(cfg.paths.mlflow_tracking_uri, en_colab())
+    if uri is None:
+        raise FileNotFoundError(f"No hay modelo local de «{cfg.experiment_name}» y MLflow no está disponible ({motivo})")
+    cliente = MlflowClient(tracking_uri=uri)
+    corrida = _corrida_terminada(cliente, cfg.paths.mlflow_experiment_name, cfg.experiment_name)
+    salidas = corrida.outputs.model_outputs if corrida is not None and corrida.outputs else []
+    if not salidas:
+        raise FileNotFoundError(f"MLflow no tiene un modelo de la corrida «{cfg.experiment_name}» en el experimento "
+                                f"«{cfg.paths.mlflow_experiment_name}»")
+    # La ubicación de los archivos del modelo, no models:/<id>: esa forma busca el modelo con la URI global de
+    # MLflow y no con la de este servidor.
+    ubicacion = cliente.get_logged_model(salidas[-1].model_id).artifact_location
+    destino = Path(destino or tempfile.mkdtemp(prefix=f"{cfg.experiment_name}_"))
+    ruta = Path(download_artifacts(artifact_uri=ubicacion, dst_path=str(destino), tracking_uri=uri))
+    # Modelo de humo: la base minúscula viaja con el adaptador en modelo_base/; el adaptador pasa a apuntar a ella
+    adaptador = ruta / "adapter_config.json"
+    if (ruta / "modelo_base").is_dir() and adaptador.is_file():
+        datos = json.loads(adaptador.read_text(encoding="utf-8"))
+        datos["base_model_name_or_path"] = str(ruta / "modelo_base")
+        adaptador.write_text(json.dumps(datos, indent=2), encoding="utf-8")
+    return ruta
 
 
-def cerrar_mlflow(registro: RegistroMLflow, cfg: Config, salida: dict) -> None:
-    """Envía las métricas finales, la GPU y los archivos de la corrida, y cierra en FINISHED.
+@contextlib.contextmanager
+def modelo_local_o_descargado(cfg: ExperimentConfig, local: Path, archivo: str = ""):
+    """La ruta local del modelo si existe; si no (los resultados quedaron en MLflow), el modelo descargado a una
+    carpeta temporal que se borra al salir del bloque, cuando ya está cargado en memoria."""
+    if local.exists():
+        yield local
+        return
+    with tempfile.TemporaryDirectory(prefix=f"{cfg.experiment_name}_", ignore_cleanup_errors=True) as tmp:
+        ruta = descargar_modelo(cfg, Path(tmp))
+        yield ruta / archivo if archivo else ruta
 
-    Los artefactos son los archivos de la carpeta de la corrida, los mismos del zip; el adaptador solo con
-    MLFLOW_ADAPTADOR=1. Espera a que todo llegue (ver RegistroMLflow.cerrar) y dice dónde quedó.
-    """
-    hw = salida["resumen"]["hardware"]
-    registro.etiquetas({"gpu": hw["gpu"] or hw["dispositivo"], "modelo": salida["resumen"]["modelo"]})
-    registro.metricas(metricas_finales(salida))
-    if salida["zip"]:
-        registro.artefactos(Path(cfg.salidas_dir) / cfg.nombre_corrida, () if cfg.mlflow_adaptador else ("adaptador",))
-    titulo("MLflow")
-    print("  envío las métricas finales y los archivos de la corrida")
-    completo = registro.cerrar("FINISHED")
-    print(f"  {'listo' if completo else 'incompleto'}: {registro.url_corrida() or 'la corrida no llegó a crearse'}")
+
+class RealTimeMLflowCallback(TrainerCallback):
+    """Envía a MLflow, mientras entrena, lo que registra el Trainer: pérdida, tasa y norma del gradiente cada
+    logging_steps, y las métricas de dev en cada evaluación."""
+
+    def __init__(self, registro: RegistroMLflow) -> None:
+        self.registro = registro
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if logs:
+            self.registro.metricas(logs, paso=state.global_step)

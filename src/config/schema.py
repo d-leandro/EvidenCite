@@ -55,8 +55,11 @@ class PathsConfig(BaseModel):
         description="Directorio base donde se almacenan checkpoints, métricas y figuras.",
     )
     mlflow_tracking_uri: str = Field(
-        default="sqlite:///mlruns.db",
-        description="URI de seguimiento para MLflow (SQLite local por defecto).",
+        default="",
+        description=(
+            "Servidor de MLflow (http://ip:puerto). Vacío: MLFLOW_TRACKING_URI, MLFLOW_IP o mlflow_ip.txt. "
+            "Sin servidor, los resultados se guardan en output_dir."
+        ),
     )
     mlflow_experiment_name: str = Field(
         default="EvidenCite-A4-A7",
@@ -142,7 +145,50 @@ class TfidfModelConfig(BaseModel):
         return self
 
 
-class EncoderModelConfig(BaseModel):
+class TrainerOptimizationConfig(BaseModel):
+    """Planificador, evaluación y optimizaciones de entrenamiento traídas de lora.zip (comunes a Encoder y LoRA).
+
+    train.py las traduce a parámetros de TrainingArguments. Los valores por defecto conservan el comportamiento
+    anterior: planificador lineal, una evaluación por época y ninguna optimización opcional activa.
+    """
+
+    lr_scheduler: Literal["linear", "cosine", "cosine_min", "constant", "wsd", "plateau"] = Field(
+        default="linear",
+        description=(
+            "Planificador de la tasa (todos con warmup lineal salvo plateau): 'linear', 'cosine', "
+            "'cosine_min' (coseno hasta el 10 %), 'constant', 'wsd' (constante y decae en el 20 % final) o "
+            "'plateau' (la tasa baja a la mitad en cada evaluación sin mejora)."
+        ),
+    )
+    evals_per_epoch: int = Field(
+        default=1,
+        ge=1,
+        description="Evaluaciones de dev por época, repartidas en partes iguales (early stopping y mejor punto).",
+    )
+    early_stopping_threshold: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Mejora mínima de eval_f1_macro que cuenta como mejora para el early stopping.",
+    )
+    logging_steps: int = Field(default=10, ge=1, description="Pasos de optimizador entre registros (y MLflow).")
+    max_steps: int = Field(default=-1, description="Si es > 0, corta el entrenamiento tras N pasos de optimizador.")
+    group_by_length: bool = Field(
+        default=False,
+        description="Agrupa en cada lote ejemplos de longitud parecida para rellenar menos.",
+    )
+    gradient_checkpointing: bool = Field(default=False, description="Ahorra memoria a cambio de ~30 % más de tiempo.")
+    torch_compile: bool = Field(default=False, description="Compila el modelo con torch.compile (solo CUDA).")
+    torch_compile_mode: Optional[
+        Literal["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"]
+    ] = Field(default=None)
+    attn_implementation: Optional[Literal["sdpa", "eager", "flash_attention_2"]] = Field(
+        default=None,
+        description="Implementación de la atención; None usa la de transformers (sdpa).",
+    )
+    dataloader_num_workers: int = Field(default=0, ge=0)
+
+
+class EncoderModelConfig(TrainerOptimizationConfig):
     """Hiperparámetros para Actividad A4: Encoders Científicos Fine-Tuned (SciBERT / SPECTER2)."""
 
     pretrained_model_name_or_path: str = Field(
@@ -180,7 +226,7 @@ class EncoderModelConfig(BaseModel):
     bf16: bool = Field(default=False)
 
 
-class LoraModelConfig(BaseModel):
+class LoraModelConfig(TrainerOptimizationConfig):
     """Hiperparámetros para Extensión A4/A5: LLM Liviano de Pesos Abiertos con PEFT/LoRA (SEQ_CLS)."""
 
     pretrained_model_name_or_path: str = Field(
@@ -191,12 +237,18 @@ class LoraModelConfig(BaseModel):
         default="SEQ_CLS",
         description="Tipo de tarea PEFT (fijado a SEQ_CLS con cabeza lineal sobre las 9 clases).",
     )
+    lora_variant: Literal[
+        "lora", "rslora", "dora", "pissa", "olora", "eva", "lora_plus", "lora_fa", "vera", "qlora"
+    ] = Field(
+        default="lora",
+        description="Variante del adaptador (src/modeling/lora/modelo.py, desde lora.zip).",
+    )
     r: int = Field(default=16, ge=1, description="Rango r de las matrices de bajo rango LoRA.")
     lora_alpha: int = Field(default=32, ge=1, description="Factor de escala alpha de LoRA.")
     lora_dropout: float = Field(default=0.05, ge=0.0, lt=1.0)
     target_modules: List[str] = Field(
         default_factory=lambda: ["q_proj", "v_proj"],
-        description="Módulos lineales de atención donde se inyectan adaptadores LoRA.",
+        description="Módulos lineales donde se inyectan adaptadores LoRA; ['all-linear'] = todos salvo la cabeza.",
     )
     modules_to_save: List[str] = Field(
         default_factory=lambda: ["score", "classifier"],

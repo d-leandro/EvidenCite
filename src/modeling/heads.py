@@ -1,24 +1,23 @@
-"""Fábrica de modelos de clasificación de secuencias (AutoModelForSequenceClassification + PEFT/LoRA)."""
+"""Fábrica de modelos de clasificación de secuencias (AutoModelForSequenceClassification + PEFT/LoRA).
 
-from typing import Tuple
+La definición de cada familia está en su carpeta: src/modeling/scibert (encoder) y src/modeling/lora (LLM con LoRA).
+"""
 
-from peft import LoraConfig, TaskType, get_peft_model
+from pathlib import Path
+from typing import Optional, Sequence, Tuple
+
 import torch
 from transformers import (
-    AutoConfig,
-    AutoModelForSequenceClassification,
     PreTrainedModel,
     PreTrainedTokenizerBase,
 )
 
-from src.config.schema import (
-    CANONICAL_9_CLASSES,
-    ID_TO_LABEL,
-    LABEL_TO_ID,
-    EncoderModelConfig,
-    ExperimentConfig,
-    LoraModelConfig,
-)
+from src.config.schema import ExperimentConfig
+from src.modeling import lora, scibert
+from src.modeling.lora import build_lora_classifier
+from src.modeling.scibert import build_encoder_classifier
+
+SMOKE_MODEL_NAME = "humo"  # pretrained_model_name_or_path del modelo minúsculo de prueba (sin descargas)
 
 
 def count_model_parameters(model: torch.nn.Module) -> Tuple[int, int, float]:
@@ -46,70 +45,32 @@ def ensure_tokenizer_padding(
         model.config.pad_token_id = tokenizer.pad_token_id
 
 
-def build_encoder_classifier(encoder_cfg: EncoderModelConfig) -> PreTrainedModel:
-    """Instancia AutoModelForSequenceClassification nativo de Hugging Face sobre las 9 clases canónicas."""
-    hf_config = AutoConfig.from_pretrained(
-        encoder_cfg.pretrained_model_name_or_path,
-        num_labels=len(CANONICAL_9_CLASSES),
-        id2label=ID_TO_LABEL,
-        label2id=LABEL_TO_ID,
-    )
-    if encoder_cfg.classifier_dropout is not None:
-        if hasattr(hf_config, "classifier_dropout"):
-            hf_config.classifier_dropout = encoder_cfg.classifier_dropout
-        if hasattr(hf_config, "hidden_dropout_prob"):
-            hf_config.hidden_dropout_prob = encoder_cfg.classifier_dropout
+def build_sequence_classifier(
+    config: ExperimentConfig,
+    dtype: Optional[torch.dtype] = None,
+    device: Optional[str] = None,
+) -> PreTrainedModel:
+    """Despachador unificado que construye el clasificador de secuencias según model_family.
 
-    model = AutoModelForSequenceClassification.from_pretrained(
-        encoder_cfg.pretrained_model_name_or_path,
-        config=hf_config,
-        ignore_mismatched_sizes=True,
-    )
-    return model
-
-
-def build_lora_classifier(lora_cfg: LoraModelConfig) -> PreTrainedModel:
-    """Instancia AutoModelForSequenceClassification envuelto con PEFT/LoRA (TaskType.SEQ_CLS)."""
-    hf_config = AutoConfig.from_pretrained(
-        lora_cfg.pretrained_model_name_or_path,
-        num_labels=len(CANONICAL_9_CLASSES),
-        id2label=ID_TO_LABEL,
-        label2id=LABEL_TO_ID,
-    )
-    base_model = AutoModelForSequenceClassification.from_pretrained(
-        lora_cfg.pretrained_model_name_or_path,
-        config=hf_config,
-        ignore_mismatched_sizes=True,
-    )
-
-    # Filtramos modules_to_save para incluir únicamente atributos presentes en el modelo base
-    model_module_names = {name.split(".")[0] for name, _ in base_model.named_modules() if name}
-    active_modules_to_save = [
-        m for m in lora_cfg.modules_to_save if m in model_module_names
-    ] or None
-
-    peft_config = LoraConfig(
-        task_type=TaskType.SEQ_CLS,
-        r=lora_cfg.r,
-        lora_alpha=lora_cfg.lora_alpha,
-        lora_dropout=lora_cfg.lora_dropout,
-        target_modules=list(lora_cfg.target_modules),
-        modules_to_save=active_modules_to_save,
-        bias=lora_cfg.bias,
-    )
-    peft_model = get_peft_model(base_model, peft_config)
-    return peft_model
-
-
-def build_sequence_classifier(config: ExperimentConfig) -> PreTrainedModel:
-    """Despachador unificado que construye el clasificador de secuencias según model_family."""
+    dtype y device solo aplican a llm_lora: la base se carga en esa precisión y en ese dispositivo.
+    """
     if config.model_family == "encoder":
         assert config.encoder is not None
         return build_encoder_classifier(config.encoder)
     if config.model_family == "llm_lora":
         assert config.llm_lora is not None
-        return build_lora_classifier(config.llm_lora)
+        return build_lora_classifier(config.llm_lora, dtype=dtype, device=device)
     raise ValueError(
         f"build_sequence_classifier solo aplica a 'encoder' o 'llm_lora', recibido: '{config.model_family}'"
     )
+
+
+def create_smoke_model(config: ExperimentConfig, texts: Sequence[str], folder: Path) -> str:
+    """Crea el modelo de humo de la familia (BERT o Qwen3 minúsculo, con tokenizador entrenado con `texts`) y devuelve
+    su carpeta, para usarla como pretrained_model_name_or_path."""
+    if config.model_family == "encoder":
+        return scibert.create_smoke_model(texts, folder)
+    if config.model_family == "llm_lora":
+        return lora.create_smoke_model(texts, folder)
+    raise ValueError(f"No hay modelo de humo para model_family='{config.model_family}'")
 

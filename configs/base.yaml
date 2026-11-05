@@ -7,6 +7,6 @@ paths:
   dev_file: "data/dataset/dev.jsonl"
   test_file: "data/dataset/test.jsonl"
   output_dir: "models"
-  mlflow_tracking_uri: "sqlite:///mlruns.db"
+  mlflow_tracking_uri: ""  # http://ip:puerto del servidor; vacío: MLFLOW_IP, MLFLOW_TRACKING_URI o mlflow_ip.txt
   mlflow_experiment_name: "EvidenCite-A4-A7"
 

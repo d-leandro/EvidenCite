@@ -40,6 +40,7 @@ from src.modeling.prompts import (
     LLMResponse,
     build_llm_messages,
 )
+from src.modeling.registro_mlflow import modelo_local_o_descargado
 
 
 CITATION_REGEX = re.compile(
@@ -939,11 +940,13 @@ def create_predictor(
             )
         else:
             model_file = config.paths.output_dir / config.experiment_name / "tfidf_pipeline.joblib"
-            predictor = TfidfPredictor.from_path(
-                model_path=model_file,
-                rep_config=config.input_representation,
-                model_name=config.experiment_name,
-            )
+            # Si los resultados quedaron en MLflow, el modelo se descarga a una carpeta temporal
+            with modelo_local_o_descargado(config, model_file, "tfidf_pipeline.joblib") as model_file:
+                predictor = TfidfPredictor.from_path(
+                    model_path=model_file,
+                    rep_config=config.input_representation,
+                    model_name=config.experiment_name,
+                )
 
     elif config.model_family in ("encoder", "llm_lora"):
         if model_or_pipe is not None and tokenizer is not None:
@@ -956,12 +959,14 @@ def create_predictor(
             )
         else:
             best_dir = config.paths.output_dir / config.experiment_name / "best_model"
-            predictor = TransformerPredictor.from_pretrained(
-                model_dir=best_dir,
-                rep_config=config.input_representation,
-                device=config.device,
-                model_name=config.experiment_name,
-            )
+            # Si los resultados quedaron en MLflow, el modelo se descarga a una carpeta temporal
+            with modelo_local_o_descargado(config, best_dir) as best_dir:
+                predictor = TransformerPredictor.from_pretrained(
+                    model_dir=best_dir,
+                    rep_config=config.input_representation,
+                    device=config.device,
+                    model_name=config.experiment_name,
+                )
 
     elif config.model_family == "llm_api":
         if config.llm_api is None:

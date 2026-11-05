@@ -1,9 +1,17 @@
 """Entrenamiento unificado para TF-IDF, Encoders Científicos (SciBERT/SPECTER2) y LLMs con PEFT/LoRA."""
 
+import contextlib
+import itertools
 import json
+import os
 from pathlib import Path
+import shutil
 import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+import sys
+from tqdm.std import tqdm as tqdm_texto
+from transformers import ProgressCallback
+from transformers.trainer_utils import has_length
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import joblib
 import numpy as np
@@ -12,6 +20,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 import torch
+from torch.utils.data import DataLoader, SequentialSampler
 from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
@@ -25,6 +34,7 @@ from src.config.schema import (
     ID_TO_LABEL,
     LABEL_TO_ID,
     ExperimentConfig,
+    LoraModelConfig,
     resolve_canonical_label,
     resolve_device,
 )
@@ -42,11 +52,23 @@ from src.modeling.evaluate import (
     compute_hf_metrics,
 )
 from src.modeling.heads import (
+    SMOKE_MODEL_NAME,
     build_sequence_classifier,
     count_model_parameters,
+    create_smoke_model,
     ensure_tokenizer_padding,
 )
+from src.modeling import registro_mlflow
+from src.modeling.lora import create_lora_optimizer, initialize_eva, save_converted_adapter
 from src.modeling.loss import build_loss_fn, compute_class_weights
+from src.modeling.registro_mlflow import (
+    RealTimeMLflowCallback,
+    RegistroMLflow,
+    abrir_mlflow,
+    en_colab,
+    parametros_experimento,
+    versiones,
+)
 
 
 class ExperimentRunArtifact(BaseModel):
@@ -65,7 +87,14 @@ class ExperimentRunArtifact(BaseModel):
 
 
 class WeightedSequenceTrainer(Trainer):
-    """Subclase de HuggingFace Trainer que inyecta Weighted Cross-Entropy o Focal Loss en compute_loss."""
+    """Subclase de HuggingFace Trainer que inyecta Weighted Cross-Entropy o Focal Loss en compute_loss.
+
+    Complementada con el entrenamiento de lora.zip: el forward va en autocast y la pérdida se calcula sobre los
+    logits en fp32; LoRA+ y LoRA-FA usan su optimizador propio; y como compute_loss devuelve la media del micro-lote,
+    el Trainer la divide por la acumulación de gradiente (loss_is_scaled_for_ga = False).
+    """
+
+    loss_is_scaled_for_ga = False
 
     def __init__(
         self,
@@ -73,13 +102,34 @@ class WeightedSequenceTrainer(Trainer):
         class_weights: Optional[torch.Tensor] = None,
         loss_type: str = "weighted_ce",
         focal_gamma: float = 2.0,
+        autocast_dtype: Optional[torch.dtype] = None,
+        lora_config: Optional[LoraModelConfig] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.class_weights = class_weights
         self.loss_type = loss_type
         self.focal_gamma = focal_gamma
+        self.autocast_dtype = autocast_dtype
+        self.lora_config = lora_config
         self._custom_loss_fn: Optional[torch.nn.Module] = None
+
+    def create_optimizer(self, model: Optional[torch.nn.Module] = None) -> torch.optim.Optimizer:
+        """AdamW de TrainingArguments, o el optimizador propio de LoRA+ y LoRA-FA (src/modeling/lora)."""
+        if self.optimizer is None and self.lora_config is not None:
+            self.optimizer = create_lora_optimizer(
+                self.model,
+                self.lora_config,
+                learning_rate=self.args.learning_rate,
+                weight_decay=self.args.weight_decay,
+                fused="fused" in str(self.args.optim),
+            )
+        return super().create_optimizer(model)
+
+    def _get_eval_sampler(self, eval_dataset: Any) -> Optional[torch.utils.data.Sampler]:
+        """Evaluación y predicción en el orden del dataset. Con group_by_length el Trainer también reordenaría dev y
+        test, y las predicciones de trainer.predict ya no coincidirían con el orden de las instancias."""
+        return SequentialSampler(eval_dataset) if eval_dataset is not None else None
 
     def compute_loss(
         self,
@@ -89,12 +139,17 @@ class WeightedSequenceTrainer(Trainer):
         num_items_in_batch: Optional[int] = None,
     ) -> Any:
         labels = inputs.get("labels")
-        outputs = model(**inputs)
+        autocast = (
+            torch.autocast(device_type=self.args.device.type, dtype=self.autocast_dtype)
+            if self.autocast_dtype is not None
+            else contextlib.nullcontext()
+        )
+        with autocast:
+            outputs = model(**{k: v for k, v in inputs.items() if k != "labels"})
         logits = outputs.get("logits")
 
-        if labels is not None and logits is not None and (
-            self.loss_type != "cross_entropy" or self.class_weights is not None
-        ):
+        loss = None
+        if labels is not None and logits is not None:
             if self._custom_loss_fn is None:
                 self._custom_loss_fn = build_loss_fn(
                     loss_type=self.loss_type,  # type: ignore[arg-type]
@@ -106,17 +161,39 @@ class WeightedSequenceTrainer(Trainer):
                 self._custom_loss_fn = self._custom_loss_fn.to(logits.device)
             num_labels = getattr(self.model.config, "num_labels", logits.shape[-1])
             loss = self._custom_loss_fn(
-                logits.view(-1, num_labels),
+                logits.float().view(-1, num_labels),
                 labels.view(-1),
             )
-        else:
-            loss = outputs.get("loss")
-            if loss is None and logits is not None and labels is not None:
-                loss_fct = torch.nn.CrossEntropyLoss()
-                loss = loss_fct(logits.view(-1, logits.shape[-1]), labels.view(-1))
 
         return (loss, outputs) if return_outputs else loss
 
+class BarraTexto(ProgressCallback):
+    """Barras de texto de tqdm, como en lora.zip. Dentro de un kernel de Jupyter (y por eso con `colab exec`) el
+    Trainer usa NotebookProgressCallback, una tabla HTML que se redibuja en cada paso: por la CLI cada redibujo
+    llega como texto nuevo."""
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        if state.is_world_process_zero:
+            self.training_bar = tqdm_texto(total=state.max_steps, desc="entrenando", unit="paso",
+                                           ncols=100, mininterval=2, file=sys.stdout)
+        self.current_step = 0
+
+    def on_prediction_step(self, args, state, control, eval_dataloader=None, **kwargs):
+        if state.is_world_process_zero and has_length(eval_dataloader):
+            if self.prediction_bar is None:
+                self.prediction_bar = tqdm_texto(total=len(eval_dataloader), desc="evaluando", unit="lote",
+                                                 ncols=100, mininterval=2, leave=False, file=sys.stdout)
+            self.prediction_bar.update(1)
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        if not state.is_world_process_zero or self.training_bar is None or not logs:
+            return
+        if "loss" in logs:  # pérdida y tasa dentro de la barra, sin una línea nueva cada LOG_CADA pasos
+            self.training_bar.set_postfix(loss=f"{logs['loss']:.4f}", lr=f"{logs.get('learning_rate', 0):.1e}",
+                                          refresh=False)
+        if "eval_f1_macro" in logs:  # una línea por evaluación de dev
+            self.training_bar.write(f"época {logs.get('epoch', 0):.2f} · dev: pérdida {logs['eval_loss']:.4f}"
+                                    f" · macro-F1 {logs['eval_f1_macro']:.4f}", file=sys.stdout)
 
 def _extract_label_ids(instances: Sequence[DatasetInstance]) -> List[int]:
     label_ids: List[int] = []
@@ -145,52 +222,107 @@ def _get_peak_memory_mb(device_str: str) -> float:
     return 0.0
 
 
+def _scheduler_args(name: str, total_steps: int, threshold: float) -> Tuple[str, Dict[str, Any]]:
+    """Planificador de lora.zip como (lr_scheduler_type, lr_scheduler_kwargs) de TrainingArguments."""
+    if name == "cosine_min":
+        return "cosine_with_min_lr", {"min_lr_rate": 0.1}
+    if name == "constant":
+        return "constant_with_warmup", {}
+    if name == "wsd":
+        return "warmup_stable_decay", {"num_decay_steps": max(1, int(0.2 * total_steps)), "decay_type": "1-sqrt"}
+    if name == "plateau":
+        # Baja la tasa a la mitad en cada evaluación en que eval_f1_macro no mejora (sin warmup)
+        return "reduce_lr_on_plateau", {
+            "mode": "max",
+            "factor": 0.5,
+            "patience": 0,
+            "threshold": threshold,
+            "threshold_mode": "abs",
+        }
+    return name, {}  # linear, cosine
+
+def _compilar_por_bloques(model: torch.nn.Module, modo: Optional[str] = None) -> int:
+    """Compila en su lugar cada bloque del transformer (las 36 capas de Qwen3, las 12 de BERT) con lote y longitud
+    dinámicos. Los bloques comparten código: se compila el primero y los demás reutilizan el resultado."""
+    for modulo in model.modules():
+        if isinstance(modulo, torch.nn.ModuleList) and len(modulo) > 1 and len({type(m) for m in modulo}) == 1:
+            for bloque in modulo:
+                bloque.compile(dynamic=True, mode=modo)
+            return len(modulo)
+    return 0
+
 def _log_to_mlflow_safe(
     config: ExperimentConfig,
     artifact: ExperimentRunArtifact,
     split_hashes: Dict[str, str],
-) -> None:
-    """Registra hiperparámetros, hashes SHA-256 y métricas A6/A7 en MLflow de forma tolerante a fallos."""
-    try:
-        import mlflow
+    registro: Optional[RegistroMLflow] = None,
+) -> bool:
+    """Registra hiperparámetros, hashes SHA-256, métricas A6/A7, archivos y el mejor modelo en MLflow de forma
+    tolerante a fallos. Devuelve True si todo llegó al servidor: entonces no hace falta guardar nada en local.
 
-        mlflow.set_tracking_uri(config.paths.mlflow_tracking_uri)
-        mlflow.set_experiment(config.paths.mlflow_experiment_name)
-        with mlflow.start_run(run_name=config.experiment_name):
-            mlflow.log_params(
+    Usa la corrida que run_training_experiment abrió al empezar (`registro`, en RUNNING mientras entrena) o, si no
+    hay, abre una con abrir_mlflow. Al final la cierra en FINISHED. El modelo queda como modelo registrado de la
+    corrida (columna Models): best_model/ (los .safetensors con config y tokenizador; con el humo de LoRA, también su
+    base en modelo_base/) o tfidf_pipeline.joblib.
+    """
+    exp_dir = artifact.output_dir
+    staging = exp_dir / "modelo"  # TF-IDF: el modelo es un archivo; se sube desde esta carpeta
+    try:
+        registro = registro or abrir_mlflow(config, en_colab(), versiones())
+        if registro is None:
+            return False
+        registro.parametros({f"sha256_{k}": v for k, v in split_hashes.items()})
+        registro.metricas(
+            {
+                "dev_macro_f1_all_9": artifact.dev_metrics_a6.macro_f1_all_9,
+                "dev_macro_f1_present": artifact.dev_metrics_a6.macro_f1_present,
+                "dev_micro_f1": artifact.dev_metrics_a6.micro_f1,
+                "dev_weighted_f1": artifact.dev_metrics_a6.weighted_f1,
+                "a7_latency_ms": artifact.operational_metrics_a7.inference_latency_ms_per_instance,
+                "a7_trainable_ratio_pct": artifact.operational_metrics_a7.trainable_ratio_pct,
+                "a7_train_wall_time_sec": artifact.operational_metrics_a7.train_wall_time_sec,
+            }
+        )
+        if artifact.test_metrics_a6 is not None:
+            registro.metricas(
                 {
-                    "experiment_name": config.experiment_name,
-                    "model_family": config.model_family,
-                    "configuration": config.input_representation.configuration,
-                    "seed": config.seed,
-                    "max_seq_length": config.input_representation.max_seq_length,
-                    "enforce_per_chunk_budget": config.input_representation.enforce_per_chunk_budget,
-                    **{f"sha256_{k}": v for k, v in split_hashes.items()},
+                    "test_macro_f1_all_9": artifact.test_metrics_a6.macro_f1_all_9,
+                    "test_macro_f1_present": artifact.test_metrics_a6.macro_f1_present,
+                    "test_micro_f1": artifact.test_metrics_a6.micro_f1,
+                    "test_weighted_f1": artifact.test_metrics_a6.weighted_f1,
                 }
             )
-            mlflow.log_metrics(
-                {
-                    "dev_macro_f1_all_9": artifact.dev_metrics_a6.macro_f1_all_9,
-                    "dev_macro_f1_present": artifact.dev_metrics_a6.macro_f1_present,
-                    "dev_micro_f1": artifact.dev_metrics_a6.micro_f1,
-                    "dev_weighted_f1": artifact.dev_metrics_a6.weighted_f1,
-                    "a7_latency_ms": artifact.operational_metrics_a7.inference_latency_ms_per_instance,
-                    "a7_trainable_ratio_pct": artifact.operational_metrics_a7.trainable_ratio_pct,
-                    "a7_train_wall_time_sec": artifact.operational_metrics_a7.train_wall_time_sec,
-                }
-            )
-            if artifact.test_metrics_a6 is not None:
-                mlflow.log_metrics(
-                    {
-                        "test_macro_f1_all_9": artifact.test_metrics_a6.macro_f1_all_9,
-                        "test_macro_f1_present": artifact.test_metrics_a6.macro_f1_present,
-                        "test_micro_f1": artifact.test_metrics_a6.micro_f1,
-                        "test_weighted_f1": artifact.test_metrics_a6.weighted_f1,
-                    }
-                )
+        for archivo in ("config.json", "metrics_summary.json"):
+            registro.artefacto(exp_dir / archivo)
+        if config.model_family == "tfidf":
+            staging.mkdir(exist_ok=True)
+            enlace = staging / "tfidf_pipeline.joblib"
+            if not enlace.exists():
+                try:
+                    os.link(exp_dir / "tfidf_pipeline.joblib", enlace)
+                except OSError:  # sistemas de archivos sin enlaces duros
+                    shutil.copy2(exp_dir / "tfidf_pipeline.joblib", enlace)
+            carpetas, tipo = {None: staging}, "sklearn"
+        else:
+            carpetas, tipo = {None: exp_dir / "best_model"}, "transformers"
+            if config.model_family == "llm_lora":
+                tipo = "peft"
+                if (exp_dir / "modelo_humo").is_dir():
+                    carpetas["modelo_base"] = exp_dir / "modelo_humo"
+        registro.modelo(config.experiment_name, carpetas, tipo, parametros_experimento(config))
+        if registro_mlflow.SALIDA_CONSOLA is not None:
+            registro.artefacto(registro_mlflow.SALIDA_CONSOLA)
+        completo = registro.cerrar("FINISHED")
+        print(f"MLflow {'listo' if completo else 'incompleto (los resultados quedan también en local)'}: "
+              f"{registro.url_corrida() or 'sin corrida'}")
+        return completo
     except Exception:
-        # Tolerancia a fallos si MLflow no está disponible o el backend está bloqueado
-        pass
+        # Tolerancia a fallos si MLflow no está disponible o el backend está bloqueado; la corrida no queda en RUNNING
+        if registro is not None:
+            registro.cerrar("FAILED", esperar=False)
+        return False
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def train_tfidf_baseline(
@@ -200,6 +332,7 @@ def train_tfidf_baseline(
     test_instances: Optional[Sequence[DatasetInstance]] = None,
     enable_mlflow: bool = False,
     split_hashes: Optional[Dict[str, str]] = None,
+    registro: Optional[RegistroMLflow] = None,
 ) -> ExperimentRunArtifact:
     """Entrena y evalúa el baseline clásico TF-IDF + LogisticRegression."""
     assert config.tfidf is not None
@@ -296,12 +429,15 @@ def train_tfidf_baseline(
         test_predictions=test_pred_labels,
         training_history=[],
     )
+    (exp_dir / "config.json").write_text(config.model_dump_json(indent=2), encoding="utf-8")
     (exp_dir / "metrics_summary.json").write_text(
         artifact.model_dump_json(indent=2),
         encoding="utf-8",
     )
-    if enable_mlflow:
-        _log_to_mlflow_safe(config, artifact, split_hashes or {})
+    if enable_mlflow and _log_to_mlflow_safe(config, artifact, split_hashes or {}, registro):
+        shutil.rmtree(exp_dir, ignore_errors=True)  # todo quedó en MLflow: nada en local
+        with contextlib.suppress(OSError):
+            exp_dir.parent.rmdir()  # la carpeta de salidas, si quedó vacía
     return artifact
 
 
@@ -314,6 +450,7 @@ def train_transformer_experiment(
     model: Optional[torch.nn.Module] = None,
     enable_mlflow: bool = False,
     split_hashes: Optional[Dict[str, str]] = None,
+    registro: Optional[RegistroMLflow] = None,
 ) -> ExperimentRunArtifact:
     """Entrena y evalúa un clasificador basado en Transformer (SciBERT/SPECTER2 o LLM con LoRA SEQ_CLS)."""
     set_seed(config.seed)
@@ -328,10 +465,25 @@ def train_transformer_experiment(
     else:
         raise ValueError(f"Familia no soportada en train_transformer_experiment: {config.model_family}")
 
+    if sub_cfg.pretrained_model_name_or_path == SMOKE_MODEL_NAME:
+        # Modelo de humo: BERT o Qwen3 minúsculo creado aquí, con tokenizador entrenado sobre train (sin descargas)
+        texts = [format_instance_as_single_text(inst, rep_cfg) for inst in train_instances]
+        smoke_dir = create_smoke_model(config, texts, config.paths.output_dir / config.experiment_name / "modelo_humo")
+        sub_cfg = sub_cfg.model_copy(update={"pretrained_model_name_or_path": smoke_dir})
+        config = config.model_copy(update={config.model_family: sub_cfg})
+
+    # Precisión mixta (lora.zip): bf16 en GPUs con cc >= 8.0, fp16 en las anteriores (T4) y fp32 sin CUDA
+    device_str = resolve_device(config.device)
+    cuda = device_str == "cuda"
+    ampere = cuda and torch.cuda.get_device_capability() >= (8, 0)
+    bf16 = bool(sub_cfg.bf16 and ampere)
+    fp16 = bool(cuda and not bf16 and (sub_cfg.fp16 or sub_cfg.bf16))
+    autocast_dtype = torch.bfloat16 if bf16 else (torch.float16 if fp16 else None)
+
     if tokenizer is None:
         tokenizer = AutoTokenizer.from_pretrained(sub_cfg.pretrained_model_name_or_path)
     if model is None:
-        model = build_sequence_classifier(config)
+        model = build_sequence_classifier(config, dtype=autocast_dtype, device=device_str)
 
     ensure_tokenizer_padding(tokenizer, model)  # type: ignore[arg-type]
 
@@ -366,7 +518,6 @@ def train_transformer_experiment(
 
     exp_dir = config.paths.output_dir / config.experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
-    device_str = resolve_device(config.device)
     use_cpu = device_str == "cpu"
 
     steps_per_epoch = max(
@@ -375,7 +526,23 @@ def train_transformer_experiment(
         // max(1, sub_cfg.per_device_train_batch_size * sub_cfg.gradient_accumulation_steps),
     )
     total_train_steps = max(1, int(steps_per_epoch * sub_cfg.num_train_epochs))
+    if sub_cfg.max_steps > 0:
+        total_train_steps = sub_cfg.max_steps
     warmup_steps = int(total_train_steps * sub_cfg.warmup_ratio)
+    scheduler_type, scheduler_kwargs = _scheduler_args(
+        sub_cfg.lr_scheduler, total_train_steps, sub_cfg.early_stopping_threshold
+    )
+    # Dev (y el checkpoint del mejor punto) una vez por época o evals_per_epoch veces, repartidas en partes iguales
+    eval_kwargs: Dict[str, Any] = {"eval_strategy": "epoch", "save_strategy": "epoch"}
+    if sub_cfg.evals_per_epoch > 1:
+        eval_steps = max(1, round(steps_per_epoch / sub_cfg.evals_per_epoch))
+        eval_kwargs = {
+            "eval_strategy": "steps",
+            "eval_steps": eval_steps,
+            "save_strategy": "steps",
+            "save_steps": eval_steps,
+        }
+    compile_model = bool(sub_cfg.torch_compile and cuda)
 
     training_args = TrainingArguments(
         output_dir=str(exp_dir / "checkpoints"),
@@ -384,25 +551,60 @@ def train_transformer_experiment(
         per_device_eval_batch_size=sub_cfg.per_device_eval_batch_size,
         gradient_accumulation_steps=sub_cfg.gradient_accumulation_steps,
         num_train_epochs=sub_cfg.num_train_epochs,
+        max_steps=sub_cfg.max_steps,
         weight_decay=sub_cfg.weight_decay,
         warmup_steps=warmup_steps,
+        lr_scheduler_type=scheduler_type,
+        lr_scheduler_kwargs=scheduler_kwargs,
         max_grad_norm=sub_cfg.max_grad_norm,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        **eval_kwargs,
         save_total_limit=1,
+        save_only_model=True,  # sin estado del optimizador: no se reanudan corridas
         load_best_model_at_end=True,
         metric_for_best_model="eval_f1_macro",
         greater_is_better=True,
-        logging_strategy="epoch",
+        logging_strategy="steps",
+        logging_steps=sub_cfg.logging_steps,
         seed=config.seed,
-        fp16=bool(sub_cfg.fp16 and device_str == "cuda"),
-        bf16=bool(sub_cfg.bf16 and device_str == "cuda"),
+        fp16=fp16,
+        bf16=bf16,
+        tf32=True if ampere else None,  # multiplicaciones fp32 en tensor cores
         use_cpu=use_cpu,
         report_to="none",
-        dataloader_pin_memory=False,
+        dataloader_pin_memory=cuda,
+        dataloader_num_workers=sub_cfg.dataloader_num_workers,
+        dataloader_persistent_workers=sub_cfg.dataloader_num_workers > 0,
+        accelerator_config={"non_blocking": cuda},  # copias asíncronas CPU → GPU desde memoria fijada
+        train_sampling_strategy="group_by_length" if sub_cfg.group_by_length else "random",
+        gradient_checkpointing=sub_cfg.gradient_checkpointing,
+        gradient_checkpointing_kwargs={"use_reentrant": False} if sub_cfg.gradient_checkpointing else None,
     )
 
-    collator = DataCollatorWithPadding(tokenizer=tokenizer) if sub_cfg.dynamic_padding else None
+    # Relleno dinámico hasta un múltiplo de 8 en CUDA (tensor cores), de 64 al compilar (menos formas distintas)
+    pad_multiple = 8 if cuda else None
+    collator = (
+        DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=pad_multiple)
+        if sub_cfg.dynamic_padding
+        else None
+    )
+
+    if config.model_family == "llm_lora" and sub_cfg.lora_variant == "eva":
+        # EVA inicia el adaptador con las activaciones de los primeros lotes de train
+        eva_loader = DataLoader(train_ds, batch_size=sub_cfg.per_device_train_batch_size, collate_fn=collator)
+        initialize_eva(model, itertools.islice(eva_loader, 8), autocast_dtype)  # type: ignore[arg-type]
+
+    if compile_model:
+        bloques = _compilar_por_bloques(model, sub_cfg.torch_compile_mode)
+        print(f"torch.compile: {bloques} bloques compilados en su lugar, con formas dinámicas")
+
+    callbacks: List[Any] = [
+        EarlyStoppingCallback(
+            early_stopping_patience=sub_cfg.early_stopping_patience,
+            early_stopping_threshold=sub_cfg.early_stopping_threshold,
+        )
+    ]
+    if registro is not None:
+        callbacks.append(RealTimeMLflowCallback(registro))  # curvas en MLflow mientras entrena
 
     trainer = WeightedSequenceTrainer(
         model=model,
@@ -412,15 +614,35 @@ def train_transformer_experiment(
         processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=compute_hf_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=sub_cfg.early_stopping_patience)],
+        callbacks=callbacks,
         class_weights=class_weights,
         loss_type=sub_cfg.loss_type,
         focal_gamma=sub_cfg.focal_gamma,
+        autocast_dtype=autocast_dtype,
+        lora_config=sub_cfg if config.model_family == "llm_lora" else None,
     )
+
+    # La barra de texto en lugar de la tabla de Jupyter (o de la barra de tqdm.auto fuera de Jupyter)
+    for callback in list(trainer.callback_handler.callbacks):
+        if type(callback).__name__ in ("NotebookProgressCallback", "ProgressCallback"):
+            trainer.remove_callback(callback)
+            trainer.add_callback(BarraTexto())
 
     t0 = time.perf_counter()
     trainer.train()
+    if compile_model:
+        from torch._dynamo.utils import counters
+        print(f"torch.compile: {counters['stats']['unique_graphs']} grafos compilados")
     train_wall_time = time.perf_counter() - t0
+    if registro is not None:  # el mejor punto que eligió el early stopping y los pasos entrenados
+        registro.metricas(
+            {
+                "best_step": trainer.state.best_global_step,
+                "best_eval_f1_macro": trainer.state.best_metric,
+                "trained_steps": trainer.state.global_step,
+                "planned_steps": trainer.state.max_steps,
+            }
+        )
 
     # Evaluación en Dev
     t_inf0 = time.perf_counter()
@@ -470,7 +692,12 @@ def train_transformer_experiment(
     )
 
     best_model_dir = exp_dir / "best_model"
-    trainer.save_model(str(best_model_dir))
+    if getattr(model, "initial_adapter_dir", None):
+        # PiSSA / OLoRA modifican W: el adaptador se guarda convertido a LoRA estándar sobre la base original
+        save_converted_adapter(model, best_model_dir)  # type: ignore[arg-type]
+        tokenizer.save_pretrained(best_model_dir)
+    else:
+        trainer.save_model(str(best_model_dir))
 
     artifact = ExperimentRunArtifact(
         experiment_name=config.experiment_name,
@@ -484,12 +711,15 @@ def train_transformer_experiment(
         test_predictions=test_pred_labels,
         training_history=list(trainer.state.log_history),
     )
+    (exp_dir / "config.json").write_text(config.model_dump_json(indent=2), encoding="utf-8")
     (exp_dir / "metrics_summary.json").write_text(
         artifact.model_dump_json(indent=2),
         encoding="utf-8",
     )
-    if enable_mlflow:
-        _log_to_mlflow_safe(config, artifact, split_hashes or {})
+    if enable_mlflow and _log_to_mlflow_safe(config, artifact, split_hashes or {}, registro):
+        shutil.rmtree(exp_dir, ignore_errors=True)  # todo quedó en MLflow: nada en local
+        with contextlib.suppress(OSError):
+            exp_dir.parent.rmdir()  # la carpeta de salidas, si quedó vacía
     return artifact
 
 
@@ -500,9 +730,14 @@ def run_training_experiment(
     test_instances: Optional[Sequence[DatasetInstance]] = None,
     tokenizer: Optional[Any] = None,
     model: Optional[torch.nn.Module] = None,
-    enable_mlflow: bool = False,
+    enable_mlflow: bool = True,
 ) -> ExperimentRunArtifact:
-    """Punto de entrada unificado para ejecutar experimentos de entrenamiento (TF-IDF, Encoder o LoRA)."""
+    """Punto de entrada unificado para ejecutar experimentos de entrenamiento (TF-IDF, Encoder o LoRA).
+
+    Se asume un servidor de MLflow (registro_mlflow.direcciones_mlflow): la corrida se abre antes de entrenar
+    (RUNNING, con curvas en tiempo real) y se cierra en FINISHED al final, o en FAILED si algo falla. Si todo llega
+    al servidor, la carpeta local de la corrida se borra. Sin servidor, advierte y los resultados quedan en local.
+    """
     split_hashes: Dict[str, str] = {}
     if train_instances is None:
         train_instances = load_jsonl_instances(config.paths.train_file)
@@ -516,16 +751,27 @@ def run_training_experiment(
         test_instances = load_jsonl_instances(config.paths.test_file)
         split_hashes["test"] = compute_split_sha256(config.paths.test_file)
 
-    if config.model_family == "tfidf":
-        return train_tfidf_baseline(
-            config=config,
-            train_instances=train_instances,
-            dev_instances=dev_instances,
-            test_instances=test_instances,
-            enable_mlflow=enable_mlflow,
-            split_hashes=split_hashes,
+    if config.model_family not in ("tfidf", "encoder", "llm_lora"):
+        raise ValueError(
+            f"Para model_family='{config.model_family}' utilice las funciones de inferencia en src.modeling.predict."
         )
-    if config.model_family in ("encoder", "llm_lora"):
+    registro: Optional[RegistroMLflow] = None
+    if enable_mlflow:
+        try:
+            registro = abrir_mlflow(config, en_colab(), versiones())
+        except Exception as e:
+            print(f"AVISO: no se pudo abrir la corrida en MLflow ({type(e).__name__}: {e}); se entrena sin MLflow.")
+    try:
+        if config.model_family == "tfidf":
+            return train_tfidf_baseline(
+                config=config,
+                train_instances=train_instances,
+                dev_instances=dev_instances,
+                test_instances=test_instances,
+                enable_mlflow=registro is not None,
+                split_hashes=split_hashes,
+                registro=registro,
+            )
         return train_transformer_experiment(
             config=config,
             train_instances=train_instances,
@@ -533,9 +779,13 @@ def run_training_experiment(
             test_instances=test_instances,
             tokenizer=tokenizer,
             model=model,
-            enable_mlflow=enable_mlflow,
+            enable_mlflow=registro is not None,
             split_hashes=split_hashes,
+            registro=registro,
         )
-    raise ValueError(
-        f"Para model_family='{config.model_family}' utilice las funciones de inferencia en src.modeling.predict."
-    )
+    except BaseException as e:
+        if registro is not None:
+            if registro_mlflow.SALIDA_CONSOLA is not None:
+                registro.artefacto(registro_mlflow.SALIDA_CONSOLA)  # la salida hasta el error, para revisarlo
+            registro.cerrar("KILLED" if isinstance(e, KeyboardInterrupt) else "FAILED", esperar=False)
+        raise
