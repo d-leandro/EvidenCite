@@ -31,6 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import yaml
 
 from src.data.retrieval import RetrievalConfig, SciBERTRetriever
+from src.data.taxonomy import CANONICAL_9_CLASSES
 from src.data.schemas import (
     AnnotationMetadata,
     CitedPaperInfo,
@@ -46,17 +47,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-CANONICAL_9_CLASSES = [
-    "Background",
-    "Gap",
-    "Basis",
-    "Comparison",
-    "Application",
-    "Improvement",
-    "Evidence",
-    "Originator",
-    "Further Reading",
-]
 
 
 @dataclass
