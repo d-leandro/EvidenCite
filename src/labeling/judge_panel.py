@@ -1,7 +1,7 @@
 """Orquestador principal del pre-etiquetado asistido por panel de jueces (Actividad A2).
 
 Uso:
-    python -m src.labeling.judge_panel --config configs/labeling.yaml --limit 50
+    python -m src.labeling.judge_panel --config configs/labeling.yaml --sample 60
 """
 
 import argparse
@@ -9,6 +9,7 @@ from collections import Counter
 import json
 import logging
 from pathlib import Path
+import random
 import sys
 from typing import Dict, List, Optional
 
@@ -32,15 +33,16 @@ def setup_logging(log_path: Path) -> None:
         handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(log_path, encoding="utf-8")],
         force=True,
     )
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("openai").setLevel(logging.WARNING)
+    for noisy in ("httpx", "httpx2", "httpcore", "openai"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    """Define los argumentos de ejecución (--config, --limit, --judges, --force)."""
+    """Define los argumentos de ejecución (--config, --limit, --sample, --judges, --force)."""
     parser = argparse.ArgumentParser(description="A2: Pre-etiquetado asistido por panel de jueces LLM.")
     parser.add_argument("--config", type=Path, default=Path("configs/labeling.yaml"), help="Ruta al archivo YAML de configuración.")
     parser.add_argument("--limit", type=int, default=None, help="Limita a procesar las primeras N instancias (ideal smoke tests).")
+    parser.add_argument("--sample", type=int, default=None, help="Toma una muestra aleatoria de N instancias con la semilla de la configuración.")
     parser.add_argument("--judges", type=str, default=None, help="Lista de IDs de jueces separados por coma (ej. 'llama31_8b,qwen25_7b').")
     parser.add_argument("--force", action="store_true", help="Ignora cachés previas y fuerza re-inferencia completa.")
     return parser.parse_args(argv)
@@ -59,6 +61,10 @@ def main(argv: Optional[List[str]] = None) -> None:
     if args.limit:
         logger.info("Modo smoke test activado: procesando únicamente las primeras %d instancias", args.limit)
         instances = instances[: args.limit]
+    if args.sample and args.sample < len(instances):
+        logger.info("Muestra aleatoria de %d instancias (seed=%d)", args.sample, config.seed)
+        keep = set(random.Random(config.seed).sample(range(len(instances)), args.sample))
+        instances = [inst for i, inst in enumerate(instances) if i in keep]
 
     # 2. Inicializar jueces y filtrar si el usuario especificó --judges
     judge_configs = config.judges

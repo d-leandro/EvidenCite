@@ -1,7 +1,7 @@
-# Configuración del Panel de Jueces para Pre-etiquetado Asistido (Actividad A2)
-# Documento de Diseño: documentacion/diseno-tecnico/13-diseno-labeling-panel-jueces.md
-# Ejecución: python -m src.labeling.judge_panel --config configs/labeling.yaml [--limit 50] [--judges llama31_8b]
-# Decisiones Relacionadas: ADR-08 (Ciclo de Vida de Etiqueta), ADR-09 (Particionamiento Anti-Fuga), ADR-10 (Taxonomía Canónica)
+# Panel de jueces con vLLM en Google Colab (GPU A100)
+# Notebook: notebooks/a2_panel_jueces_colab.ipynb
+# Cada juez se sirve por separado con vLLM en http://localhost:8000/v1 y se ejecuta con --judges <id>
+# Ejecución: python -m src.labeling.judge_panel --config configs/labeling.yaml [--sample 60] [--judges llama31_8b]
 
 input_path: "data/dataset/instances.jsonl"
 output_dir: "data/labeled"
@@ -9,81 +9,39 @@ log_path: "data/logs/labeling.log"
 seed: 42
 
 aggregation:
-  min_agreement: 0.66          # Mayoría calificada requerida (2 de 3 votos)
-  quota_per_class: 2000        # Meta balanceada de cuota para auditoría de métricas de dataset
+  min_agreement: 0.66
+  quota_per_class: 2000
 
-# ==============================================================================
-# PERFIL 1: HOSTED (Por defecto para corrida completa de 18.658 instancias)
-# Utiliza APIs de pesos abiertos bajo contrato OpenAI (OpenRouter / Groq / Together)
-# ==============================================================================
 judges:
   - id: "llama31_8b"
-    provider: "openrouter"
-    model_name: "meta-llama/llama-3.1-8b-instruct"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key_env: "OPENROUTER_API_KEY"
+    provider: "vllm"
+    model_name: "meta-llama/Llama-3.1-8B-Instruct"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
     temperature: 0.0
     max_output_tokens: 150
     max_retries: 3
-    timeout_seconds: 60.0
-    max_concurrency: 8
+    timeout_seconds: 120.0
+    max_concurrency: 32
 
   - id: "qwen25_7b"
-    provider: "openrouter"
-    model_name: "qwen/qwen-2.5-7b-instruct"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key_env: "OPENROUTER_API_KEY"
+    provider: "vllm"
+    model_name: "Qwen/Qwen2.5-7B-Instruct"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
     temperature: 0.0
     max_output_tokens: 150
     max_retries: 3
-    timeout_seconds: 60.0
-    max_concurrency: 8
+    timeout_seconds: 120.0
+    max_concurrency: 32
 
   - id: "mistral_7b"
-    provider: "openrouter"
-    model_name: "mistralai/mistral-7b-instruct-v0.3"
-    base_url: "https://openrouter.ai/api/v1"
-    api_key_env: "OPENROUTER_API_KEY"
+    provider: "vllm"
+    model_name: "mistralai/Mistral-7B-Instruct-v0.3"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
     temperature: 0.0
     max_output_tokens: 150
     max_retries: 3
-    timeout_seconds: 60.0
-    max_concurrency: 8
-
-# ==============================================================================
-# PERFIL 2: LOCAL (Ollama para pruebas de integración y desarrollo / $0 costo)
-# Descomentar para desarrollo offline (requiere: ollama pull <model>)
-# ==============================================================================
-# judges:
-#   - id: "llama31_8b"
-#     provider: "ollama"
-#     model_name: "llama3.1:8b"
-#     base_url: "http://localhost:11434/v1"
-#     api_key_env: "OLLAMA_API_KEY"       # Puede ser dummy ("ollama")
-#     temperature: 0.0
-#     max_output_tokens: 150
-#     max_retries: 2
-#     timeout_seconds: 120.0
-#     max_concurrency: 1
-#
-#   - id: "qwen25_7b"
-#     provider: "ollama"
-#     model_name: "qwen2.5:7b"
-#     base_url: "http://localhost:11434/v1"
-#     api_key_env: "OLLAMA_API_KEY"
-#     temperature: 0.0
-#     max_output_tokens: 150
-#     max_retries: 2
-#     timeout_seconds: 120.0
-#     max_concurrency: 1
-#
-#   - id: "mistral_7b"
-#     provider: "ollama"
-#     model_name: "mistral:7b"
-#     base_url: "http://localhost:11434/v1"
-#     api_key_env: "OLLAMA_API_KEY"
-#     temperature: 0.0
-#     max_output_tokens: 150
-#     max_retries: 2
-#     timeout_seconds: 120.0
-#     max_concurrency: 1
+    timeout_seconds: 120.0
+    max_concurrency: 32

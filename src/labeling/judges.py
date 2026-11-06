@@ -87,9 +87,11 @@ class Judge:
                     continue
                 try:
                     record = json.loads(line)
-                    self._cache[record["cache_key"]] = PanelVote.model_validate(record["vote"])
+                    vote = PanelVote.model_validate(record["vote"])
                 except Exception:
                     continue
+                if vote.label is not None:
+                    self._cache[record["cache_key"]] = vote
         logger.info("Juez [%s]: %d votos recuperados desde caché", self.config.id, len(self._cache))
 
     def _append_to_cache(self, key: str, vote: PanelVote) -> None:

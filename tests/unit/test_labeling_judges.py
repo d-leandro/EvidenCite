@@ -116,6 +116,18 @@ def test_judge_abstains_without_aborting(tmp_path: Path):
     assert vote.error
 
 
+def test_abstentions_are_retried_on_resume(tmp_path: Path):
+    inst = make_instance(5, "train")
+    Judge(judge_config(), tmp_path, client=fake_client(parse_mode="error", text=None)).vote(inst)
+
+    client = fake_client(label="Gap")
+    resumed = Judge(judge_config(), tmp_path, client=client)
+    assert not resumed.is_cached(inst.instance_id)
+    assert resumed.vote(inst).label == "Gap"
+    assert client.chat.completions.calls == 1
+    assert Judge(judge_config(), tmp_path, client=fake_client(label="Basis")).vote(inst).label == "Gap"
+
+
 def test_vote_all_preserves_every_instance(tmp_path: Path):
     instances = [make_instance(i, "train") for i in range(25)]
     votes = Judge(judge_config(), tmp_path, client=fake_client()).vote_all(instances)
@@ -178,3 +190,33 @@ def test_orchestrator_end_to_end(tmp_path: Path, monkeypatch):
     assert (tmp_path / "logs" / "labeling.log").exists()
     for judge_id in labels:
         assert (out / "votes" / f"{judge_id}.jsonl").exists()
+
+
+def test_orchestrator_sample_is_reproducible_and_keeps_order(tmp_path: Path, monkeypatch):
+    instances = [make_instance(i, "train") for i in range(20)]
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    with open(dataset_dir / "instances.jsonl", "w", encoding="utf-8") as f:
+        for inst in instances:
+            f.write(inst.model_dump_json() + "\n")
+
+    def run(out_name):
+        config = {
+            "input_path": str(dataset_dir / "instances.jsonl"),
+            "output_dir": str(tmp_path / out_name),
+            "log_path": str(tmp_path / "logs" / "labeling.log"),
+            "judges": [judge_config("j1").model_dump()],
+        }
+        config_path = tmp_path / f"{out_name}.yaml"
+        config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+        judge_panel.main(["--config", str(config_path), "--sample", "5"])
+        return [i.instance_id for i in load_instances(tmp_path / out_name / "instances.jsonl")]
+
+    monkeypatch.setattr(
+        judge_panel, "build_judges",
+        lambda configs, cache_dir, force=False: [Judge(c, cache_dir, client=fake_client(), force=force) for c in configs],
+    )
+    first, second = run("out1"), run("out2")
+    assert len(first) == 5
+    assert first == second
+    assert first == sorted(first)
