@@ -15,6 +15,7 @@ from sklearn.pipeline import Pipeline
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding, PreTrainedTokenizerBase
+from src.modeling.lora.modelo import _registrar_cabeza
 
 from src.config.schema import (
     CANONICAL_9_CLASSES,
@@ -558,6 +559,7 @@ class TransformerPredictor(BasePredictor):
                 id2label=ID_TO_LABEL,
                 label2id=LABEL_TO_ID,
             )
+            _registrar_cabeza(hf_config)
             base_model = AutoModelForSequenceClassification.from_pretrained(
                 base_name,
                 config=hf_config,
