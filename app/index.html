@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>EvidenCite</title>
+
+    <link rel="stylesheet" href="/static/styles.css?v=2">
+</head>
+
+<body>
+
+<div class="page-shell">
+
+    <header class="top-header">
+
+        <div class="brand">
+
+            <div class="brand-icon">
+                EC
+            </div>
+
+            <div>
+                <h1>EvidenCite</h1>
+                <p>Semantic Citation Function Classifier</p>
+            </div>
+
+        </div>
+
+        <div class="model-status">
+            <span class="status-dot"></span>
+            Model:
+            <select id="model-selector">
+                <option>Loading models...</option>
+            </select>
+        </div>
+
+    </header>
+
+
+    <nav class="tabs">
+
+        <button
+            class="tab active"
+            data-tab="analysis"
+        >
+            ◉ Análisis de Citas
+        </button>
+
+
+
+    </nav>
+
+
+    <!-- ANALYSIS TAB -->
+
+    <main
+        id="analysis-tab"
+        class="tab-content active"
+    >
+
+        <section class="analysis-grid">
+
+            <div class="input-panel panel">
+
+                <div class="panel-title cyan">
+                    ENTRADA DE DATOS [INPUT]
+                </div>
+
+                <div class="input-header">
+
+                    <div>
+                        <h2>Ingrese el contexto de la cita en inglés</h2>
+                        <p>
+                            Paste the academic citation context to classify.
+                        </p>
+                    </div>
+
+                    <span class="input-format">
+                        Format: Raw Text
+                    </span>
+
+                </div>
+
+
+                <form id="prediction-form">
+
+                    <textarea
+                        id="context"
+                        name="context"
+                        minlength="20"
+                        maxlength="5000"
+                        required
+                        placeholder="Paste the citation context here..."
+                    ></textarea>
+
+                    <label for="target-citation">
+                        Target citation
+                    </label>
+                    <input
+                        id="target-citation"
+                        type="text"
+                        placeholder="Smith et al., 2025"
+                        required
+                    >
+
+
+
+                    <div class="form-footer">
+
+                        <span id="character-count">
+                            0 / 5000
+                        </span>
+
+                        <button
+                            id="submit-button"
+                            type="submit"
+                            class="classify-button"
+                        >
+                            ✦ CLASIFICAR INTENCIÓN DE CITA
+                        </button>
+
+                    </div>
+
+                </form>
+
+                <div
+                    id="error-message"
+                    class="error hidden"
+                ></div>
+
+            </div>
+
+
+            <aside class="taxonomy-panel panel">
+    <div class="panel-title cyan">CITATION FUNCTIONS</div>
+    <div id="taxonomy-list">Loading categories...</div>
+</aside>
+
+        </section>
+
+
+        <section
+            id="result-section"
+            class="result-panel panel hidden"
+        >
+
+            <div class="panel-title green">
+                RESULTADOS DE LA CLASIFICACIÓN [OUTPUT]
+            </div>
+
+
+            <div class="prediction-summary">
+
+                <div>
+
+                    <span class="field-label">
+                        Intención de Cita Predicha:
+                    </span>
+
+                    <p class="field-description">
+                        Identified primary function of this citation reference.
+                    </p>
+
+                </div>
+
+
+                <div
+                    id="prediction"
+                    class="prediction-badge"
+                >
+                    -
+                </div>
+
+            </div>
+
+
+            <div class="confidence-row">
+
+                <div>
+
+                    <span class="field-label">
+                        Nivel de Confianza Global:
+                    </span>
+
+                    <p class="field-description">
+                        Probability score for the predicted intent.
+                    </p>
+
+                </div>
+
+
+                <div class="confidence-container">
+
+                    <div class="confidence-track">
+                        <div
+                            id="confidence-bar"
+                            class="confidence-fill"
+                        ></div>
+                    </div>
+
+                    <strong id="confidence">
+                        -
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="probabilities-block">
+
+                <span class="field-label">
+                    Distribución de Probabilidades:
+                </span>
+
+                <div id="probabilities"></div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    
+
+</div>
+
+
+<script src="/static/app.js"></script>
+
+</body>
+</html>
