@@ -86,7 +86,7 @@ ENTORNO=("${COMUNES[@]}" "${VARIABLES[@]}" "NOMBRE_CORRIDA=$NOMBRE")
 ENV=(); for par in "${ENTORNO[@]}"; do ENV+=(--env "$par"); done
 echo "Corrida $NOMBRE · $FAMILIA · sesión $SESION ($GPU)"
 
-colab new -s "$SESION" --gpu "$GPU" || exit 1
+colab new --high-mem -s "$SESION" --gpu "$GPU" || exit 1
 trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT    # se apaga al terminar, aunque algo falle
 colab install -s "$SESION" -r "$REPO/scripts/requirements-colab.txt" || exit 1
 colab upload -s "$SESION" "$TMP/dataset.zip" /content/dataset.zip || exit 1

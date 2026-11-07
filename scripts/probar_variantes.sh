@@ -91,7 +91,7 @@ COMUNES=(FAMILIA=lora PRECISION=auto AGRUPAR_LONGITUD=1 SALTAR_EXISTENTES=1 "MLF
 [[ -n "${HF_TOKEN:-}" ]] && COMUNES+=("HF_TOKEN=$HF_TOKEN")      # la CLI lo guarda en su historial
 
 preparar_sesion() {
-  colab new -s "$SESION" --gpu "$GPU" &&
+  colab new --high-mem -s "$SESION" --gpu "$GPU" &&
   colab install -s "$SESION" -r "$REPO/scripts/requirements-colab.txt" &&
   colab upload -s "$SESION" "$TMP/dataset.zip" /content/dataset.zip &&
   colab upload -s "$SESION" "$TMP/evidencite.zip" /content/evidencite.zip
