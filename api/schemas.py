@@ -15,3 +15,8 @@ class PredictionRequest(BaseModel):
     # Configuración B
     cited_chunks: list[str] | None = None
     cited_chunk_sections: list[str] | None = None
+
+
+class PrepareContextRequest(BaseModel):
+    citing_context: str = Field(min_length=20)
+    target_citation: str = Field(min_length=1)
