@@ -12,7 +12,8 @@ from src.data.schemas import AnnotationMetadata, CitedPaperInfo, CitingPaperInfo
 from src.labeling import judge_panel
 from src.labeling.io import load_instances, write_instances_by_split
 from src.labeling.judges import Judge, parse_vote_text
-from src.labeling.schemas import JudgeConfig, JudgeVote
+from src.labeling.prompts import PROMPT_VERSION_V2
+from src.labeling.schemas import JudgeConfig, JudgeVote, LabelingConfig
 
 
 class FakeCompletions:
@@ -77,6 +78,31 @@ def test_parse_vote_text_tolerates_markdown_and_label_case():
 def test_parse_vote_text_rejects_unknown_label():
     with pytest.raises(ValueError):
         parse_vote_text('{"rationale": "x", "label": "Motivation"}')
+
+
+def test_judge_vote_truncates_long_rationale():
+    vote = JudgeVote(rationale="  " + "x" * 450 + "  ", label="Gap")
+    assert len(vote.rationale) == 300
+
+
+def test_prompt_versions_use_separate_cache_keys(tmp_path: Path):
+    inst = make_instance(9, "train")
+    Judge(judge_config(), tmp_path, client=fake_client(label="Gap")).vote(inst)
+
+    client = fake_client(label="Basis")
+    v2 = Judge(judge_config(), tmp_path, client=client, prompt_version=PROMPT_VERSION_V2)
+    assert v2.vote(inst).label == "Basis"
+    assert client.chat.completions.calls == 1
+    assert Judge(judge_config(), tmp_path, client=fake_client(label="Comparison")).vote(inst).label == "Gap"
+
+
+def test_labeling_v2_config_only_changes_prompt_and_paths():
+    v1 = LabelingConfig.model_validate(yaml.safe_load(open("configs/labeling.yaml", encoding="utf-8")))
+    v2 = LabelingConfig.model_validate(yaml.safe_load(open("configs/labeling_v2.yaml", encoding="utf-8")))
+    assert v1.prompt_version == "v1_zeroshot_definitions_only"
+    assert v2.prompt_version == PROMPT_VERSION_V2
+    assert v2.output_dir != v1.output_dir and v2.log_path != v1.log_path
+    assert v2.judges == v1.judges and v2.aggregation == v1.aggregation and v2.input_path == v1.input_path
 
 
 def test_judge_structured_vote_and_cache_idempotence(tmp_path: Path):
@@ -200,11 +226,8 @@ def test_orchestrator_end_to_end(tmp_path: Path, monkeypatch):
     config_path = tmp_path / "labeling.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    def fake_build_judges(configs, cache_dir, force=False, cache_only=False):
-        return [
-            Judge(cfg, cache_dir, client=fake_client(label=labels[cfg.id]), force=force, cache_only=cache_only)
-            for cfg in configs
-        ]
+    def fake_build_judges(configs, cache_dir, **kwargs):
+        return [Judge(cfg, cache_dir, client=fake_client(label=labels[cfg.id]), **kwargs) for cfg in configs]
 
     monkeypatch.setattr(judge_panel, "build_judges", fake_build_judges)
     judge_panel.main(["--config", str(config_path)])
@@ -251,9 +274,7 @@ def test_orchestrator_sample_is_reproducible_and_keeps_order(tmp_path: Path, mon
 
     monkeypatch.setattr(
         judge_panel, "build_judges",
-        lambda configs, cache_dir, force=False, cache_only=False: [
-            Judge(c, cache_dir, client=fake_client(), force=force, cache_only=cache_only) for c in configs
-        ],
+        lambda configs, cache_dir, **kwargs: [Judge(c, cache_dir, client=fake_client(), **kwargs) for c in configs],
     )
     first, second = run("out1"), run("out2")
     assert len(first) == 5

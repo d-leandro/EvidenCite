@@ -78,7 +78,14 @@ def main(argv: Optional[List[str]] = None) -> None:
         if unknown:
             raise SystemExit(f"Jueces no definidos en la configuración: {sorted(unknown)}")
         judge_configs = [j for j in judge_configs if j.id in selected_ids]
-    judges = build_judges(judge_configs, config.output_dir / "votes", force=args.force, cache_only=args.cache_only)
+    logger.info("Versión de prompt: %s", config.prompt_version)
+    judges = build_judges(
+        judge_configs,
+        config.output_dir / "votes",
+        force=args.force,
+        cache_only=args.cache_only,
+        prompt_version=config.prompt_version,
+    )
 
     # 3. Inferencia secuencial juez por juez (D14: resiliencia y protección de memoria local)
     votes_by_instance: Dict[str, List[PanelVote]] = {inst.instance_id: [] for inst in instances}

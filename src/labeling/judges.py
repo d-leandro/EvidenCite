@@ -14,7 +14,7 @@ from openai import OpenAI
 
 from src.data.schemas import DatasetInstance
 from src.data.taxonomy import CANONICAL_9_CLASSES
-from src.labeling.prompts import PROMPT_VERSION, build_judge_messages
+from src.labeling.prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_judge_messages
 from src.labeling.schemas import JudgeConfig, JudgeVote, PanelVote
 
 logger = logging.getLogger(__name__)
@@ -55,8 +55,12 @@ class Judge:
         client: Optional[Any] = None,
         force: bool = False,
         cache_only: bool = False,
+        prompt_version: str = PROMPT_VERSION,
     ) -> None:
+        if prompt_version not in PROMPT_VERSIONS:
+            raise ValueError(f"Versión de prompt desconocida: {prompt_version!r}")
         self.config = config
+        self.prompt_version = prompt_version
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = self.cache_dir / f"{self.config.id}.jsonl"
@@ -78,7 +82,7 @@ class Judge:
         self.client = client
 
     def _cache_key(self, instance_id: str) -> str:
-        return f"{instance_id}::{self.config.model_name}::{PROMPT_VERSION}"
+        return f"{instance_id}::{self.config.model_name}::{self.prompt_version}"
 
     def _load_cache(self) -> None:
         if not self.cache_file.exists():
@@ -152,7 +156,7 @@ class Judge:
                 error="Sin voto en caché",
             )
 
-        messages = build_judge_messages(instance)
+        messages = build_judge_messages(instance, self.prompt_version)
         t0 = time.perf_counter()
         try:
             parsed, prompt_tokens, completion_tokens = self._request(messages)
@@ -209,7 +213,14 @@ class Judge:
 
 
 def build_judges(
-    configs: List[JudgeConfig], cache_dir: Path, force: bool = False, cache_only: bool = False
+    configs: List[JudgeConfig],
+    cache_dir: Path,
+    force: bool = False,
+    cache_only: bool = False,
+    prompt_version: str = PROMPT_VERSION,
 ) -> List[Judge]:
     """Fabrica la lista de jueces configurados inicializando sus cachés correspondientes."""
-    return [Judge(cfg, cache_dir, force=force, cache_only=cache_only) for cfg in configs]
+    return [
+        Judge(cfg, cache_dir, force=force, cache_only=cache_only, prompt_version=prompt_version)
+        for cfg in configs
+    ]
