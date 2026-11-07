@@ -134,6 +134,9 @@ form.addEventListener("submit", async (event) => {
                 model_id: modelSelector.value,
                 citing_context: prepared.citing_context,
                 target_citation: targetCitation,
+                cited_title: selectedPaper?.title ?? null,
+                cited_abstract: selectedPaper?.abstract ?? null,
+                cited_arxiv_id: selectedPaper?.arxiv_id ?? null,
             }),
         });
 
@@ -205,3 +208,66 @@ function renderPrediction(data) {
 }
 
 initialize();
+
+
+// Cited paper search and confirmation
+let selectedPaper = null;
+
+const paperQuery = document.getElementById("paper-query");
+const paperButton = document.getElementById("paper-search-button");
+const paperResult = document.getElementById("paper-result");
+
+paperQuery.addEventListener("input", () => {
+    selectedPaper = null;
+    paperResult.replaceChildren();
+    paperResult.classList.add("hidden");
+});
+
+paperButton.addEventListener("click", async () => {
+    const query = paperQuery.value.trim();
+    if (!query) return;
+
+    paperButton.disabled = true;
+    paperButton.textContent = "SEARCHING...";
+    paperResult.classList.remove("hidden");
+    paperResult.textContent = "Searching for cited paper...";
+    selectedPaper = null;
+
+    try {
+        const paper = await apiRequest(
+            `/papers/lookup?query=${encodeURIComponent(query)}`
+        );
+
+        const title = document.createElement("h3");
+        title.textContent = paper.title;
+
+        const authors = document.createElement("p");
+        authors.textContent = paper.authors?.join(", ") || "Unknown authors";
+
+        const details = document.createElement("p");
+        details.textContent =
+            `Source: ${paper.source} | arXiv: ${paper.arxiv_id || "N/A"}`;
+
+        const abstract = document.createElement("p");
+        abstract.textContent = paper.abstract || "Abstract unavailable.";
+
+        const confirm = document.createElement("button");
+        confirm.type = "button";
+        confirm.textContent = "CONFIRM THIS PAPER";
+
+        confirm.addEventListener("click", () => {
+            selectedPaper = paper;
+            confirm.textContent = "✓ PAPER SELECTED";
+            confirm.disabled = true;
+        });
+
+        paperResult.replaceChildren(
+            title, authors, details, abstract, confirm
+        );
+    } catch (error) {
+        paperResult.textContent = `Search failed: ${error.message}`;
+    } finally {
+        paperButton.disabled = false;
+        paperButton.textContent = "SEARCH";
+    }
+});

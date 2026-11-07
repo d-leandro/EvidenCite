@@ -20,3 +20,12 @@ class PredictionRequest(BaseModel):
 class PrepareContextRequest(BaseModel):
     citing_context: str = Field(min_length=20)
     target_citation: str = Field(min_length=1)
+
+
+
+class EvidenceRequest(BaseModel):
+    citing_context: str = Field(min_length=20)
+    target_citation: str | None = None
+    cited_arxiv_id: str = Field(min_length=4)
+    cited_title: str | None = None
+    cited_abstract: str | None = None

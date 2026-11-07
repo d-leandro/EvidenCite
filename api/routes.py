@@ -50,3 +50,49 @@ def prepare_context(request: PrepareContextRequest):
     )
 
     return {"citing_context": prepared}
+
+
+@router.get("/papers/lookup")
+def lookup_cited_paper(query: str):
+    from api.paper_lookup import lookup_paper
+
+    if len(query.strip()) < 4:
+        raise HTTPException(
+            status_code=422,
+            detail="Please provide a valid title or arXiv ID.",
+        )
+
+    return lookup_paper(query)
+
+
+
+from api.schemas import EvidenceRequest
+
+
+@router.post("/evidence")
+def retrieve_evidence(request: EvidenceRequest):
+    from src.modeling.predict import (
+        InferenceRequest,
+        resolve_request_evidence,
+    )
+
+    inference_request = InferenceRequest(**request.model_dump())
+    result = resolve_request_evidence(inference_request, top_k=3)
+
+    chunks = result.cited_chunks or []
+    sections = result.cited_chunk_sections or []
+
+    if not chunks:
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to retrieve evidence from the cited paper.",
+        )
+
+    return {
+        "cited_title": result.cited_title,
+        "cited_abstract": result.cited_abstract,
+        "cited_arxiv_id": result.cited_arxiv_id,
+        "cited_chunks": chunks,
+        "cited_chunk_sections": sections,
+        "count": len(chunks),
+    }

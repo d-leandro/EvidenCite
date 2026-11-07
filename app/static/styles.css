@@ -800,3 +800,56 @@ textarea:focus {
 .fill-evidence { background: #10b981; }
 .fill-originator { background: #ec4899; }
 .fill-further-reading { background: #8b5cf6; }
+
+.paper-lookup {
+    margin-top: 20px;
+    padding: 18px;
+    background: #0b1522;
+    border: 1px solid #29415a;
+    border-radius: 6px;
+}
+.paper-lookup label {
+    display: block;
+    margin-bottom: 10px;
+    color: #39c8ff;
+    font-size: 12px;
+    font-weight: 700;
+}
+.paper-search-row {
+    display: flex;
+    gap: 10px;
+}
+.paper-search-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 12px;
+    background: #080e18;
+    color: white;
+    border: 1px solid #29415a;
+    border-radius: 4px;
+}
+.paper-search-row button,
+.paper-result button {
+    padding: 12px;
+    background: #123047;
+    color: #39c8ff;
+    border: 1px solid #39c8ff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.paper-help, .paper-result p {
+    color: #91abc4;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.paper-result {
+    margin-top: 15px;
+    padding: 16px;
+    border: 1px solid #29415a;
+    border-radius: 4px;
+}
+.paper-result h3 { color: #dff6ff; }
+.paper-result button:disabled { opacity: 0.7; }
+@media (max-width: 600px) {
+    .paper-search-row { flex-direction: column; }
+}

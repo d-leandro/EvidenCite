@@ -7,7 +7,7 @@
 
     <title>EvidenCite</title>
 
-    <link rel="stylesheet" href="/static/styles.css?v=2">
+    <link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 
 <body>
@@ -108,7 +108,29 @@
 
 
 
-                    <div class="form-footer">
+
+<section class="paper-lookup">
+    <label for="paper-query">CITED PAPER — TITLE OR ARXIV ID</label>
+
+    <div class="paper-search-row">
+        <input
+            id="paper-query"
+            type="text"
+            placeholder="Attention Is All You Need / 1706.03762"
+        >
+        <button id="paper-search-button" type="button">
+            SEARCH
+        </button>
+    </div>
+
+    <p class="paper-help">
+        Optional. Search and confirm the paper to provide evidence for Configuration A.
+    </p>
+
+    <div id="paper-result" class="paper-result hidden"></div>
+</section>
+
+<div class="form-footer">
 
                         <span id="character-count">
                             0 / 5000
@@ -225,12 +247,12 @@
     </main>
 
 
-    
+
 
 </div>
 
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 
 </body>
 </html>
