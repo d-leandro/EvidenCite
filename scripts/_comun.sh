@@ -86,3 +86,8 @@ destino_resultados() {
   elif grep -qa "RESULTADOS LOCALES:" "$1"; then echo local
   else echo fallo; fi
 }
+
+# Opciones de `colab new` según la GPU: el backend rechaza --high-mem con G4
+opciones_sesion() {
+  [[ "$1" != G4 ]] && echo "--high-mem" || true
+}
