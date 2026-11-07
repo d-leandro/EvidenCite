@@ -54,12 +54,15 @@ class Judge:
         cache_dir: Path,
         client: Optional[Any] = None,
         force: bool = False,
+        cache_only: bool = False,
     ) -> None:
         self.config = config
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = self.cache_dir / f"{self.config.id}.jsonl"
+        self.cache_only = cache_only
         self._cache: Dict[str, PanelVote] = {}
+        self._abstentions: Dict[str, PanelVote] = {}
         self._lock = threading.Lock()
         if not force:
             self._load_cache()
@@ -92,6 +95,8 @@ class Judge:
                     continue
                 if vote.label is not None:
                     self._cache[record["cache_key"]] = vote
+                else:
+                    self._abstentions[record["cache_key"]] = vote
         logger.info("Juez [%s]: %d votos recuperados desde caché", self.config.id, len(self._cache))
 
     def _append_to_cache(self, key: str, vote: PanelVote) -> None:
@@ -139,6 +144,13 @@ class Judge:
         cached = self._cache.get(key)
         if cached is not None:
             return cached
+        if self.cache_only:
+            return self._abstentions.get(key) or PanelVote(
+                judge_id=self.config.id,
+                model_name=self.config.model_name,
+                provider=self.config.provider,
+                error="Sin voto en caché",
+            )
 
         messages = build_judge_messages(instance)
         t0 = time.perf_counter()
@@ -196,6 +208,8 @@ class Judge:
         return results
 
 
-def build_judges(configs: List[JudgeConfig], cache_dir: Path, force: bool = False) -> List[Judge]:
+def build_judges(
+    configs: List[JudgeConfig], cache_dir: Path, force: bool = False, cache_only: bool = False
+) -> List[Judge]:
     """Fabrica la lista de jueces configurados inicializando sus cachés correspondientes."""
-    return [Judge(cfg, cache_dir, force=force) for cfg in configs]
+    return [Judge(cfg, cache_dir, force=force, cache_only=cache_only) for cfg in configs]
