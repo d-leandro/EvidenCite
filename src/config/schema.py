@@ -237,6 +237,11 @@ class LoraModelConfig(TrainerOptimizationConfig):
         default="SEQ_CLS",
         description="Tipo de tarea PEFT (fijado a SEQ_CLS con cabeza lineal sobre las 9 clases).",
     )
+    fp8_base: bool = Field(
+        default=False,
+        description="Multiplica en FP8 las capas lineales congeladas del modelo base (torchao). Requiere GPU con "
+        "cc >= 8.9 (L4, G4, H100) y torch_compile.",
+    )
     lora_variant: Literal[
         "lora", "rslora", "dora", "pissa", "olora", "eva", "lora_plus", "lora_fa", "vera", "qlora"
     ] = Field(

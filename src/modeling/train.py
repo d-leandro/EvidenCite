@@ -20,7 +20,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 import torch
-from torch.utils.data import DataLoader, SequentialSampler
+from torch.utils.data import DataLoader, SequentialSampler, Sampler
 from transformers import (
     AutoTokenizer,
     DataCollatorWithPadding,
@@ -85,6 +85,31 @@ class ExperimentRunArtifact(BaseModel):
     test_predictions: Optional[List[str]] = None
     training_history: List[Dict[str, Any]] = []
 
+class _OrdenFijo(Sampler):
+    """Recorre el dataset en un orden dado."""
+
+    def __init__(self, orden: List[int]) -> None:
+        self.orden = orden
+
+    def __iter__(self):
+        return iter(self.orden)
+
+    def __len__(self) -> int:
+        return len(self.orden)
+
+
+def _orden_por_longitud(dataset: Any) -> List[int]:
+    """Índices de la instancia más larga a la más corta. Es determinista: el sampler y _al_orden_original
+    obtienen el mismo orden."""
+    longitudes = dataset.longitudes()
+    return sorted(range(len(longitudes)), key=lambda i: -longitudes[i])
+
+
+def _al_orden_original(valores: np.ndarray, dataset: Any) -> np.ndarray:
+    """predict() entrega las filas en el orden del sampler; esto las devuelve al orden de las instancias."""
+    salida = np.empty_like(valores)
+    salida[_orden_por_longitud(dataset)] = valores
+    return salida
 
 class WeightedSequenceTrainer(Trainer):
     """Subclase de HuggingFace Trainer que inyecta Weighted Cross-Entropy o Focal Loss en compute_loss.
@@ -127,9 +152,13 @@ class WeightedSequenceTrainer(Trainer):
         return super().create_optimizer(model)
 
     def _get_eval_sampler(self, eval_dataset: Any) -> Optional[torch.utils.data.Sampler]:
-        """Evaluación y predicción en el orden del dataset. Con group_by_length el Trainer también reordenaría dev y
-        test, y las predicciones de trainer.predict ya no coincidirían con el orden de las instancias."""
-        return SequentialSampler(eval_dataset) if eval_dataset is not None else None
+        """Evaluación y predicción de la instancia más larga a la más corta, para rellenar lo mínimo. Las métricas de
+        evaluate() no dependen del orden; train.py devuelve las predicciones de predict() al orden de las instancias."""
+        if eval_dataset is None:
+            return None
+        if not hasattr(eval_dataset, "longitudes"):
+            return SequentialSampler(eval_dataset)
+        return _OrdenFijo(_orden_por_longitud(eval_dataset))
 
     def compute_loss(
         self,
@@ -241,15 +270,38 @@ def _scheduler_args(name: str, total_steps: int, threshold: float) -> Tuple[str,
         }
     return name, {}  # linear, cosine
 
-def _compilar_por_bloques(model: torch.nn.Module, modo: Optional[str] = None) -> int:
-    """Compila en su lugar cada bloque del transformer (las 36 capas de Qwen3, las 12 de BERT) con lote y longitud
-    dinámicos. Los bloques comparten código: se compila el primero y los demás reutilizan el resultado."""
-    for modulo in model.modules():
-        if isinstance(modulo, torch.nn.ModuleList) and len(modulo) > 1 and len({type(m) for m in modulo}) == 1:
-            for bloque in modulo:
-                bloque.compile(dynamic=True, mode=modo)
-            return len(modulo)
-    return 0
+def _compilar_por_bloques(model, modo=None) -> int:
+    # En multimodales (Qwen3.5, Gemma 4) la torre de visión aparece antes en model.modules(): se elige la lista
+    # homogénea con más parámetros, que son los bloques del modelo de texto.
+    candidatas = [m for m in model.modules()
+                  if isinstance(m, torch.nn.ModuleList) and len(m) > 1 and len({type(b) for b in m}) == 1]
+    if not candidatas:
+        return 0
+    bloques = max(candidatas, key=lambda m: sum(p.numel() for p in m.parameters()))
+    for bloque in bloques:
+        bloque.compile(dynamic=True, mode=modo)
+    return len(bloques)
+
+def _convertir_a_fp8(model: torch.nn.Module) -> int:
+    """FP8 en las capas lineales congeladas del modelo base (torchao, escala por tensor). LoRA y la cabeza se
+    entrenan y quedan como estaban. Devuelve cuántas capas convirtió."""
+    from torchao.float8 import convert_to_float8_training  # solo se importa si se usa
+
+    convertidas: List[str] = []
+
+    def filtro(modulo: torch.nn.Module, nombre: str) -> bool:
+        ok = (
+            type(modulo) is torch.nn.Linear  # ni las capas de 4 bits de QLoRA ni otras subclases
+            and not modulo.weight.requires_grad  # solo pesos congelados
+            and modulo.in_features % 16 == 0 and modulo.out_features % 16 == 0  # requisito de FP8
+            and not (modulo.in_features <= 4096 and modulo.out_features <= 1024)  # muy chicas: no compensa
+        )
+        if ok:
+            convertidas.append(nombre)
+        return ok
+
+    convert_to_float8_training(model, module_filter_fn=filtro)
+    return len(convertidas)
 
 def _log_to_mlflow_safe(
     config: ExperimentConfig,
@@ -543,6 +595,14 @@ def train_transformer_experiment(
             "save_steps": eval_steps,
         }
     compile_model = bool(sub_cfg.torch_compile and cuda)
+    fp8 = bool(getattr(sub_cfg, "fp8_base", False))
+    if fp8 and not (cuda and torch.cuda.get_device_capability() >= (8, 9)):
+        print("AVISO: FP8 desactivado: necesita una GPU con cc >= 8.9 (L4, G4, H100); la A100 y la T4 no tienen FP8")
+        fp8 = False
+    if fp8 and not compile_model:
+        print("AVISO: FP8 desactivado: necesita COMPILAR=si (sin compilar, torchao calcula también el gradiente de "
+              "los pesos congelados y sale más lento)")
+        fp8 = False
 
     training_args = TrainingArguments(
         output_dir=str(exp_dir / "checkpoints"),
@@ -580,8 +640,8 @@ def train_transformer_experiment(
         gradient_checkpointing_kwargs={"use_reentrant": False} if sub_cfg.gradient_checkpointing else None,
     )
 
-    # Relleno dinámico hasta un múltiplo de 8 en CUDA (tensor cores), de 64 al compilar (menos formas distintas)
-    pad_multiple = 8 if cuda else None
+    # Relleno dinámico hasta un múltiplo de 8 en CUDA (tensor cores); de 16 con FP8, que lo exige
+    pad_multiple = (16 if fp8 else 8) if cuda else None
     collator = (
         DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=pad_multiple)
         if sub_cfg.dynamic_padding
@@ -592,6 +652,10 @@ def train_transformer_experiment(
         # EVA inicia el adaptador con las activaciones de los primeros lotes de train
         eva_loader = DataLoader(train_ds, batch_size=sub_cfg.per_device_train_batch_size, collate_fn=collator)
         initialize_eva(model, itertools.islice(eva_loader, 8), autocast_dtype)  # type: ignore[arg-type]
+
+    if fp8:
+        capas = _convertir_a_fp8(model)
+        print(f"FP8: {capas} capas lineales del modelo base multiplican en FP8")
 
     if compile_model:
         bloques = _compilar_por_bloques(model, sub_cfg.torch_compile_mode)
@@ -649,8 +713,11 @@ def train_transformer_experiment(
     dev_output = trainer.predict(dev_ds)
     inf_elapsed = max(1e-9, time.perf_counter() - t_inf0)
     dev_logits = dev_output.predictions[0] if isinstance(dev_output.predictions, tuple) else dev_output.predictions
+    dev_logits = _al_orden_original(dev_logits, dev_ds)
     dev_pred_ids = np.argmax(dev_logits, axis=-1).tolist()
     dev_true_ids = _extract_label_ids(dev_instances)
+    # Comprobación: las etiquetas que devolvió predict, en el orden original, son las de las instancias
+    assert _al_orden_original(dev_output.label_ids, dev_ds).tolist() == dev_true_ids
     dev_metrics = compute_a6_metrics(dev_true_ids, dev_pred_ids)
     dev_pred_labels = [ID_TO_LABEL[int(i)] for i in dev_pred_ids]
     eval_count = len(dev_instances)
@@ -668,8 +735,10 @@ def train_transformer_experiment(
             if isinstance(test_output.predictions, tuple)
             else test_output.predictions
         )
+        test_logits = _al_orden_original(test_logits, test_ds)
         test_pred_ids = np.argmax(test_logits, axis=-1).tolist()
         test_true_ids = _extract_label_ids(test_instances)
+        assert _al_orden_original(test_output.label_ids, test_ds).tolist() == test_true_ids
         test_metrics = compute_a6_metrics(test_true_ids, test_pred_ids)
         test_pred_labels = [ID_TO_LABEL[int(i)] for i in test_pred_ids]
 

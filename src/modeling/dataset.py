@@ -181,6 +181,10 @@ class CitationIntentDataset(Dataset):
     def __len__(self) -> int:
         return len(self.instances)
 
+    def longitudes(self) -> List[int]:
+        """Tokens de cada instancia. Tokeniza una sola vez: lo que lee queda en la caché."""
+        return [len(self[i]["input_ids"]) for i in range(len(self))]
+
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         if idx in self._cache:
             return self._cache[idx]
