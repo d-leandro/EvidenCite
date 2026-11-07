@@ -12,7 +12,8 @@ from src.data.schemas import AnnotationMetadata, CitedPaperInfo, CitingPaperInfo
 from src.labeling import judge_panel
 from src.labeling.io import load_instances, write_instances_by_split
 from src.labeling.judges import Judge, parse_vote_text
-from src.labeling.schemas import JudgeConfig, JudgeVote
+from src.labeling.prompts import PROMPT_VERSION_V2
+from src.labeling.schemas import JudgeConfig, JudgeVote, LabelingConfig
 
 
 class FakeCompletions:
@@ -79,6 +80,31 @@ def test_parse_vote_text_rejects_unknown_label():
         parse_vote_text('{"rationale": "x", "label": "Motivation"}')
 
 
+def test_judge_vote_truncates_long_rationale():
+    vote = JudgeVote(rationale="  " + "x" * 450 + "  ", label="Gap")
+    assert len(vote.rationale) == 300
+
+
+def test_prompt_versions_use_separate_cache_keys(tmp_path: Path):
+    inst = make_instance(9, "train")
+    Judge(judge_config(), tmp_path, client=fake_client(label="Gap")).vote(inst)
+
+    client = fake_client(label="Basis")
+    v2 = Judge(judge_config(), tmp_path, client=client, prompt_version=PROMPT_VERSION_V2)
+    assert v2.vote(inst).label == "Basis"
+    assert client.chat.completions.calls == 1
+    assert Judge(judge_config(), tmp_path, client=fake_client(label="Comparison")).vote(inst).label == "Gap"
+
+
+def test_labeling_v2_config_only_changes_prompt_and_paths():
+    v1 = LabelingConfig.model_validate(yaml.safe_load(open("configs/labeling.yaml", encoding="utf-8")))
+    v2 = LabelingConfig.model_validate(yaml.safe_load(open("configs/labeling_v2.yaml", encoding="utf-8")))
+    assert v1.prompt_version == "v1_zeroshot_definitions_only"
+    assert v2.prompt_version == PROMPT_VERSION_V2
+    assert v2.output_dir != v1.output_dir and v2.log_path != v1.log_path
+    assert v2.judges == v1.judges and v2.aggregation == v1.aggregation and v2.input_path == v1.input_path
+
+
 def test_judge_structured_vote_and_cache_idempotence(tmp_path: Path):
     client = fake_client(label="Application")
     judge = Judge(judge_config(), tmp_path, client=client)
@@ -128,6 +154,22 @@ def test_abstentions_are_retried_on_resume(tmp_path: Path):
     assert Judge(judge_config(), tmp_path, client=fake_client(label="Basis")).vote(inst).label == "Gap"
 
 
+def test_cache_only_never_calls_the_model(tmp_path: Path):
+    voted, abstained, missing = make_instance(6, "train"), make_instance(7, "train"), make_instance(8, "train")
+    Judge(judge_config(), tmp_path, client=fake_client(label="Gap")).vote(voted)
+    Judge(judge_config(), tmp_path, client=fake_client(parse_mode="error", text=None)).vote(abstained)
+    lines_before = (tmp_path / "j1.jsonl").read_text(encoding="utf-8")
+
+    client = fake_client(label="Basis")
+    offline = Judge(judge_config(), tmp_path, client=client, cache_only=True)
+    assert offline.vote(voted).label == "Gap"
+    kept = offline.vote(abstained)
+    assert kept.label is None and kept.error and kept.error != "Sin voto en caché"
+    assert offline.vote(missing).error == "Sin voto en caché"
+    assert client.chat.completions.calls == 0
+    assert (tmp_path / "j1.jsonl").read_text(encoding="utf-8") == lines_before
+
+
 def test_vote_all_preserves_every_instance(tmp_path: Path):
     instances = [make_instance(i, "train") for i in range(25)]
     votes = Judge(judge_config(), tmp_path, client=fake_client()).vote_all(instances)
@@ -142,6 +184,24 @@ def test_write_instances_by_split_preserves_order_and_splits(tmp_path: Path):
         rows = load_instances(tmp_path / f"{split}.jsonl")
         assert len(rows) == expected
         assert all(r.annotation_metadata.split == split for r in rows)
+
+
+def test_write_instances_by_split_follows_reference_order(tmp_path: Path):
+    instances = [make_instance(i, split) for i, split in enumerate(["train", "train", "train", "test", "test"])]
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    shuffled = {"train": [2, 0, 1], "test": [4, 3]}
+    for split, order in shuffled.items():
+        with open(reference / f"{split}.jsonl", "w", encoding="utf-8") as f:
+            for i in order:
+                f.write(json.dumps({"instance_id": f"inst_{i:05d}"}) + "\n")
+
+    out = tmp_path / "out"
+    write_instances_by_split(instances, out, reference_dir=reference)
+    assert [i.instance_id for i in load_instances(out / "instances.jsonl")] == [i.instance_id for i in instances]
+    for split, order in shuffled.items():
+        assert [i.instance_id for i in load_instances(out / f"{split}.jsonl")] == [f"inst_{i:05d}" for i in order]
+    assert load_instances(out / "dev.jsonl") == []
 
 
 def test_orchestrator_end_to_end(tmp_path: Path, monkeypatch):
@@ -166,8 +226,8 @@ def test_orchestrator_end_to_end(tmp_path: Path, monkeypatch):
     config_path = tmp_path / "labeling.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    def fake_build_judges(configs, cache_dir, force=False):
-        return [Judge(cfg, cache_dir, client=fake_client(label=labels[cfg.id]), force=force) for cfg in configs]
+    def fake_build_judges(configs, cache_dir, **kwargs):
+        return [Judge(cfg, cache_dir, client=fake_client(label=labels[cfg.id]), **kwargs) for cfg in configs]
 
     monkeypatch.setattr(judge_panel, "build_judges", fake_build_judges)
     judge_panel.main(["--config", str(config_path)])
@@ -214,7 +274,7 @@ def test_orchestrator_sample_is_reproducible_and_keeps_order(tmp_path: Path, mon
 
     monkeypatch.setattr(
         judge_panel, "build_judges",
-        lambda configs, cache_dir, force=False: [Judge(c, cache_dir, client=fake_client(), force=force) for c in configs],
+        lambda configs, cache_dir, **kwargs: [Judge(c, cache_dir, client=fake_client(), **kwargs) for c in configs],
     )
     first, second = run("out1"), run("out2")
     assert len(first) == 5
