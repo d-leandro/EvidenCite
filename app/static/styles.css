@@ -943,3 +943,28 @@ textarea:focus {
 @media (max-width: 600px) {
     .pdf-upload-row { flex-direction: column; align-items: stretch; }
 }
+
+.pdf-match-warning {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 14px 0;
+    padding: 12px;
+    border: 1px solid #76602a;
+    border-radius: 5px;
+    background: #292213;
+    color: #f5cf75 !important;
+    font-size: 12px !important;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.pdf-match-warning input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+#pdf-upload-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

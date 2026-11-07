@@ -7,7 +7,7 @@
 
     <title>EvidenCite</title>
 
-    <link rel="stylesheet" href="/static/styles.css?v=3">
+    <link rel="stylesheet" href="/static/styles.css?v=7">
 </head>
 
 <body>
@@ -146,7 +146,15 @@
         Maximum 20 MB. First-time PDF extraction may take a few minutes.
     </p>
 
-    <div id="pdf-upload-result"></div>
+    <label class="pdf-match-warning">
+    <input id="pdf-match-confirmation" type="checkbox">
+    <span>
+        I confirm this PDF corresponds to the target citation.
+        EvidenCite does not automatically verify this relationship.
+    </span>
+</label>
+
+<div id="pdf-upload-result"></div>
 </div>
 
 </section>
@@ -273,7 +281,7 @@
 </div>
 
 
-<script src="/static/app.js?v=6"></script>
+<script src="/static/app.js?v=7"></script>
 
 </body>
 </html>

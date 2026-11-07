@@ -401,8 +401,25 @@ function mountEvidenceRetriever() {
 const pdfInput = document.getElementById("pdf-file");
 const pdfUploadButton = document.getElementById("pdf-upload-button");
 const pdfUploadResult = document.getElementById("pdf-upload-result");
+const pdfAcknowledgement =
+    document.getElementById("pdf-match-confirmation");
+
+pdfUploadButton.disabled = true;
+
+pdfAcknowledgement.addEventListener("change", () => {
+    pdfUploadButton.disabled = !pdfAcknowledgement.checked;
+});
+
+for (const field of [contextInput, targetInput]) {
+    field.addEventListener("input", () => {
+        pdfAcknowledgement.checked = false;
+        pdfUploadButton.disabled = true;
+    });
+}
 
 pdfInput.addEventListener("change", () => {
+    pdfAcknowledgement.checked = false;
+    pdfUploadButton.disabled = true;
     resetEvidence();
     selectedPaper = null;
     paperResult.replaceChildren();
@@ -411,6 +428,8 @@ pdfInput.addEventListener("change", () => {
 });
 
 pdfUploadButton.addEventListener("click", async () => {
+    if (!pdfAcknowledgement.checked) return;
+
     const file = pdfInput.files?.[0];
     const context = contextInput.value.trim();
     const target = targetInput.value.trim();
@@ -505,6 +524,6 @@ pdfUploadButton.addEventListener("click", async () => {
             `PDF processing failed: ${error.message}`;
         pdfUploadButton.textContent = "RETRY PDF";
     } finally {
-        pdfUploadButton.disabled = false;
+        pdfUploadButton.disabled = !pdfAcknowledgement.checked;
     }
 });
