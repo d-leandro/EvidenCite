@@ -128,17 +128,34 @@ def plot_a6_a7_efficiency_frontier(
     for idx, (label, a6, a7) in enumerate(records):
         lat = max(1e-3, a7.inference_latency_ms_per_instance)
         f1 = a6.macro_f1_all_9
-        bubble_size = max(80.0, min(900.0, 80.0 + np.log10(max(1, a7.trainable_params + 1)) * 75.0))
+
+        effective_params = max(a7.total_params, a7.trainable_params)
+        is_api = a7.model_family == "llm_api" or effective_params == 0
+
+        if is_api:
+            bubble_size = 280.0
+            marker_shape = "D"
+            param_desc = "API Cloud"
+        else:
+            bubble_size = max(120.0, min(950.0, 100.0 + np.log10(max(1, effective_params)) * 85.0))
+            marker_shape = "o"
+            param_desc = (
+                f"{effective_params / 1e9:.1f}B"
+                if effective_params >= 1e9
+                else f"{effective_params / 1e6:.0f}M"
+            )
+
         color = palette[idx % len(palette)]
         ax.scatter(
             [lat],
             [f1],
             s=bubble_size,
+            marker=marker_shape,
             color=color,
             alpha=0.8,
             edgecolors="black",
             linewidth=1.2,
-            label=f"{label} ({lat:.2f} ms/ej, F1={f1:.3f})",
+            label=f"{label} ({lat:.1f} ms, F1={f1:.3f}, {param_desc})",
         )
         ax.annotate(
             label,
@@ -227,3 +244,83 @@ def plot_training_curves(
 
     return fig
 
+
+def plot_a7_economic_frontier(
+    records: Sequence[Tuple[str, TechnicalMetricsA6, OperationalMetricsA7]],
+    target_citations: int = 10_000,
+    test_set_size: int = 2798,
+    output_path: Optional[Path] = None,
+    title: str = "Frontera Económica A7: Costo Financiero (USD por 10.000 Citas) vs. Macro-F1",
+) -> Figure:
+    """Grafica el compromiso entre el Costo Financiero en Producción (USD) y la Calidad Predictiva (Macro-F1).
+
+    Permite contrastar la viabilidad de despliegue entre modelos locales fine-tuned (costo marginal ~0)
+    y modelos comerciales vía API de pago por token.
+    """
+    fig, ax = plt.subplots(figsize=(10.0, 6.0), dpi=150)
+    palette = ["#1f77b4", "#d62728", "#2ca02c", "#9467bd", "#ff7f0e", "#8c564b"]
+
+    for idx, (label, a6, a7) in enumerate(records):
+        f1 = a6.macro_f1_all_9
+        is_api = a7.model_family == "llm_api" or a7.total_params == 0
+
+        # Costo proyectado en USD para target_citations
+        if is_api and a7.estimated_api_cost_usd > 0.0:
+            cost_usd = (a7.estimated_api_cost_usd / max(1, test_set_size)) * target_citations
+            marker_shape = "D"
+            bubble_size = 280.0
+            type_tag = "API Cloud"
+        else:
+            # Costo marginal en GPU propia / CPU amortizada
+            cost_usd = 0.05 if a7.model_family == "llm_lora" else 0.01
+            marker_shape = "o"
+            effective_params = max(a7.total_params, a7.trainable_params)
+            bubble_size = max(120.0, min(950.0, 100.0 + np.log10(max(1, effective_params)) * 85.0))
+            param_str = (
+                f"{effective_params / 1e9:.1f}B"
+                if effective_params >= 1e9
+                else f"{effective_params / 1e6:.0f}M"
+            )
+            type_tag = f"Local ({param_str})"
+
+        color = palette[idx % len(palette)]
+        cost_plot = max(1e-2, cost_usd)
+
+        ax.scatter(
+            [cost_plot],
+            [f1],
+            s=bubble_size,
+            marker=marker_shape,
+            color=color,
+            alpha=0.85,
+            edgecolors="black",
+            linewidth=1.2,
+            label=f"{label} (${cost_usd:.2f}/10k, F1={f1:.3f}, {type_tag})",
+        )
+        ax.annotate(
+            f"{label}\n(${cost_usd:.2f})",
+            xy=(cost_plot, f1),
+            xytext=(7, 4),
+            textcoords="offset points",
+            fontsize=8.5,
+            fontweight="bold",
+        )
+
+    ax.set_xscale("log")
+    ax.set_xlabel(
+        f"Costo Financiero Estimado (USD por {target_citations:,} citas en producción, escala log)",
+        fontsize=10.5,
+        fontweight="bold",
+    )
+    ax.set_ylabel("Macro-F1 (9 Clases Canónicas)", fontsize=10.5, fontweight="bold")
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title(title, fontsize=12, fontweight="bold")
+    ax.grid(True, which="both", linestyle="--", alpha=0.35)
+    ax.legend(frameon=True, fontsize=8.5, loc="lower right")
+    fig.tight_layout()
+
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    return fig

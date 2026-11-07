@@ -9,6 +9,7 @@ from src.config.schema import CANONICAL_9_CLASSES
 from src.modeling.evaluate import OperationalMetricsA7, compute_a6_metrics
 from src.visualization import (
     plot_a6_a7_efficiency_frontier,
+    plot_a7_economic_frontier,
     plot_ab_confusion_matrices,
     plot_class_distribution,
     plot_per_class_f1_comparison,
@@ -101,4 +102,14 @@ def test_all_visualization_functions_generate_figures_and_pngs(tmp_path: Path) -
     fig6 = plot_training_curves(history, output_path=p6)
     assert isinstance(fig6, Figure) and p6.exists() and p6.stat().st_size > 0
     plt.close(fig6)
+
+    # 6. Frontera económica en USD
+    p8 = tmp_path / "economic_frontier.png"
+    fig8 = plot_a7_economic_frontier(
+        [("TF-IDF (A)", eval_a, op_a), ("SciBERT (B)", eval_b, op_b)],
+        output_path=p8,
+    )
+    assert isinstance(fig8, Figure) and p8.exists() and p8.stat().st_size > 0
+    plt.close(fig8)
+
 
