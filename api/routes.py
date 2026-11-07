@@ -1,7 +1,10 @@
+import os
+
 from fastapi import APIRouter, HTTPException
 
 from api.schemas import PredictionRequest, PrepareContextRequest
 from api.model_registry import list_models
+from api.demo import predict_demo
 from src.data.builder import CANONICAL_9_CLASSES
 
 router = APIRouter(prefix="/api/v1")
@@ -14,6 +17,12 @@ def get_labels():
 
 @router.post("/predict")
 def predict(request: PredictionRequest):
+    if request.model_id == "demo-workflow":
+        enabled = os.getenv("ENABLE_DEMO_MODEL", "").lower() in ("true", "1", "yes")
+        if not enabled:
+            raise HTTPException(status_code=503, detail="Demo model is disabled.")
+        return predict_demo(request)
+
     raise HTTPException(
         status_code=503,
         detail="Inference models are not registered yet.",
