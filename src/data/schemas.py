@@ -4,7 +4,7 @@ Define los modelos estructurados para la capa canonical (data/structured/papers.
 así como los componentes atómicos de oraciones, citas, secciones y bibliografía.
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -122,12 +122,15 @@ class AnnotationMetadata(BaseModel):
     mapping_type: Optional[str] = Field(default=None, description="'exact', 'partial', 'heuristic' o null")
     label_source: str = Field(
         default="human_gold",
-        description="'human_gold', 'inherited', 'heuristic_rule', 'weak_nli', 'llm_panel'",
+        description="'human_gold', 'inherited', 'heuristic_rule', 'weak_nli', 'llm_panel', 'needs_review'",
     )
     is_gold: bool = Field(default=True, description="True si proviene de anotación experta humana")
     confidence_score: Optional[float] = Field(default=None, description="Probabilidad softmax de top-1 en NLI")
     margin: Optional[float] = Field(default=None, description="Margen de separación entre top-1 y top-2")
-    panel_agreement: Optional[float] = Field(default=None, description="Concordancia del panel de jueces LLM (Actividad A2)")
+    panel_agreement: Optional[float] = Field(default=None, description="Proporción de concordancia del panel [0.0, 1.0]")
+    panel_label: Optional[str] = Field(default=None, description="Etiqueta consensuada o mayoritaria del panel")
+    panel_votes: Optional[List[Dict[str, Any]]] = Field(default=None, description="Votos individuales de los jueces con rationale")
+    prior_label_source: Optional[str] = Field(default=None, description="Origen previo de la etiqueta reclasificada ('weak_nli' | 'heuristic_rule')")
     split: Optional[str] = Field(default=None, description="Partición del dataset: 'train', 'dev', o 'test'")
 
 

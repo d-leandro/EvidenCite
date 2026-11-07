@@ -1,0 +1,307 @@
+{
+  "total_instances": 18658,
+  "splits": {
+    "train": 13077,
+    "test": 2798,
+    "dev": 2783
+  },
+  "label_source_distribution": {
+    "human_gold": 3629,
+    "needs_review": 7637,
+    "llm_panel": 7392
+  },
+  "label_source_by_split": {
+    "train": {
+      "human_gold": 2508,
+      "needs_review": 5355,
+      "llm_panel": 5214
+    },
+    "test": {
+      "human_gold": 563,
+      "llm_panel": 1095,
+      "needs_review": 1140
+    },
+    "dev": {
+      "human_gold": 558,
+      "llm_panel": 1083,
+      "needs_review": 1142
+    }
+  },
+  "decision_cases": {
+    "A": 4864,
+    "B": 2528,
+    "C": 4692,
+    "D": 2945,
+    "F": 3629
+  },
+  "source_transitions": {
+    "human_gold": {
+      "human_gold": 3629
+    },
+    "weak_nli": {
+      "needs_review": 5223,
+      "llm_panel": 5361
+    },
+    "heuristic_rule": {
+      "llm_panel": 2031,
+      "needs_review": 2414
+    }
+  },
+  "label_transitions_non_gold": {
+    "Background": {
+      "sin_mayoria": 314,
+      "Background": 463,
+      "Gap": 57,
+      "Application": 47,
+      "Comparison": 95,
+      "Basis": 106,
+      "Evidence": 37,
+      "Improvement": 4,
+      "Originator": 7
+    },
+    "Gap": {
+      "Comparison": 232,
+      "Gap": 717,
+      "Background": 230,
+      "sin_mayoria": 509,
+      "Application": 118,
+      "Evidence": 55,
+      "Basis": 205,
+      "Improvement": 18,
+      "Originator": 2,
+      "Further Reading": 2
+    },
+    "Basis": {
+      "Basis": 605,
+      "Application": 154,
+      "sin_mayoria": 195,
+      "Background": 83,
+      "Comparison": 87,
+      "Further Reading": 1,
+      "Improvement": 20,
+      "Gap": 33,
+      "Originator": 6,
+      "Evidence": 5
+    },
+    "Comparison": {
+      "Comparison": 1250,
+      "Application": 49,
+      "sin_mayoria": 57,
+      "Improvement": 6,
+      "Evidence": 20,
+      "Background": 12,
+      "Basis": 17,
+      "Gap": 11,
+      "Originator": 1,
+      "Further Reading": 1
+    },
+    "Application": {
+      "Application": 584,
+      "Comparison": 125,
+      "sin_mayoria": 81,
+      "Basis": 52,
+      "Evidence": 10,
+      "Background": 9,
+      "Improvement": 2,
+      "Gap": 7,
+      "Originator": 1
+    },
+    "Improvement": {
+      "sin_mayoria": 321,
+      "Application": 339,
+      "Basis": 257,
+      "Evidence": 30,
+      "Improvement": 178,
+      "Comparison": 213,
+      "Gap": 39,
+      "Background": 40,
+      "Originator": 8,
+      "Further Reading": 2
+    },
+    "Evidence": {
+      "sin_mayoria": 458,
+      "Basis": 287,
+      "Comparison": 561,
+      "Evidence": 397,
+      "Application": 314,
+      "Background": 149,
+      "Gap": 117,
+      "Improvement": 14,
+      "Originator": 3
+    },
+    "Originator": {
+      "Basis": 410,
+      "sin_mayoria": 566,
+      "Application": 636,
+      "Comparison": 205,
+      "Originator": 206,
+      "Gap": 52,
+      "Background": 178,
+      "Evidence": 16,
+      "Improvement": 30,
+      "Further Reading": 1
+    },
+    "Further Reading": {
+      "Further Reading": 729,
+      "Basis": 148,
+      "Background": 559,
+      "sin_mayoria": 444,
+      "Application": 138,
+      "Comparison": 118,
+      "Evidence": 98,
+      "Gap": 41,
+      "Originator": 17,
+      "Improvement": 8
+    }
+  },
+  "pairwise_cohen_kappa": {
+    "llama31_8b__vs__mistral_7b": 0.36634167632329495,
+    "llama31_8b__vs__qwen25_7b": 0.4327939861193667,
+    "mistral_7b__vs__qwen25_7b": 0.39871726084414105
+  },
+  "mean_pairwise_kappa": 0.3992843077622676,
+  "gold_calibration": {
+    "evaluated_instances": 3629,
+    "evaluated_classes": [
+      "Application",
+      "Background",
+      "Comparison",
+      "Gap",
+      "Improvement"
+    ],
+    "panel_accuracy": 0.38660788095894183,
+    "per_judge_accuracy": {
+      "llama31_8b": 0.3799944888399008,
+      "mistral_7b": 0.32717241379310347,
+      "qwen25_7b": 0.35409203637365666
+    },
+    "confusion_matrix": {
+      "Background": {
+        "Basis": 181,
+        "Application": 100,
+        "Comparison": 344,
+        "Background": 223,
+        "Gap": 182,
+        "Evidence": 100,
+        "Originator": 8,
+        "Improvement": 27,
+        "Further Reading": 5
+      },
+      "Gap": {
+        "Gap": 96,
+        "Evidence": 8,
+        "Basis": 26,
+        "Improvement": 4,
+        "Background": 16,
+        "Comparison": 50,
+        "Application": 12
+      },
+      "Comparison": {
+        "Comparison": 596,
+        "Application": 115,
+        "Basis": 62,
+        "Gap": 46,
+        "Improvement": 13,
+        "Evidence": 25,
+        "Background": 18,
+        "Originator": 1
+      },
+      "Application": {
+        "Basis": 216,
+        "Comparison": 319,
+        "Gap": 29,
+        "Improvement": 23,
+        "Application": 445,
+        "Background": 82,
+        "Evidence": 36,
+        "Originator": 6,
+        "Further Reading": 1
+      },
+      "Improvement": {
+        "Comparison": 51,
+        "Basis": 62,
+        "Improvement": 43,
+        "Background": 8,
+        "Evidence": 1,
+        "Application": 33,
+        "Gap": 16
+      }
+    }
+  },
+  "judge_usage": {
+    "llama31_8b": {
+      "votes": 18658,
+      "abstentions": 0,
+      "prompt_tokens": 10487963,
+      "completion_tokens": 886135,
+      "latency_ms_total": 29304368.98309211,
+      "mean_latency_ms": 1570.6061197926954,
+      "abstention_rate": 0.0
+    },
+    "qwen25_7b": {
+      "votes": 18658,
+      "abstentions": 0,
+      "prompt_tokens": 10168451,
+      "completion_tokens": 754164,
+      "latency_ms_total": 24876191.64780889,
+      "mean_latency_ms": 1333.2721431991044,
+      "abstention_rate": 0.0
+    },
+    "mistral_7b": {
+      "votes": 18658,
+      "abstentions": 17,
+      "prompt_tokens": 11486181,
+      "completion_tokens": 1220057,
+      "latency_ms_total": 26969835.512774944,
+      "mean_latency_ms": 1445.4837342038238,
+      "abstention_rate": 0.0009111373137528138
+    }
+  },
+  "quota_status": {
+    "Application": {
+      "total_count": 2715,
+      "quota_target": 2000,
+      "deficit": 0
+    },
+    "Background": {
+      "total_count": 2537,
+      "quota_target": 2000,
+      "deficit": 0
+    },
+    "Basis": {
+      "total_count": 1351,
+      "quota_target": 2000,
+      "deficit": 649
+    },
+    "Comparison": {
+      "total_count": 2985,
+      "quota_target": 2000,
+      "deficit": 0
+    },
+    "Evidence": {
+      "total_count": 1863,
+      "quota_target": 2000,
+      "deficit": 137
+    },
+    "Further Reading": {
+      "total_count": 1969,
+      "quota_target": 2000,
+      "deficit": 31
+    },
+    "Gap": {
+      "total_count": 2188,
+      "quota_target": 2000,
+      "deficit": 0
+    },
+    "Improvement": {
+      "total_count": 1329,
+      "quota_target": 2000,
+      "deficit": 671
+    },
+    "Originator": {
+      "total_count": 1721,
+      "quota_target": 2000,
+      "deficit": 279
+    }
+  }
+}
