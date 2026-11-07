@@ -1,8 +1,6 @@
 # Actividad A4 — Configuración A (Línea Base Documental: Citante + Título y Abstract del Citado)
 experiment_name: "scibert_config_a"
 model_family: "encoder"
-seed: 42
-device: "auto"
 
 input_representation:
   configuration: "A"
@@ -31,4 +29,3 @@ encoder:
   dynamic_padding: true
   fp16: false
   bf16: false
-

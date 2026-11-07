@@ -77,23 +77,40 @@ class RetrievalConfig:
     chunks_path: Path = Path("data/processed/cited_chunks.jsonl")
 
     @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path]) -> "RetrievalConfig":
-        """Carga la configuración desde un archivo YAML externo."""
+    def from_yaml(
+        cls,
+        yaml_path: Union[str, Path],
+        base_path: Optional[Union[str, Path]] = Path("configs/base.yaml"),
+    ) -> "RetrievalConfig":
+        """Carga la configuración desde un archivo YAML externo, heredando de base_path si existe."""
         path = Path(yaml_path)
+        base_dict: Dict[str, Any] = {}
+        if base_path is not None:
+            bp = Path(base_path)
+            if bp.exists():
+                with open(bp, "r", encoding="utf-8") as f:
+                    base_dict = yaml.safe_load(f) or {}
+
         if not path.exists():
             logger.warning("Archivo YAML de configuración no encontrado: %s. Usando defaults.", path)
-            return cls()
+            return cls(
+                seed=int(base_dict.get("seed", cls.seed)),
+                device=str(base_dict.get("device", cls.device)),
+            )
 
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+
+        seed_val = int(data.get("seed", base_dict.get("seed", cls.seed)))
+        device_val = str(data.get("device", base_dict.get("device", cls.device)))
 
         return cls(
             model_name=data.get("model_name", cls.model_name),
             batch_size=int(data.get("batch_size", cls.batch_size)),
             max_length=int(data.get("max_length", cls.max_length)),
             k=int(data.get("k", cls.k)),
-            device=str(data.get("device", cls.device)),
-            seed=int(data.get("seed", cls.seed)),
+            device=device_val,
+            seed=seed_val,
             chunks_path=Path(data.get("chunks_path", cls.chunks_path)),
         )
 
@@ -415,6 +432,12 @@ def parse_arguments() -> argparse.Namespace:
         help="Dispositivo de aceleración ('auto', 'mps', 'cuda', 'cpu')",
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Semilla pseudoaleatoria determinista",
+    )
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=None,
@@ -455,6 +478,8 @@ def main() -> None:
         config.model_name = args.model_name
     if args.device:
         config.device = args.device
+    if args.seed is not None:
+        config.seed = args.seed
     if args.batch_size:
         config.batch_size = args.batch_size
     if args.k:
