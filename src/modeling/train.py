@@ -637,6 +637,7 @@ def train_transformer_experiment(
         accelerator_config={"non_blocking": cuda},  # copias asíncronas CPU → GPU desde memoria fijada
         train_sampling_strategy="group_by_length" if sub_cfg.group_by_length else "random",
         gradient_checkpointing=sub_cfg.gradient_checkpointing,
+        label_names=["labels"],
         gradient_checkpointing_kwargs={"use_reentrant": False} if sub_cfg.gradient_checkpointing else None,
     )
 
