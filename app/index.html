@@ -128,6 +128,27 @@
     </p>
 
     <div id="paper-result" class="paper-result hidden"></div>
+<div class="pdf-upload-panel">
+    <label for="pdf-file">OR UPLOAD THE CITED PAPER</label>
+
+    <div class="pdf-upload-row">
+        <input
+            id="pdf-file"
+            type="file"
+            accept=".pdf,application/pdf"
+        >
+        <button id="pdf-upload-button" type="button">
+            PROCESS PDF
+        </button>
+    </div>
+
+    <p class="paper-help">
+        Maximum 20 MB. First-time PDF extraction may take a few minutes.
+    </p>
+
+    <div id="pdf-upload-result"></div>
+</div>
+
 </section>
 
 <div class="form-footer">
@@ -252,7 +273,7 @@
 </div>
 
 
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=6"></script>
 
 </body>
 </html>

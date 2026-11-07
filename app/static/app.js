@@ -228,6 +228,7 @@ paperQuery.addEventListener("input", () => {
 });
 
 paperButton.addEventListener("click", async () => {
+    resetEvidence();
     const query = paperQuery.value.trim();
     if (!query) return;
 
@@ -281,6 +282,8 @@ paperButton.addEventListener("click", async () => {
 // Real SciBERT evidence retrieval
 function resetEvidence() {
     retrievedEvidence = null;
+
+    document.getElementById("pdf-upload-result")?.replaceChildren();
 
     const status = document.getElementById("evidence-status");
     if (status) status.replaceChildren();
@@ -392,3 +395,116 @@ function mountEvidenceRetriever() {
 
     paperResult.append(button, status);
 }
+
+
+// Uploaded PDF evidence retrieval
+const pdfInput = document.getElementById("pdf-file");
+const pdfUploadButton = document.getElementById("pdf-upload-button");
+const pdfUploadResult = document.getElementById("pdf-upload-result");
+
+pdfInput.addEventListener("change", () => {
+    resetEvidence();
+    selectedPaper = null;
+    paperResult.replaceChildren();
+    paperResult.classList.add("hidden");
+    paperQuery.value = "";
+});
+
+pdfUploadButton.addEventListener("click", async () => {
+    const file = pdfInput.files?.[0];
+    const context = contextInput.value.trim();
+    const target = targetInput.value.trim();
+
+    if (!file) {
+        pdfUploadResult.textContent = "Select a PDF first.";
+        return;
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+        pdfUploadResult.textContent = "Maximum PDF size is 20 MB.";
+        return;
+    }
+
+    if (context.length < 20) {
+        pdfUploadResult.textContent = "Enter a citation context first.";
+        return;
+    }
+
+    resetEvidence();
+    selectedPaper = null;
+    paperResult.replaceChildren();
+    paperResult.classList.add("hidden");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("citing_context", context);
+
+    if (target) {
+        formData.append("target_citation", target);
+    }
+
+    pdfUploadButton.disabled = true;
+    pdfUploadButton.textContent = "PROCESSING...";
+    pdfUploadResult.textContent =
+        "Extracting PDF with Docling and retrieving evidence with SciBERT...";
+
+    try {
+        const data = await apiRequest("/evidence/pdf", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (
+            pdfInput.files?.[0] !== file ||
+            contextInput.value.trim() !== context ||
+            targetInput.value.trim() !== target
+        ) {
+            pdfUploadResult.textContent =
+                "Inputs changed during processing. Please retry.";
+            return;
+        }
+
+        retrievedEvidence = data;
+        selectedPaper = {
+            title: data.cited_title,
+            abstract: data.cited_abstract,
+            arxiv_id: null,
+        };
+
+        paperQuery.value = "";
+
+        const container = document.createElement("div");
+        container.className = "evidence-results";
+
+        const heading = document.createElement("h3");
+        heading.textContent =
+            `PDF PROCESSED — ${data.cited_title || file.name}`;
+        container.appendChild(heading);
+
+        data.cited_chunks.forEach((chunk, index) => {
+            const item = document.createElement("article");
+            item.className = "evidence-chunk";
+
+            const title = document.createElement("h4");
+            title.textContent =
+                `TOP ${index + 1} — ` +
+                (data.cited_chunk_sections?.[index] || "Unknown section");
+
+            const paragraph = document.createElement("p");
+            paragraph.textContent = chunk;
+
+            item.append(title, paragraph);
+            container.appendChild(item);
+        });
+
+        pdfUploadResult.replaceChildren(container);
+        pdfUploadButton.textContent = "✓ PDF PROCESSED";
+
+    } catch (error) {
+        pdfUploadResult.textContent =
+            `PDF processing failed: ${error.message}`;
+        pdfUploadButton.textContent = "RETRY PDF";
+    } finally {
+        pdfUploadButton.disabled = false;
+    }
+});

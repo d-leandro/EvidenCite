@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routes import router
+from api.pdf_routes import router as pdf_router
 
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 
@@ -21,6 +22,7 @@ def health():
 
 
 app.include_router(router)
+app.include_router(pdf_router)
 
 app.mount(
     "/static",
