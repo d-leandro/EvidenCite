@@ -853,3 +853,55 @@ textarea:focus {
 @media (max-width: 600px) {
     .paper-search-row { flex-direction: column; }
 }
+
+#retrieve-evidence-button {
+    margin-top: 15px;
+    padding: 12px 16px;
+    border: 1px solid #10b981;
+    border-radius: 5px;
+    background: #0b302c;
+    color: #34d399;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+#retrieve-evidence-button:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+#evidence-status {
+    margin-top: 12px;
+    color: #91abc4;
+    font-size: 12px;
+}
+
+.evidence-results {
+    margin-top: 18px;
+}
+
+.evidence-results h3 {
+    color: #34d399;
+    font-size: 13px;
+}
+
+.evidence-chunk {
+    margin-top: 12px;
+    padding: 15px;
+    border: 1px solid #28445a;
+    border-radius: 5px;
+    background: #0b1929;
+}
+
+.evidence-chunk h4 {
+    margin: 0 0 10px;
+    color: #67d4ff;
+    font-size: 12px;
+}
+
+.evidence-chunk p {
+    margin: 0;
+    color: #c5d7e8;
+    font-size: 12px;
+    line-height: 1.7;
+}

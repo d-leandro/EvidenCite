@@ -137,6 +137,9 @@ form.addEventListener("submit", async (event) => {
                 cited_title: selectedPaper?.title ?? null,
                 cited_abstract: selectedPaper?.abstract ?? null,
                 cited_arxiv_id: selectedPaper?.arxiv_id ?? null,
+                cited_chunks: retrievedEvidence?.cited_chunks ?? null,
+                cited_chunk_sections:
+                    retrievedEvidence?.cited_chunk_sections ?? null,
             }),
         });
 
@@ -212,6 +215,7 @@ initialize();
 
 // Cited paper search and confirmation
 let selectedPaper = null;
+let retrievedEvidence = null;
 
 const paperQuery = document.getElementById("paper-query");
 const paperButton = document.getElementById("paper-search-button");
@@ -257,6 +261,7 @@ paperButton.addEventListener("click", async () => {
 
         confirm.addEventListener("click", () => {
             selectedPaper = paper;
+            mountEvidenceRetriever();
             confirm.textContent = "✓ PAPER SELECTED";
             confirm.disabled = true;
         });
@@ -271,3 +276,119 @@ paperButton.addEventListener("click", async () => {
         paperButton.textContent = "SEARCH";
     }
 });
+
+
+// Real SciBERT evidence retrieval
+function resetEvidence() {
+    retrievedEvidence = null;
+
+    const status = document.getElementById("evidence-status");
+    if (status) status.replaceChildren();
+
+    const button = document.getElementById("retrieve-evidence-button");
+    if (button) {
+        button.disabled = false;
+        button.textContent = "RETRIEVE TOP 3 EVIDENCE";
+    }
+}
+
+contextInput.addEventListener("input", resetEvidence);
+targetInput.addEventListener("input", resetEvidence);
+paperQuery.addEventListener("input", resetEvidence);
+
+function mountEvidenceRetriever() {
+    resetEvidence();
+
+    const button = document.createElement("button");
+    button.id = "retrieve-evidence-button";
+    button.type = "button";
+    button.textContent = "RETRIEVE TOP 3 EVIDENCE";
+    button.disabled = !selectedPaper?.arxiv_id;
+
+    const status = document.createElement("div");
+    status.id = "evidence-status";
+
+    if (!selectedPaper?.arxiv_id) {
+        status.textContent = "Full-text retrieval requires an arXiv ID.";
+    }
+
+    button.addEventListener("click", async () => {
+        const context = contextInput.value.trim();
+        const target = targetInput.value.trim();
+        const arxivId = selectedPaper?.arxiv_id;
+
+        if (context.length < 20) {
+            status.textContent = "Enter a citation context first.";
+            return;
+        }
+
+        resetEvidence();
+        button.disabled = true;
+        button.textContent = "RETRIEVING...";
+        status.textContent =
+            "Extracting the article and ranking chunks with SciBERT...";
+
+        try {
+            const data = await apiRequest("/evidence", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    citing_context: context,
+                    target_citation: target || null,
+                    cited_arxiv_id: arxivId,
+                    cited_title: selectedPaper?.title ?? null,
+                    cited_abstract: selectedPaper?.abstract ?? null,
+                }),
+            });
+
+            // Never reuse evidence if the citation changed during retrieval.
+            if (
+                contextInput.value.trim() !== context ||
+                targetInput.value.trim() !== target ||
+                selectedPaper?.arxiv_id !== arxivId
+            ) {
+                resetEvidence();
+                return;
+            }
+
+            if (!data.cited_chunks?.length) {
+                throw new Error("No evidence chunks were returned.");
+            }
+
+            retrievedEvidence = data;
+
+            const container = document.createElement("div");
+            container.className = "evidence-results";
+
+            const heading = document.createElement("h3");
+            heading.textContent = "RETRIEVED EVIDENCE — TOP 3";
+            container.appendChild(heading);
+
+            data.cited_chunks.forEach((chunk, index) => {
+                const item = document.createElement("article");
+                item.className = "evidence-chunk";
+
+                const title = document.createElement("h4");
+                title.textContent =
+                    `TOP ${index + 1} — ` +
+                    (data.cited_chunk_sections?.[index] || "Unknown section");
+
+                const paragraph = document.createElement("p");
+                paragraph.textContent = chunk;
+
+                item.append(title, paragraph);
+                container.appendChild(item);
+            });
+
+            status.replaceChildren(container);
+            button.textContent =
+                `✓ ${data.cited_chunks.length} CHUNKS READY`;
+        } catch (error) {
+            status.textContent = `Retrieval failed: ${error.message}`;
+            button.disabled = false;
+            button.textContent = "RETRY RETRIEVAL";
+        }
+    });
+
+    paperResult.append(button, status);
+}

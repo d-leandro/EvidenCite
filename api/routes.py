@@ -77,7 +77,13 @@ def retrieve_evidence(request: EvidenceRequest):
     )
 
     inference_request = InferenceRequest(**request.model_dump())
-    result = resolve_request_evidence(inference_request, top_k=3)
+    from api.evidence import get_retriever
+
+    result = resolve_request_evidence(
+        inference_request,
+        retriever=get_retriever(),
+        top_k=3,
+    )
 
     chunks = result.cited_chunks or []
     sections = result.cited_chunk_sections or []
