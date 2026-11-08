@@ -1,0 +1,48 @@
+# Panel de jueces v2 con vLLM en Google Colab (GPU A100)
+# Igual al panel v1 (configs/labeling.yaml), pero el prompt solo usa el contexto de la cita, sin la sección retórica.
+# Notebook: notebooks/a2_panel_jueces_v2_colab.ipynb
+# Ejecución: python -m src.labeling.judge_panel --config configs/labeling_v2.yaml [--sample 60] [--judges llama31_8b]
+
+input_path: "data/dataset/instances.jsonl"
+output_dir: "data/labeled_v2"
+log_path: "data/logs/labeling_v2.log"
+seed: 42
+prompt_version: "v2_zeroshot_context_only"
+
+aggregation:
+  min_agreement: 0.66
+  quota_per_class: 2000
+
+judges:
+  - id: "llama31_8b"
+    provider: "vllm"
+    model_name: "meta-llama/Llama-3.1-8B-Instruct"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
+    temperature: 0.0
+    max_output_tokens: 150
+    max_retries: 3
+    timeout_seconds: 120.0
+    max_concurrency: 32
+
+  - id: "qwen25_7b"
+    provider: "vllm"
+    model_name: "Qwen/Qwen2.5-7B-Instruct"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
+    temperature: 0.0
+    max_output_tokens: 150
+    max_retries: 3
+    timeout_seconds: 120.0
+    max_concurrency: 32
+
+  - id: "mistral_7b"
+    provider: "vllm"
+    model_name: "mistralai/Mistral-7B-Instruct-v0.3"
+    base_url: "http://localhost:8000/v1"
+    api_key_env: "VLLM_API_KEY"
+    temperature: 0.0
+    max_output_tokens: 150
+    max_retries: 3
+    timeout_seconds: 120.0
+    max_concurrency: 32

@@ -69,19 +69,35 @@ class BuilderConfig:
     nli_config: Optional[NLITaggerConfig] = None
 
     @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path]) -> "BuilderConfig":
-        """Carga la configuración desde un archivo YAML externo."""
+    def from_yaml(
+        cls,
+        yaml_path: Union[str, Path],
+        base_path: Optional[Union[str, Path]] = Path("configs/base.yaml"),
+    ) -> "BuilderConfig":
+        """Carga la configuración desde un archivo YAML externo, heredando de base_path si existe."""
         path = Path(yaml_path)
+        base_dict: Dict[str, Any] = {}
+        if base_path is not None:
+            bp = Path(base_path)
+            if bp.exists():
+                with open(bp, "r", encoding="utf-8") as f:
+                    base_dict = yaml.safe_load(f) or {}
+
         if not path.exists():
             logger.warning("Archivo de configuración no encontrado: %s. Usando defaults.", path)
-            return cls()
+            return cls(seed=int(base_dict.get("seed", cls.seed)))
 
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
         ratios = data.get("split_ratios", {})
         nli_raw = data.get("nli")
+        if nli_raw is not None and isinstance(nli_raw, dict):
+            if "device" not in nli_raw and "device" in base_dict:
+                nli_raw["device"] = base_dict["device"]
         nli_cfg = NLITaggerConfig.from_dict(nli_raw) if nli_raw is not None else None
+
+        seed_val = int(data.get("seed", base_dict.get("seed", cls.seed)))
 
         return cls(
             input_contexts_path=Path(data.get("input_contexts_path", cls.input_contexts_path)),
@@ -94,7 +110,7 @@ class BuilderConfig:
             train_ratio=float(ratios.get("train", cls.train_ratio)),
             dev_ratio=float(ratios.get("dev", cls.dev_ratio)),
             test_ratio=float(ratios.get("test", cls.test_ratio)),
-            seed=int(data.get("seed", cls.seed)),
+            seed=seed_val,
             force=bool(data.get("force", cls.force)),
             nli_config=nli_cfg,
         )

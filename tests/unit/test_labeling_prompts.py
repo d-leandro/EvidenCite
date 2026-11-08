@@ -8,7 +8,9 @@ from src.data.schemas import (
     RetrievedChunk,
 )
 from src.data.taxonomy import CANONICAL_9_CLASSES, CANONICAL_CLASS_DEFINITIONS
-from src.labeling.prompts import PROMPT_VERSION, build_judge_messages, build_system_prompt
+import pytest
+
+from src.labeling.prompts import PROMPT_VERSION, PROMPT_VERSION_V2, build_judge_messages, build_system_prompt
 
 CITED_TITLE = "UNIQUE_CITED_TITLE_MARKER"
 CITED_ABSTRACT = "UNIQUE_CITED_ABSTRACT_MARKER"
@@ -35,8 +37,9 @@ def make_instance(section="Related Work") -> DatasetInstance:
     )
 
 
-def test_messages_contain_only_citing_information():
-    messages = build_judge_messages(make_instance())
+@pytest.mark.parametrize("version", [PROMPT_VERSION, PROMPT_VERSION_V2])
+def test_messages_contain_only_citing_information(version):
+    messages = build_judge_messages(make_instance(), version)
     full_text = "\n".join(m["content"] for m in messages)
     for marker in (CITED_TITLE, CITED_ABSTRACT, CHUNK_TEXT, CHUNK_SECTION, CITED_ID):
         assert marker not in full_text
@@ -64,3 +67,22 @@ def test_system_prompt_lists_all_canonical_definitions_without_examples():
 
 def test_prompt_version_is_declared():
     assert PROMPT_VERSION == "v1_zeroshot_definitions_only"
+
+
+def test_v2_prompt_uses_only_the_citing_context():
+    messages = build_judge_messages(make_instance(), PROMPT_VERSION_V2)
+    assert messages[1]["content"] == "Citing Context:\nPrior work <cite>Doe (2020)</cite> studied this problem."
+    full_text = "\n".join(m["content"] for m in messages)
+    assert "Related Work" not in full_text
+    assert "rhetorical section" not in full_text.lower()
+
+
+def test_v2_system_prompt_keeps_all_definitions():
+    system = build_system_prompt(PROMPT_VERSION_V2)
+    for label in CANONICAL_9_CLASSES:
+        assert f"- {label}: {CANONICAL_CLASS_DEFINITIONS[label]}" in system
+
+
+def test_unknown_prompt_version_is_rejected():
+    with pytest.raises(ValueError):
+        build_judge_messages(make_instance(), "v9")

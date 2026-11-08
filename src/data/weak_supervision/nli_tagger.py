@@ -90,17 +90,31 @@ class NLITaggerConfig:
         return cls(**filtered)
 
     @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path], section_key: str = "nli") -> "NLITaggerConfig":
-        """Carga la configuración desde un archivo YAML (ej. configs/builder.yaml)."""
+    def from_yaml(
+        cls,
+        yaml_path: Union[str, Path],
+        section_key: str = "nli",
+        base_path: Optional[Union[str, Path]] = Path("configs/base.yaml"),
+    ) -> "NLITaggerConfig":
+        """Carga la configuración desde un archivo YAML (ej. configs/builder.yaml), heredando de base_path."""
         path = Path(yaml_path)
+        base_dict: Dict[str, Any] = {}
+        if base_path is not None:
+            bp = Path(base_path)
+            if bp.exists():
+                with open(bp, "r", encoding="utf-8") as f:
+                    base_dict = yaml.safe_load(f) or {}
+
         if not path.exists():
             logger.warning("Archivo de configuración %s no existe. Usando defaults.", path)
-            return cls()
+            return cls(device=str(base_dict.get("device", cls.device)))
 
         with open(path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
 
-        nli_cfg = cfg.get(section_key, {})
+        nli_cfg = dict(cfg.get(section_key, {}))
+        if "device" not in nli_cfg and "device" in base_dict:
+            nli_cfg["device"] = base_dict["device"]
         return cls.from_dict(nli_cfg)
 
 

@@ -15,6 +15,5 @@ builder_config_path: "configs/builder.yaml"
 retrieval_config_path: "configs/retrieval.yaml"
 
 # Parámetros Globales
-seed: 42
 force: false
 skip_seminal: false
