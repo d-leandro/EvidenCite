@@ -1140,6 +1140,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "bitsandbytes" },
     { name = "docling" },
+    { name = "fastapi" },
     { name = "google-genai" },
     { name = "httpx" },
     { name = "joblib" },
@@ -1152,12 +1153,14 @@ dependencies = [
     { name = "pandas" },
     { name = "peft" },
     { name = "pydantic" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "scikit-learn" },
     { name = "torch" },
     { name = "torchao" },
     { name = "transformers" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -1172,6 +1175,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "bitsandbytes", specifier = ">=0.50.2" },
     { name = "docling", specifier = ">=2.142.0" },
+    { name = "fastapi", specifier = ">=0.162.0" },
     { name = "google-genai", specifier = ">=2.34.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "joblib", specifier = ">=1.6.0" },
@@ -1183,12 +1187,14 @@ requires-dist = [
     { name = "pandas", specifier = ">=3.1.0" },
     { name = "peft", specifier = ">=0.21.2" },
     { name = "pydantic", specifier = ">=2.14.1" },
+    { name = "python-multipart", specifier = ">=0.0.33" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
     { name = "torch", specifier = ">=2.14.1" },
     { name = "torchao", specifier = ">=0.16" },
     { name = "transformers", specifier = ">=5.20.2" },
+    { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 
 [package.metadata.requires-dev]

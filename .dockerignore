@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+data/
+models/
+notebooks/
+tests/
+docs/
+documentacion/
+*.ipynb
