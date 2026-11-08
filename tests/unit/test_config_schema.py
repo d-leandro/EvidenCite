@@ -62,6 +62,9 @@ def test_load_all_declarative_yaml_configs() -> None:
         # Verifica herencia estricta de base.yaml (Single Source of Truth)
         assert cfg.seed == base_cfg.seed == 42
         assert cfg.device == base_cfg.device == "auto"
+        assert cfg.paths.train_file == Path("data/labeled/train.jsonl")
+        assert cfg.paths.dev_file == Path("data/labeled/dev.jsonl")
+        assert cfg.paths.test_file == Path("data/labeled/test.jsonl")
 
 
 def test_base_config_inheritance_and_override(tmp_path: Path) -> None:
