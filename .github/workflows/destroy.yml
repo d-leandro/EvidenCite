@@ -1,0 +1,89 @@
+name: Destroy EvidenCite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidencite-aws-infra
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_DIR: infra/evidencite
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS account and state bucket
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity \
+            --query Account \
+            --output text)
+
+          STATE_BUCKET="evidencite-tfstate-${ACCOUNT_ID}"
+
+          echo "ACCOUNT_ID=${ACCOUNT_ID}" >> "$GITHUB_ENV"
+          echo "STATE_BUCKET=${STATE_BUCKET}" >> "$GITHUB_ENV"
+
+          echo "Using Terraform state bucket: ${STATE_BUCKET}"
+
+      - name: Verify state bucket exists
+        run: |
+          if ! aws s3api head-bucket \
+            --bucket "$STATE_BUCKET" 2>/dev/null; then
+
+            echo "Terraform state bucket does not exist."
+            echo "There may be no EvidenCite deployment to destroy."
+            exit 1
+          fi
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=evidencite/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform destroy
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform destroy -auto-approve
+
+      - name: Remove Terraform state bucket
+        run: |
+          aws s3 rm \
+            "s3://${STATE_BUCKET}" \
+            --recursive
+
+          aws s3api delete-bucket \
+            --bucket "$STATE_BUCKET" \
+            --region "$AWS_REGION"
+
+      - name: Destroy summary
+        run: |
+          echo "## 💀 EvidenCite destroyed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Terraform infrastructure was removed successfully." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The temporary Terraform state bucket was also deleted." >> "$GITHUB_STEP_SUMMARY"

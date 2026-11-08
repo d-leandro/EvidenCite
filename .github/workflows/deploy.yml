@@ -1,0 +1,126 @@
+name: Deploy EvidenCite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidencite-aws-infra
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_DIR: infra/evidencite
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS account and prepare state bucket
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          STATE_BUCKET="evidencite-tfstate-${ACCOUNT_ID}"
+
+          echo "ACCOUNT_ID=${ACCOUNT_ID}" >> "$GITHUB_ENV"
+          echo "STATE_BUCKET=${STATE_BUCKET}" >> "$GITHUB_ENV"
+
+          if ! aws s3api head-bucket --bucket "$STATE_BUCKET" 2>/dev/null; then
+            aws s3api create-bucket \
+              --bucket "$STATE_BUCKET" \
+              --region "$AWS_REGION"
+          fi
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=evidencite/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Create ECR repositories first
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve \
+            -target=aws_ecr_repository.api \
+            -target=aws_ecr_repository.app
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            -f api/Dockerfile \
+            -t "$ECR_REGISTRY/evidencite-api:latest" .
+
+          docker push "$ECR_REGISTRY/evidencite-api:latest"
+
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            -t "$ECR_REGISTRY/evidencite-app:latest" ./app
+
+          docker push "$ECR_REGISTRY/evidencite-app:latest"
+
+      - name: Deploy infrastructure
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve
+
+      - name: Force ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster evidencite-cluster \
+            --service evidencite-api \
+            --force-new-deployment \
+            --region "$AWS_REGION"
+
+          aws ecs update-service \
+            --cluster evidencite-cluster \
+            --service evidencite-app \
+            --force-new-deployment \
+            --region "$AWS_REGION"
+
+      - name: Wait for ECS services
+        run: |
+          aws ecs wait services-stable \
+            --cluster evidencite-cluster \
+            --services evidencite-api evidencite-app \
+            --region "$AWS_REGION"
+
+      - name: Show application URL
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          ALB_DNS=$(terraform output -raw alb_dns_name)
+          APP_URL="http://${ALB_DNS}"
+
+          echo "EvidenCite deployed successfully"
+          echo "$APP_URL"
+
+          echo "## 🚀 EvidenCite deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Application URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "[$APP_URL]($APP_URL)" >> "$GITHUB_STEP_SUMMARY"
