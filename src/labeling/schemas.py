@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.data.taxonomy import CanonicalLabel
 
@@ -22,6 +22,12 @@ class JudgeVote(BaseModel):
         ...,
         description="Etiqueta canónica asignada estrictamente dentro de las 9 clases.",
     )
+
+    @field_validator("rationale", mode="before")
+    @classmethod
+    def _truncate_rationale(cls, value: object) -> str:
+        """Trunca justificaciones extensas antes de la validación para evitar fallos en structured outputs."""
+        return str(value or "").strip()[:300]
 
 
 class PanelVote(BaseModel):
@@ -80,5 +86,6 @@ class LabelingConfig(BaseModel):
     output_dir: Path = Path("data/labeled")
     log_path: Path = Path("data/logs/labeling.log")
     seed: int = 42
+    prompt_version: Literal["v1_zeroshot_definitions_only", "v2_zeroshot_context_only"] = "v1_zeroshot_definitions_only"
     aggregation: AggregationConfig = Field(default_factory=AggregationConfig)
     judges: List[JudgeConfig]

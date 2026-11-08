@@ -1023,6 +1023,7 @@ def run_llm_api_experiment(
     eval_instances: Optional[Sequence[DatasetInstance]] = None,
     few_shot_examples: Optional[Sequence[DatasetInstance]] = None,
     custom_client: Optional[Any] = None,
+    enable_mlflow: bool = True,
 ) -> Tuple[List[PredictionRecord], TechnicalMetricsA6, OperationalMetricsA7]:
     """Ejecuta una corrida experimental completa para LLMs vía API (Actividad A5)."""
     if config.llm_api is None:
@@ -1077,15 +1078,44 @@ def run_llm_api_experiment(
         estimated_api_cost_usd=float(est_cost_usd),
     )
 
-    exp_dir = config.paths.output_dir / config.experiment_name
+    exp_dir = Path(config.paths.output_dir) / config.experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
     summary_payload = {
         "experiment_name": config.experiment_name,
-        "metrics_a6": metrics_a6.model_dump(),
-        "metrics_a7": metrics_a7.model_dump(),
+        "model_family": "llm_api",
+        "configuration": rep_cfg.configuration,
+        "output_dir": str(exp_dir),
+        "test_metrics_a6": metrics_a6.model_dump(),
+        "operational_metrics_a7": metrics_a7.model_dump(),
+        "test_predictions": [r.predicted_label for r in records],
     }
-    (exp_dir / "llm_api_metrics.json").write_text(
+    (exp_dir / "config.json").write_text(config.model_dump_json(indent=2), encoding="utf-8")
+    (exp_dir / "metrics_summary.json").write_text(
         json.dumps(summary_payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+    if enable_mlflow:
+        try:
+            from src.modeling.registro_mlflow import abrir_mlflow, en_colab, versiones
+            registro = abrir_mlflow(config, en_colab(), versiones())
+            if registro is not None:
+                registro.metricas({
+                    "test_macro_f1_all_9": metrics_a6.macro_f1_all_9,
+                    "test_macro_f1_present": metrics_a6.macro_f1_present,
+                    "test_micro_f1": metrics_a6.micro_f1,
+                    "test_weighted_f1": metrics_a6.weighted_f1,
+                    "a7_latency_ms": metrics_a7.inference_latency_ms_per_instance,
+                    "a7_throughput": metrics_a7.throughput_instances_per_sec,
+                    "a7_api_cost_usd": metrics_a7.estimated_api_cost_usd,
+                    "a7_invalid_format_rate": metrics_a7.invalid_format_rate,
+                })
+                for archivo in ("config.json", "metrics_summary.json"):
+                    ruta_arch = exp_dir / archivo
+                    if ruta_arch.exists():
+                        registro.artefacto(ruta_arch)
+                registro.cerrar("FINISHED")
+        except Exception as e:
+            logger.warning("Aviso: no se pudo registrar la corrida de LLM API en MLflow (%s: %s)", type(e).__name__, e)
+
     return records, metrics_a6, metrics_a7

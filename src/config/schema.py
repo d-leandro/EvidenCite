@@ -39,15 +39,15 @@ class PathsConfig(BaseModel):
     """Rutas base de entrada/salida y tracking de experimentos."""
 
     train_file: Path = Field(
-        default=Path("data/dataset/train.jsonl"),
+        default=Path("data/labeled/train.jsonl"),
         description="Ruta al archivo JSONL de entrenamiento.",
     )
     dev_file: Path = Field(
-        default=Path("data/dataset/dev.jsonl"),
+        default=Path("data/labeled/dev.jsonl"),
         description="Ruta al archivo JSONL de validación (dev).",
     )
     test_file: Path = Field(
-        default=Path("data/dataset/test.jsonl"),
+        default=Path("data/labeled/test.jsonl"),
         description="Ruta al archivo JSONL de prueba (test).",
     )
     output_dir: Path = Field(

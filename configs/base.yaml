@@ -1,12 +1,11 @@
-# Configuración base transversal (Actividades A4–A7)
+# Configuración base transversal del proyecto (Actividades A1–A7)
 seed: 42
 device: "auto"
 
 paths:
-  train_file: "data/dataset/train.jsonl"
-  dev_file: "data/dataset/dev.jsonl"
-  test_file: "data/dataset/test.jsonl"
+  train_file: "data/labeled/train.jsonl"
+  dev_file: "data/labeled/dev.jsonl"
+  test_file: "data/labeled/test.jsonl"
   output_dir: "models"
   mlflow_tracking_uri: ""  # http://ip:puerto del servidor; vacío: MLFLOW_IP, MLFLOW_TRACKING_URI o mlflow_ip.txt
   mlflow_experiment_name: "EvidenCite-A4-A7"
-

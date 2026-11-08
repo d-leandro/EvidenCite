@@ -1,8 +1,6 @@
 # Actividad A4 — Configuración B (Propuesta Enriquecida: Citante + Top-3 Chunks del Citado con su Sección)
 experiment_name: "scibert_config_b"
 model_family: "encoder"
-seed: 42
-device: "auto"
 
 input_representation:
   configuration: "B"
@@ -31,4 +29,3 @@ encoder:
   dynamic_padding: true
   fp16: false
   bf16: false
-

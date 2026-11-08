@@ -38,14 +38,18 @@ def setup_logging(log_path: Path) -> None:
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    """Define los argumentos de ejecución (--config, --limit, --sample, --judges, --force)."""
+    """Define los argumentos de ejecución (--config, --limit, --sample, --judges, --force, --cache-only)."""
     parser = argparse.ArgumentParser(description="A2: Pre-etiquetado asistido por panel de jueces LLM.")
     parser.add_argument("--config", type=Path, default=Path("configs/labeling.yaml"), help="Ruta al archivo YAML de configuración.")
     parser.add_argument("--limit", type=int, default=None, help="Limita a procesar las primeras N instancias (ideal smoke tests).")
     parser.add_argument("--sample", type=int, default=None, help="Toma una muestra aleatoria de N instancias con la semilla de la configuración.")
     parser.add_argument("--judges", type=str, default=None, help="Lista de IDs de jueces separados por coma (ej. 'llama31_8b,qwen25_7b').")
     parser.add_argument("--force", action="store_true", help="Ignora cachés previas y fuerza re-inferencia completa.")
-    return parser.parse_args(argv)
+    parser.add_argument("--cache-only", action="store_true", help="Agrega solo con los votos en caché, sin consultar a los jueces.")
+    args = parser.parse_args(argv)
+    if args.force and args.cache_only:
+        parser.error("--force y --cache-only no se pueden usar juntos")
+    return args
 
 
 def main(argv: Optional[List[str]] = None) -> None:
@@ -74,7 +78,14 @@ def main(argv: Optional[List[str]] = None) -> None:
         if unknown:
             raise SystemExit(f"Jueces no definidos en la configuración: {sorted(unknown)}")
         judge_configs = [j for j in judge_configs if j.id in selected_ids]
-    judges = build_judges(judge_configs, config.output_dir / "votes", force=args.force)
+    logger.info("Versión de prompt: %s", config.prompt_version)
+    judges = build_judges(
+        judge_configs,
+        config.output_dir / "votes",
+        force=args.force,
+        cache_only=args.cache_only,
+        prompt_version=config.prompt_version,
+    )
 
     # 3. Inferencia secuencial juez por juez (D14: resiliencia y protección de memoria local)
     votes_by_instance: Dict[str, List[PanelVote]] = {inst.instance_id: [] for inst in instances}
@@ -112,9 +123,13 @@ def main(argv: Optional[List[str]] = None) -> None:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
     logger.info("Métricas guardadas en %s", metrics_path)
 
-    # 6. Multiplexación en disco de los splits sin duplicidad
+    # 6. Multiplexación en disco de los splits preservando el orden barajado de data/dataset/
     logger.info("Escribiendo datasets particionados en %s ...", config.output_dir)
-    write_instances_by_split(updated_instances, config.output_dir)
+    write_instances_by_split(
+        updated_instances,
+        config.output_dir,
+        reference_dir=config.input_path.parent,
+    )
     logger.info("Pipeline de etiquetado A2 finalizado.")
 
 
