@@ -192,16 +192,21 @@ def test_format_instance_parts_citefusion_style_no_brackets() -> None:
     """Valida el estilo CiteFusion (': ' tras sección, '. ' entre chunks, preservación de Unknown Section)."""
     inst = make_synthetic_instance(citing_section="Unknown Section")
 
-    # 1. context_only preserva Unknown Section sin corchetes
-    cfg_ctx = InputRepresentationConfig(configuration="context_only")
-    citing, cited = format_instance_parts(inst, cfg_ctx)
+    # 1. Con include_citing_section=True preserva Unknown Section sin corchetes
+    cfg_ctx_with_sec = InputRepresentationConfig(configuration="context_only", include_citing_section=True)
+    citing, cited = format_instance_parts(inst, cfg_ctx_with_sec)
     assert citing == "Unknown Section: Prior studies follow <cite>(Hill et al., 2016)</cite> to learn embeddings."
     assert "[" not in citing and "]" not in citing
     assert cited is None
 
-    # 2. Si citing_section es vacía o None, se omite el prefijo ': '
+    # Por defecto include_citing_section=False entrega el contexto aislado sin prefijo de sección
+    cfg_ctx_default = InputRepresentationConfig(configuration="context_only")
+    citing_default, _ = format_instance_parts(inst, cfg_ctx_default)
+    assert citing_default == "Prior studies follow <cite>(Hill et al., 2016)</cite> to learn embeddings."
+
+    # 2. Si citing_section es vacía o None, se omite el prefijo ': ' incluso con include_citing_section=True
     inst_empty_sec = make_synthetic_instance(citing_section="")
-    citing_no_sec, _ = format_instance_parts(inst_empty_sec, cfg_ctx)
+    citing_no_sec, _ = format_instance_parts(inst_empty_sec, cfg_ctx_with_sec)
     assert citing_no_sec == "Prior studies follow <cite>(Hill et al., 2016)</cite> to learn embeddings."
 
     # 3. Configuración A: Título y Abstract separados por '. '
