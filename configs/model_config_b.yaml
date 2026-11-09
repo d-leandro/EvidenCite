@@ -4,7 +4,7 @@ model_family: "encoder"
 
 input_representation:
   configuration: "B"
-  include_citing_section: true
+  include_citing_section: false
   include_cited_section: true
   max_seq_length: 512
   enforce_per_chunk_budget: true
