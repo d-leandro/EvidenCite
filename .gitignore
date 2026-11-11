@@ -57,6 +57,8 @@ models/**
 data/**
 !data/**/
 !data/**/.gitkeep
+!data/**/*.dvc
+!data/**/.gitignore
 
 # Extensiones de datos grandes por seguridad
 *.jsonl
