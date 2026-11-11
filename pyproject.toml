@@ -29,6 +29,8 @@ dependencies = [
     "transformers>=5.20.2",
     "torchao>=0.16",
     "uvicorn>=0.54.0",
+    "cryptography<44",
+    "pyopenssl==24.2.1",
 ]
 
 [dependency-groups]
