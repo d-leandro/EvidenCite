@@ -90,7 +90,7 @@ class InputRepresentationConfig(BaseModel):
         ),
     )
     include_citing_section: bool = Field(
-        default=True,
+        default=False,
         description="Si True, antepone '{rhetorical_section}: ' al citation_context.",
     )
     include_cited_section: bool = Field(
