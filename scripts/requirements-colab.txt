@@ -4,3 +4,6 @@ accelerate
 bitsandbytes
 mlflow-skinny
 torchao>=0.16
+dvc[gdrive]>=3.67.1
+cryptography<44
+pyopenssl==24.2.1

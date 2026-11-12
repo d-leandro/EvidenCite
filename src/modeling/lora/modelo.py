@@ -25,12 +25,26 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
+from transformers.modeling_layers import GenericForSequenceClassification
+from transformers.models.auto.modeling_auto import MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES, MODEL_MAPPING
+
 from src.config.schema import CANONICAL_9_CLASSES, ID_TO_LABEL, LABEL_TO_ID, LoraModelConfig
 
 CLASSIFIER_HEADS = ("score", "classifier")  # nombres de la cabeza de clasificación en transformers
 LORA_PLUS_LR_RATIO = 16.0  # LoRA+: la tasa de B es 16 veces la de A
 MUTATES_BASE = ("pissa", "olora")  # modifican W al iniciar: se guardan convertidos a LoRA estándar
 
+def registrar_cabeza(hf_config) -> None:
+    """Gemma 4, Nemotron-H, Granite… no traen ForSequenceClassification en transformers: registra la cabeza
+    genérica (lineal sobre el último token que no es relleno), la misma que usan Qwen3 o Llama."""
+    if hf_config.model_type in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES:
+        return
+    base = MODEL_MAPPING[type(hf_config)]  # p. ej. Gemma4Model
+    preentrenado = next(c for c in base.__mro__[1:] if c.__name__.endswith("PreTrainedModel"))
+    clase = type(base.__name__.removesuffix("Model") + "ForSequenceClassification",
+                 (GenericForSequenceClassification, preentrenado), {})
+    AutoModelForSequenceClassification.register(type(hf_config), clase, exist_ok=True)
+    print(f"AVISO: {hf_config.model_type} no trae cabeza de clasificación; uso {clase.__name__} (genérica).")
 
 def _peft_config(lora_cfg: LoraModelConfig, target_modules, modules_to_save):
     """Configuración de PEFT de la variante. lora_plus, lora_fa y qlora usan LoRA estándar: cambian el optimizador
@@ -109,6 +123,10 @@ def build_lora_classifier(
             ),
             "device_map": {"": 0},
         }
+
+    hf_config.use_cache = False
+    hf_config.get_text_config().use_cache = False  # C2: en los multimodales la config de texto es otra
+    registrar_cabeza(hf_config)
     base_model = AutoModelForSequenceClassification.from_pretrained(
         lora_cfg.pretrained_model_name_or_path,
         config=hf_config,

@@ -66,6 +66,7 @@ ALIAS = {
     "LOG_CADA": ("familia", "logging_steps"),
     "GRAD_CHECKPOINTING": ("familia", "gradient_checkpointing"),
     "COMPILAR": ("familia", "torch_compile"),
+    "FP8": ("familia", "fp8_base"),
     "MODO_COMPILACION": ("familia", "torch_compile_mode"),
     "ATENCION": ("familia", "attn_implementation"),
     "NUM_WORKERS": ("familia", "dataloader_num_workers"),

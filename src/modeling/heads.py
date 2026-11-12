@@ -41,8 +41,11 @@ def ensure_tokenizer_padding(
         else:
             tokenizer.add_special_tokens({"pad_token": "[PAD]"})
             model.resize_token_embeddings(len(tokenizer))
-    if getattr(model.config, "pad_token_id", None) is None and tokenizer.pad_token_id is not None:
-        model.config.pad_token_id = tokenizer.pad_token_id
+    # La cabeza agrupa en el último token distinto de pad_token_id y lo lee de la config de texto (en Qwen3.5 o
+    # Gemma 4 no es la raíz). Las dos quedan con el id con que rellena el tokenizador, aunque el modelo trajera otro.
+    for cfg in (model.config, model.config.get_text_config()):
+        cfg.pad_token_id = tokenizer.pad_token_id
+
 
 
 def build_sequence_classifier(

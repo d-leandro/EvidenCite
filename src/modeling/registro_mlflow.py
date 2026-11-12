@@ -39,9 +39,9 @@ os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 try:
     from mlflow import MlflowClient
-    from mlflow.entities import LoggedModelOutput, Metric, Param, RunTag
+    from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput, Metric, Param, RunTag
 except ImportError:
-    MlflowClient = LoggedModelOutput = Metric = Param = RunTag = None
+    MlflowClient = Dataset = DatasetInput = InputTag = LoggedModelOutput = Metric = Param = RunTag = None
 
 AVISO_SIN_SERVIDOR = "servidor de MLflow no encontrado, los resultados se guardarán localmente"
 # Si se define (python -m src.modeling lo hace), la salida de la consola se sube a la corrida como salida.log.
@@ -101,6 +101,20 @@ class RegistroMLflow:
         items = [RunTag(k, str(v)[:5000]) for k, v in valores.items() if v is not None]
         for i in range(0, len(items), 100):
             self.cola.put(("datos", {"tags": items[i:i + 100]}))
+
+    def datasets(self, hashes: dict, rutas: dict) -> None:
+        """Encola los splits como entradas de la corrida (columna Dataset)."""
+        tag, carpeta = os.environ.get("DATOS_TAG"), os.environ.get("DATOS_DVC")
+        version = tag if en_colab() and tag else "local"
+        entradas = [
+            DatasetInput(
+                Dataset(name=f"{version}/{split}", digest=sha[:16], source_type="dvc" if version != "local" else "local",
+                        source=f"{carpeta}@{tag}" if version != "local" else str(rutas[split])),
+                tags=[InputTag("mlflow.data.context", split)],
+            )
+            for split, sha in hashes.items()
+        ]
+        self.cola.put(("entradas", entradas))
 
     def metricas(self, valores: dict, paso: int = 0) -> None:
         """Encola métricas con su paso y la hora de ahora. Salta lo que no es un número (None, texto)."""
@@ -271,6 +285,8 @@ class RegistroMLflow:
                     return True
                 if tipo == "artefacto":
                     self.cliente.log_artifact(self.run_id, contenido[0], contenido[1])
+                elif tipo == "entradas":
+                    self.cliente.log_inputs(self.run_id, datasets=contenido)
                 elif tipo == "modelo":
                     self._subir_modelo(contenido)
                 else:
@@ -396,6 +412,22 @@ def versiones() -> dict:
     return v
 
 
+def trazabilidad() -> dict:
+    """Etiquetas con el código y los datos de la corrida, desde las variables que pasan los scripts de scripts/.
+
+    CODIGO_COMMIT es el commit del código (MLflow lo muestra como Git Commit) y CODIGO_SIN_COMMIT dice si src/ o
+    configs/ tenían cambios sin commit. En Colab, DATOS_TAG y DATOS_DVC dicen de qué tag y qué carpeta bajó DVC los
+    datos; en local no se registran, porque los datos salen de la carpeta local y no de un tag.
+    """
+    etiquetas = {
+        "mlflow.source.git.commit": os.environ.get("CODIGO_COMMIT"),
+        "codigo.cambios_sin_commit": os.environ.get("CODIGO_SIN_COMMIT"),
+    }
+    if en_colab():
+        etiquetas |= {"datos.tag": os.environ.get("DATOS_TAG"), "datos.dvc": os.environ.get("DATOS_DVC")}
+    return {k: v for k, v in etiquetas.items() if v}
+
+
 def parametros_experimento(cfg: ExperimentConfig) -> dict:
     """Los parámetros que registraba train.py más todos los de la familia (tasa, lotes, LoRA, optimizaciones)."""
     rep = cfg.input_representation
@@ -456,7 +488,7 @@ def abrir_mlflow(cfg: ExperimentConfig, colab: bool, versiones: dict) -> Registr
                               float(os.environ.get("MLFLOW_ESPERA_MIN", "20")), archivo_ip_mlflow(colab))
     registro.parametros(parametros_experimento(cfg))
     gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-    registro.etiquetas({"gpu": gpu, **{f"version.{k}": v for k, v in versiones.items()}})
+    registro.etiquetas({"gpu": gpu, **{f"version.{k}": v for k, v in versiones.items()}, **trazabilidad()})
     return registro
 
 

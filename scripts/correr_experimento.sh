@@ -6,10 +6,12 @@
 # columna Models) y nada en local: no se descarga nada de Colab. Si el servidor no responde, la corrida lo advierte,
 # guarda en local y el script baja el zip a resultados/.
 #
-# En Colab: crea la sesión, instala requirements-colab.txt, sube src/ y configs/ (comprimidos: `colab upload` solo sube
-# archivos) y el dataset, corre lanzar_colab.py con cada CLAVE=valor como variable de entorno y apaga la sesión. Por
-# defecto pasa PRECISION=auto (bf16 en A100, L4 y G4; fp16 en T4) y AGRUPAR_LONGITUD=1, las optimizaciones que lora.zip
-# aplicaba siempre; se cambian con PRECISION=fp32 AGRUPAR_LONGITUD=0.
+# En Colab: valida los datos (ver abajo), crea la sesión, instala requirements-colab.txt, sube src/, configs/ y
+# config_dvc.sh (comprimidos: `colab upload` solo sube archivos) y la llave de la cuenta de servicio, corre
+# lanzar_colab.py con cada CLAVE=valor como variable de entorno y apaga la sesión. La sesión clona el repo en el tag
+# DATOS_TAG y baja los datos con DVC: desde aquí no se sube ningún dato. Por defecto pasa PRECISION=auto (bf16 en A100,
+# L4 y G4; fp16 en T4) y AGRUPAR_LONGITUD=1, las optimizaciones que lora.zip aplicaba siempre; se cambian con
+# PRECISION=fp32 AGRUPAR_LONGITUD=0.
 # En local (local en vez de la GPU): corre `python -m src.modeling` aquí mismo. Sin MODELO usa el modelo de humo de la
 # familia (Qwen3 o BERT minúsculo) en modo mini: verifica el pipeline y lo que sube a MLflow en segundos, sin GPU.
 #
@@ -18,15 +20,22 @@
 #        scripts/correr_experimento.sh G4 FAMILIA=scibert CONFIGURACION=B           # rama encoder (SciBERT por defecto)
 #        scripts/correr_experimento.sh local                                        # humo LoRA, modo mini
 #        scripts/correr_experimento.sh local FAMILIA=scibert                        # humo SciBERT, modo mini
+#        DATOS_TAG=labeled-v1 DATOS_DVC=data/labeled scripts/correr_experimento.sh G4 MODELO=Qwen/Qwen3-8B-Base
 # Los parámetros (CLAVE=valor) están en src/modeling/__main__.py y en src/modeling/MIGRACION_LORA.md.
-# Variables del script: MLFLOW_IP, DATASET (zip o carpeta; por defecto ./dataset.zip o data/dataset del repo), SESION,
-# TIMEOUT y HF_TOKEN. La salida se ve en la consola; solo si algo falla o queda en local se guarda en registros/.
+# Variables del script: MLFLOW_IP, SESION, TIMEOUT y HF_TOKEN. La salida se ve en la consola; solo si algo falla o queda
+# en local se guarda en registros/.
+# Datos en Colab, solo con DVC (si falta algo, falla antes de crear la sesión): DATOS_TAG (obligatorio; tag de git, ya
+# subido a GitHub, con la versión de los datos), GDRIVE_SA_JSON (obligatorio; ruta a la llave JSON de la cuenta de
+# servicio, con acceso de lectura a la carpeta de Drive), DATOS_DVC (data/dataset por defecto, o data/labeled) e
+# ID_CARPETA (si falta, se lee de .dvc/config.local). Datos en local: DATASET (zip o carpeta) o la carpeta DATOS_DVC
+# del repo, bajada con `uv run dvc pull`.
 set -uo pipefail
 
 GPU="${1:?Uso: $0 <G4|A100|L4|T4|local> [CLAVE=valor ...]}"; shift
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VARIABLES=("$@")
 source "$REPO/scripts/_comun.sh"
+trazas_codigo   # commit del código para las etiquetas de MLflow
 
 FAMILIA="$(valor FAMILIA lora)"
 case "$FAMILIA" in
@@ -55,7 +64,7 @@ terminar() {
 if [[ "$GPU" == local ]]; then
   SALIDAS="$(mktemp -d)"   # carpeta de la corrida mientras entrena; con MLflow queda vacía
   trap 'rm -rf "$SALIDAS" "${DATOS_TMP:-}"' EXIT
-  PREVIAS=(FAMILIA="$FAMILIA" SALIDAS_DIR="$SALIDAS")
+  PREVIAS=(FAMILIA="$FAMILIA" SALIDAS_DIR="$SALIDAS" "${TRAZAS[@]}")
   [[ "$FAMILIA" != tfidf ]] && PREVIAS+=(MODO="$(valor MODO mini)" MODELO="$(valor MODELO humo)")
   [[ -z "$(valor DATOS_DIR)" ]] && { DATOS="$(datos_locales)" || exit 1; PREVIAS+=(DATOS_DIR="$DATOS"); }
   [[ -n "$IP_MLFLOW" ]] && PREVIAS+=(MLFLOW_IP="$IP_MLFLOW")
@@ -74,23 +83,21 @@ SESION="${SESION:-evidencite}"
 TIMEOUT="${TIMEOUT:-14400}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+preparar_datos_colab || exit 1
 empaquetar_codigo "$TMP/evidencite.zip" || exit 1
-preparar_dataset "$TMP/dataset.zip" || exit 1
 
-# Valores de la corrida; lo que se pase como CLAVE=valor va después y los reemplaza.
+# Valores de la corrida; lo que se pase como CLAVE=valor va después y los reemplaza (salvo los datos y las trazas).
 COMUNES=(FAMILIA="$FAMILIA")
 [[ "$FAMILIA" != tfidf ]] && COMUNES+=(PRECISION=auto AGRUPAR_LONGITUD=1)
-ENTORNO=("${COMUNES[@]}" "${VARIABLES[@]}" "NOMBRE_CORRIDA=$NOMBRE")
+ENTORNO=("${COMUNES[@]}" "${VARIABLES[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "NOMBRE_CORRIDA=$NOMBRE")
 [[ -n "$IP_MLFLOW" ]] && ENTORNO+=("MLFLOW_IP=$IP_MLFLOW")
 [[ -n "${HF_TOKEN:-}" ]] && ENTORNO+=("HF_TOKEN=$HF_TOKEN")      # la CLI lo guarda en su historial
 ENV=(); for par in "${ENTORNO[@]}"; do ENV+=(--env "$par"); done
 echo "Corrida $NOMBRE · $FAMILIA · sesión $SESION ($GPU)"
 
-colab new -s "$SESION" --gpu "$GPU" || exit 1
+colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" || exit 1
 trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT    # se apaga al terminar, aunque algo falle
-colab install -s "$SESION" -r "$REPO/scripts/requirements-colab.txt" || exit 1
-colab upload -s "$SESION" "$TMP/dataset.zip" /content/dataset.zip || exit 1
-colab upload -s "$SESION" "$TMP/evidencite.zip" /content/evidencite.zip || exit 1
+subir_a_sesion "$SESION" "$TMP" || exit 1
 colab exec -s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT" "${ENV[@]}" 2>&1 | tee "$REGISTRO"
 if [[ "$(destino_resultados "$REGISTRO")" == local ]]; then
   # Sin MLflow, la corrida quedó en la sesión: se baja antes de apagarla.

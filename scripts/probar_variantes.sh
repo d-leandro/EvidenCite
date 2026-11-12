@@ -8,9 +8,10 @@
 # queda nada en local, y una combinación que ya está terminada en MLflow se salta. Sin servidor, cada corrida lo
 # advierte, guarda en local y el script baja su zip a resultados/ (y salta las que ya tienen zip ahí).
 #
-# En Colab: una sola sesión. Instala, sube el dataset y el código una vez, reinicia el kernel entre corridas para
-# liberar la GPU y, si se pierde la sesión, crea otra y repite la corrida. Pasa PRECISION=auto y AGRUPAR_LONGITUD=1
-# (se cambian con CLAVE=valor).
+# En Colab: una sola sesión. Instala y sube el código y la llave de la cuenta de servicio una vez (la primera corrida
+# clona el repo en el tag DATOS_TAG y baja los datos con DVC; las demás los reutilizan), reinicia el kernel entre
+# corridas para liberar la GPU y, si se pierde la sesión, crea otra y repite la corrida. Pasa PRECISION=auto y
+# AGRUPAR_LONGITUD=1 (se cambian con CLAVE=valor).
 # En local (local en vez de la GPU): las 10 variantes con el Qwen3 de humo en modo mini, una corrida por variante.
 # Verifica que cada una entrene y suba a MLflow, en segundos y sin GPU.
 #
@@ -20,12 +21,15 @@
 #        MODELOS="Qwen/Qwen3-4B-Base" SESION=s4b scripts/probar_variantes.sh G4  # otra sesión en paralelo
 #        scripts/probar_variantes.sh local                                    # las 10 variantes con el humo
 # Listas (separadas por espacios): VARIANTES, LRS, CONFIGS y MODELOS. Cada CLAVE=valor llega a todas las corridas.
+# Datos: como en correr_experimento.sh. En Colab, DATOS_TAG y GDRIVE_SA_JSON (obligatorios), DATOS_DVC e ID_CARPETA;
+# en local, DATASET o la carpeta DATOS_DVC del repo.
 set -uo pipefail
 
 GPU="${1:?Uso: $0 <G4|A100|L4|T4|local> [CLAVE=valor ...]}"; shift
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VARIABLES=("$@")
 source "$REPO/scripts/_comun.sh"
+trazas_codigo   # commit del código para las etiquetas de MLflow
 
 if [[ "$GPU" == local ]]; then
   read -ra VARIANTES <<< "${VARIANTES:-lora rslora dora pissa olora eva lora_plus lora_fa vera qlora}"
@@ -63,7 +67,7 @@ if [[ "$GPU" == local ]]; then
     [[ -f "resultados/$nombre.zip" ]] && { echo "== $nombre: ya está en resultados/, la salto"; continue; }
     echo "== $nombre"
     previas=(FAMILIA=lora SALIDAS_DIR="$SALIDAS" MODO="$(valor MODO mini)" SALTAR_EXISTENTES=1
-             MLFLOW_EXPERIMENTO="$EXPERIMENTO")
+             MLFLOW_EXPERIMENTO="$EXPERIMENTO" "${TRAZAS[@]}")
     [[ -n "${DATOS:-}" ]] && previas+=(DATOS_DIR="$DATOS")
     [[ -n "$(ip_mlflow)" ]] && previas+=(MLFLOW_IP="$(ip_mlflow)")
     registro="$(mktemp)"
@@ -83,18 +87,16 @@ fi
 # ---------------------------------------------------------------------------------------------------------------- Colab
 SESION="${SESION:-variantes}"
 TIMEOUT="${TIMEOUT:-14400}"   # segundos máximos por corrida; si se pasa, la corrida se pierde
+preparar_datos_colab || exit 1
 TMP="$(mktemp -d)"
 trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT   # libera la GPU al terminar, también con Ctrl+C
 empaquetar_codigo "$TMP/evidencite.zip" || exit 1
-preparar_dataset "$TMP/dataset.zip" || exit 1
 COMUNES=(FAMILIA=lora PRECISION=auto AGRUPAR_LONGITUD=1 SALTAR_EXISTENTES=1 "MLFLOW_EXPERIMENTO=$EXPERIMENTO")
 [[ -n "${HF_TOKEN:-}" ]] && COMUNES+=("HF_TOKEN=$HF_TOKEN")      # la CLI lo guarda en su historial
 
 preparar_sesion() {
-  colab new -s "$SESION" --gpu "$GPU" &&
-  colab install -s "$SESION" -r "$REPO/scripts/requirements-colab.txt" &&
-  colab upload -s "$SESION" "$TMP/dataset.zip" /content/dataset.zip &&
-  colab upload -s "$SESION" "$TMP/evidencite.zip" /content/evidencite.zip
+  colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" &&
+  subir_a_sesion "$SESION" "$TMP"
 }
 preparar_sesion || { echo "No se pudo preparar la sesión de Colab '$SESION'"; exit 1; }
 
@@ -103,8 +105,8 @@ for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante
   [[ -f "resultados/$nombre.zip" ]] && { echo "== $nombre: ya está en resultados/, la salto"; continue; }
   echo "== $nombre · sesión $SESION · $(date '+%Y-%m-%d %H:%M')"
   colab restart-kernel -s "$SESION" || true      # libera la memoria de la corrida anterior
-  entorno=("${COMUNES[@]}" "${VARIABLES[@]}" "MODELO=$modelo" "LORA_TIPO=$variante" "CONFIGURACION=$config" "LR=$lr"
-           "NOMBRE_CORRIDA=$nombre")
+  entorno=("${COMUNES[@]}" "${VARIABLES[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "MODELO=$modelo" "LORA_TIPO=$variante"
+           "CONFIGURACION=$config" "LR=$lr" "NOMBRE_CORRIDA=$nombre")
   [[ -n "$(ip_mlflow)" ]] && entorno+=("MLFLOW_IP=$(ip_mlflow)")
   args=(-s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT")
   for par in "${entorno[@]}"; do args+=(--env "$par"); done
