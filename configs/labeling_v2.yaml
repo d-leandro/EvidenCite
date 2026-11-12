@@ -4,7 +4,7 @@
 # Ejecución: python -m src.labeling.judge_panel --config configs/labeling_v2.yaml [--sample 60] [--judges llama31_8b]
 
 input_path: "data/dataset/instances.jsonl"
-output_dir: "data/labeled_v2"
+output_dir: "data/labeled"
 log_path: "data/logs/labeling_v2.log"
 seed: 42
 prompt_version: "v2_zeroshot_context_only"
