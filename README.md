@@ -165,6 +165,15 @@ For detailed layer descriptions and data contracts, consult the [Data Package Gu
    uv run dvc pull
    ```
    The first time, a browser window opens. If you see "Google hasn't verified this app", click **Advanced → Go to EvidenCite**.
+
+**Colab runs** (`scripts/correr_experimento.sh` and `scripts/probar_variantes.sh`): the data is not uploaded from your machine. The session clones the repo at the data tag and pulls the data with DVC using a service account. The tag must be on GitHub (`git push origin <tag>`) and the Drive folder shared with the service account as Viewer. Keep the key outside the repo.
+```bash
+export GDRIVE_SA_JSON=~/keys/evidencite-sa.json    # service account JSON key
+export DATOS_TAG=labeled-v1                        # data version
+export DATOS_DVC=data/labeled                      # optional: data/dataset by default
+scripts/correr_experimento.sh G4 MODELO=Qwen/Qwen3-8B-Base
+```
+`ID_CARPETA` is read from `.dvc/config.local` when it is not set. If anything is missing, the script fails before creating the session.
 ---
 
 ## 6. Testing

@@ -165,6 +165,15 @@ Para consultar la descripción detallada de capas y contratos de datos, revisa l
    uv run dvc pull
    ```
    La primera vez se abre el navegador. Si aparece "Google no ha verificado esta app", entra a **Configuración avanzada → Ir a EvidenCite**.
+
+**Corridas en Colab** (`scripts/correr_experimento.sh` y `scripts/probar_variantes.sh`): los datos no se suben desde tu máquina. La sesión clona el repo en el tag de los datos y los baja con DVC usando una cuenta de servicio. El tag tiene que estar en GitHub (`git push origin <tag>`) y la carpeta de Drive compartida con la cuenta de servicio como Lector. Guarda la llave fuera del repo.
+```bash
+export GDRIVE_SA_JSON=~/claves/evidencite-sa.json   # llave JSON de la cuenta de servicio
+export DATOS_TAG=labeled-v1                        # versión de los datos
+export DATOS_DVC=data/labeled                      # opcional: data/dataset por defecto
+scripts/correr_experimento.sh G4 MODELO=Qwen/Qwen3-8B-Base
+```
+`ID_CARPETA` se lee de `.dvc/config.local` si no está definida. Si falta algo, el script falla antes de crear la sesión.
 ---
 
 ## 6. Pruebas Unitarias

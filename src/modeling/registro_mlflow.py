@@ -396,6 +396,22 @@ def versiones() -> dict:
     return v
 
 
+def trazabilidad() -> dict:
+    """Etiquetas con el código y los datos de la corrida, desde las variables que pasan los scripts de scripts/.
+
+    CODIGO_COMMIT es el commit del código (MLflow lo muestra como Git Commit) y CODIGO_SIN_COMMIT dice si src/ o
+    configs/ tenían cambios sin commit. En Colab, DATOS_TAG y DATOS_DVC dicen de qué tag y qué carpeta bajó DVC los
+    datos; en local no se registran, porque los datos salen de la carpeta local y no de un tag.
+    """
+    etiquetas = {
+        "mlflow.source.git.commit": os.environ.get("CODIGO_COMMIT"),
+        "codigo.cambios_sin_commit": os.environ.get("CODIGO_SIN_COMMIT"),
+    }
+    if en_colab():
+        etiquetas |= {"datos.tag": os.environ.get("DATOS_TAG"), "datos.dvc": os.environ.get("DATOS_DVC")}
+    return {k: v for k, v in etiquetas.items() if v}
+
+
 def parametros_experimento(cfg: ExperimentConfig) -> dict:
     """Los parámetros que registraba train.py más todos los de la familia (tasa, lotes, LoRA, optimizaciones)."""
     rep = cfg.input_representation
@@ -456,7 +472,7 @@ def abrir_mlflow(cfg: ExperimentConfig, colab: bool, versiones: dict) -> Registr
                               float(os.environ.get("MLFLOW_ESPERA_MIN", "20")), archivo_ip_mlflow(colab))
     registro.parametros(parametros_experimento(cfg))
     gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-    registro.etiquetas({"gpu": gpu, **{f"version.{k}": v for k, v in versiones.items()}})
+    registro.etiquetas({"gpu": gpu, **{f"version.{k}": v for k, v in versiones.items()}, **trazabilidad()})
     return registro
 
 
