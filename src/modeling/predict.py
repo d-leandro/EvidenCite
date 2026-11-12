@@ -2,11 +2,15 @@
 
 from abc import ABC, abstractmethod
 import json
+import logging
 import os
 from pathlib import Path
+import random
 import re
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+from tqdm.std import tqdm
 
 import joblib
 import numpy as np
@@ -688,6 +692,74 @@ def parse_llm_json_response(raw_text: str) -> Tuple[LLMResponse, bool]:
         return fallback, False
 
 
+logger = logging.getLogger(__name__)
+
+
+def load_dotenv_if_present() -> None:
+    """Carga variables de entorno desde el archivo .env en la raíz del proyecto o ~/.env si existen."""
+    for candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env", Path.home() / ".env"):
+        if candidate.is_file():
+            with open(candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#") or "=" not in stripped:
+                        continue
+                    k, v = stripped.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+
+
+def sample_stratified_few_shot_examples(
+    train_file: Path,
+    num_few_shot: int,
+    seed: int = 42,
+) -> List[DatasetInstance]:
+    """Selecciona deterministamente (seed) ejemplares estratificados por clase desde train.jsonl con evidencia A+B completa."""
+    if num_few_shot <= 0 or not train_file.exists():
+        return []
+    from src.modeling.dataset import load_jsonl_instances
+
+    train_instances = load_jsonl_instances(train_file)
+    by_class: Dict[str, List[DatasetInstance]] = {cls_name: [] for cls_name in CANONICAL_9_CLASSES}
+
+    for inst in train_instances:
+        lbl = resolve_canonical_label(inst.label)
+        if lbl not in by_class:
+            continue
+        has_a = bool((inst.cited_paper.title or "").strip() and (inst.cited_paper.abstract or "").strip())
+        has_b = len(inst.cited_paper.retrieved_chunks or []) >= 1
+        if has_a and has_b:
+            by_class[lbl].append(inst)
+
+    rng = random.Random(seed)
+    for cls_name in CANONICAL_9_CLASSES:
+        if not by_class[cls_name]:
+            # Fallback si alguna clase no tuviera ambos campos simultáneamente
+            by_class[cls_name] = [
+                inst for inst in train_instances if resolve_canonical_label(inst.label) == cls_name
+            ]
+        rng.shuffle(by_class[cls_name])
+
+    selected: List[DatasetInstance] = []
+    round_idx = 0
+    while len(selected) < num_few_shot:
+        added_in_round = False
+        for cls_name in CANONICAL_9_CLASSES:
+            if len(selected) >= num_few_shot:
+                break
+            candidates = by_class[cls_name]
+            if round_idx < len(candidates):
+                selected.append(candidates[round_idx])
+                added_in_round = True
+        if not added_in_round:
+            break
+        round_idx += 1
+
+    return selected
+
+
 class LLMApiPredictor(BasePredictor):
     """Cliente unificado de inferencia Zero/Few-Shot para OpenAI, Google Gemini y Ollama/vLLM (Forma 2)."""
 
@@ -704,10 +776,13 @@ class LLMApiPredictor(BasePredictor):
         self._load_cache()
 
     def _cache_key(self, instance_id: str) -> str:
-        return (
+        base_key = (
             f"{instance_id}::{self.rep_config.configuration}::"
             f"{self.llm_config.prompt_mode}::{self.llm_config.model_name}"
         )
+        if self.llm_config.num_few_shot > 0:
+            return f"{base_key}::fs{self.llm_config.num_few_shot}"
+        return base_key
 
     def _load_cache(self) -> None:
         cache_path = self.llm_config.cache_path
@@ -741,6 +816,7 @@ class LLMApiPredictor(BasePredictor):
         if self._client is not None:
             return self._client
 
+        load_dotenv_if_present()
         api_key = os.getenv(self.llm_config.api_key_env, "")
         if self.llm_config.provider in ("openai", "ollama"):
             from openai import OpenAI
@@ -828,11 +904,29 @@ class LLMApiPredictor(BasePredictor):
             config_kwargs["response_schema"] = LLMResponse
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
-        response = client.models.generate_content(
-            model=self.llm_config.model_name,
-            contents=combined_contents,
-            config=gen_config,
-        )
+        max_attempts = max(1, self.llm_config.max_retries + 1)
+        response = None
+        for attempt in range(max_attempts):
+            try:
+                response = client.models.generate_content(
+                    model=self.llm_config.model_name,
+                    contents=combined_contents,
+                    config=gen_config,
+                )
+                break
+            except Exception as exc:
+                if attempt + 1 >= max_attempts:
+                    raise
+                wait_sec = min(30.0, 2.0 ** attempt)
+                logger.warning(
+                    "Reintento Gemini (%d/%d) tras error (%s: %s); esperando %.1fs...",
+                    attempt + 1,
+                    self.llm_config.max_retries,
+                    type(exc).__name__,
+                    exc,
+                    wait_sec,
+                )
+                time.sleep(wait_sec)
 
         usage = getattr(response, "usage_metadata", None)
         in_tok = int(getattr(usage, "prompt_token_count", 0) or 0)
@@ -907,11 +1001,19 @@ class LLMApiPredictor(BasePredictor):
         requests: Sequence[Union[InferenceRequest, DatasetInstance, str]],
         batch_size: int = 32,
         few_shot_examples: Optional[Sequence[DatasetInstance]] = None,
+        show_progress: bool = True,
         **kwargs: Any,
     ) -> List[PredictionRecord]:
+        iterator: Sequence[Union[InferenceRequest, DatasetInstance, str]] = requests
+        if show_progress and len(requests) > 1:
+            desc = (
+                f"LLM API ({self.llm_config.model_name} · "
+                f"cfg={self.rep_config.configuration} · fs={self.llm_config.num_few_shot})"
+            )
+            iterator = tqdm(requests, desc=desc, unit="inst")  # type: ignore[assignment]
         return [
             self.predict(req, few_shot_examples=few_shot_examples, **kwargs)
-            for req in requests
+            for req in iterator
         ]
 
 
@@ -1036,6 +1138,13 @@ def run_llm_api_experiment(
         from src.modeling.dataset import load_jsonl_instances
 
         eval_instances = load_jsonl_instances(config.paths.test_file)
+
+    if few_shot_examples is None and llm_cfg.num_few_shot > 0:
+        few_shot_examples = sample_stratified_few_shot_examples(
+            train_file=config.paths.train_file,
+            num_few_shot=llm_cfg.num_few_shot,
+            seed=config.seed,
+        )
 
     predictor = LLMApiPredictor(
         llm_config=llm_cfg,

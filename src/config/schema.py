@@ -308,6 +308,13 @@ class LLMApiConfig(BaseModel):
         description="Modo de prompt en A5: 'generic' (sin sección explícita) vs 'section_conditioned'.",
     )
     num_few_shot: int = Field(default=0, ge=0, le=18)
+    shot_variants: Optional[List[int]] = Field(
+        default=None,
+        description=(
+            "Lista opcional de valores num_few_shot a evaluar secuencialmente desde un mismo YAML "
+            "(ej. [0, 9] para ejecutar Zero-Shot y 9-Shot estratificado)."
+        ),
+    )
     enforce_structured_output: bool = Field(
         default=True,
         description=(
