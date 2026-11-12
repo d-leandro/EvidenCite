@@ -324,6 +324,8 @@ def _log_to_mlflow_safe(
         if registro is None:
             return False
         registro.parametros({f"sha256_{k}": v for k, v in split_hashes.items()})
+        rutas = {"train": config.paths.train_file, "dev": config.paths.dev_file, "test": config.paths.test_file}
+        registro.datasets(split_hashes, rutas)
         registro.metricas(
             {
                 "dev_macro_f1_all_9": artifact.dev_metrics_a6.macro_f1_all_9,

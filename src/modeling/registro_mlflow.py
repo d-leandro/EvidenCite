@@ -39,9 +39,9 @@ os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 try:
     from mlflow import MlflowClient
-    from mlflow.entities import LoggedModelOutput, Metric, Param, RunTag
+    from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput, Metric, Param, RunTag
 except ImportError:
-    MlflowClient = LoggedModelOutput = Metric = Param = RunTag = None
+    MlflowClient = Dataset = DatasetInput = InputTag = LoggedModelOutput = Metric = Param = RunTag = None
 
 AVISO_SIN_SERVIDOR = "servidor de MLflow no encontrado, los resultados se guardarán localmente"
 # Si se define (python -m src.modeling lo hace), la salida de la consola se sube a la corrida como salida.log.
@@ -101,6 +101,20 @@ class RegistroMLflow:
         items = [RunTag(k, str(v)[:5000]) for k, v in valores.items() if v is not None]
         for i in range(0, len(items), 100):
             self.cola.put(("datos", {"tags": items[i:i + 100]}))
+
+    def datasets(self, hashes: dict, rutas: dict) -> None:
+        """Encola los splits como entradas de la corrida (columna Dataset)."""
+        tag, carpeta = os.environ.get("DATOS_TAG"), os.environ.get("DATOS_DVC")
+        version = tag if en_colab() and tag else "local"
+        entradas = [
+            DatasetInput(
+                Dataset(name=f"{version}/{split}", digest=sha[:16], source_type="dvc" if version != "local" else "local",
+                        source=f"{carpeta}@{tag}" if version != "local" else str(rutas[split])),
+                tags=[InputTag("mlflow.data.context", split)],
+            )
+            for split, sha in hashes.items()
+        ]
+        self.cola.put(("entradas", entradas))
 
     def metricas(self, valores: dict, paso: int = 0) -> None:
         """Encola métricas con su paso y la hora de ahora. Salta lo que no es un número (None, texto)."""
@@ -271,6 +285,8 @@ class RegistroMLflow:
                     return True
                 if tipo == "artefacto":
                     self.cliente.log_artifact(self.run_id, contenido[0], contenido[1])
+                elif tipo == "entradas":
+                    self.cliente.log_inputs(self.run_id, datasets=contenido)
                 elif tipo == "modelo":
                     self._subir_modelo(contenido)
                 else:
