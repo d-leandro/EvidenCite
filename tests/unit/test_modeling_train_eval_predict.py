@@ -219,17 +219,19 @@ def test_weighted_sequence_trainer_and_lora_smoke(tmp_path: Path) -> None:
 
 def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: Path) -> None:
     """Valida Forma 2 de RespuestaLLM, prompts A5 y medición de invalid_format_rate en A7."""
-    inst_1 = make_synthetic_instance(idx=1, label="Comparison", citing_section="Experiments")
+    inst_1 = make_synthetic_instance(idx=1, label="Comparison", citing_section="Related Work")
     inst_2 = make_synthetic_instance(idx=2, label="Background", citing_section="Introduction")
-    rep_cfg = InputRepresentationConfig(configuration="B")
+    rep_cfg = InputRepresentationConfig(configuration="B", include_citing_section=True, include_cited_section=True)
 
-    # 1. Verificación de prompts genérico vs section_conditioned
+    # 1. Verificación de prompts genérico vs section_conditioned (paridad 1:1 Config B)
     msgs_cond = build_llm_messages(inst_1, rep_cfg, prompt_mode="section_conditioned", few_shot_examples=[inst_2])
     assert len(msgs_cond) == 4  # system + 1 few-shot (user/assistant) + user
-    assert "Experiments:" in msgs_cond[-1]["content"]
+    assert "Related Work:" in msgs_cond[-1]["content"]
+    assert "3 Experiments:" in msgs_cond[-1]["content"]
 
     msgs_gen = build_llm_messages(inst_1, rep_cfg, prompt_mode="generic")
-    assert "Experiments:" not in msgs_gen[-1]["content"]
+    assert "Related Work:" not in msgs_gen[-1]["content"]
+    assert "3 Experiments:" in msgs_gen[-1]["content"]
 
     # 2. Parseo JSON válido e inválido (Forma 2 con alias 'Further Reading')
     valid_json = LLMResponse.model_validate(

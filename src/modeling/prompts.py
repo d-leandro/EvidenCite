@@ -113,15 +113,18 @@ def format_user_prompt(
     rep_config: InputRepresentationConfig,
     prompt_mode: Literal["generic", "section_conditioned"] = "section_conditioned",
 ) -> str:
-    """Construye el prompt de usuario para una instancia según configuración (context_only, A o B) y prompt_mode."""
+    """Construye el prompt de usuario para una instancia según configuración (context_only, A o B) y prompt_mode.
+
+    En modo 'generic', se omite la sección del contexto citante (`include_citing_section=False`),
+    pero se preserva `rep_config.include_cited_section` para mantener paridad 1:1 (ADR-07) con
+    los encabezados de sección de los Top-3 chunks del citado en Configuración B.
+    """
     effective_rep = rep_config.model_copy(
         update={
             "include_citing_section": (
                 rep_config.include_citing_section if prompt_mode == "section_conditioned" else False
             ),
-            "include_cited_section": (
-                rep_config.include_cited_section if prompt_mode == "section_conditioned" else False
-            ),
+            "include_cited_section": rep_config.include_cited_section,
         }
     )
     text_citing, text_cited = format_instance_parts(instance, effective_rep, tokenizer=None)
