@@ -99,17 +99,44 @@ class _OrdenFijo(Sampler):
 
 
 def _orden_por_longitud(dataset: Any) -> List[int]:
-    """Índices de la instancia más larga a la más corta. Es determinista: el sampler y _al_orden_original
-    obtienen el mismo orden."""
-    longitudes = dataset.longitudes()
-    return sorted(range(len(longitudes)), key=lambda i: -longitudes[i])
+    """Índices de la instancia más larga a la más corta. Se calcula una vez por dataset y se guarda en él, así el
+    sampler y _predicciones_en_orden usan exactamente el mismo orden."""
+    orden = getattr(dataset, "_orden_por_longitud", None)
+    if orden is None:
+        longitudes = dataset.longitudes()
+        orden = sorted(range(len(longitudes)), key=lambda i: -longitudes[i])
+        dataset._orden_por_longitud = orden
+    return orden
 
 
-def _al_orden_original(valores: np.ndarray, dataset: Any) -> np.ndarray:
-    """predict() entrega las filas en el orden del sampler; esto las devuelve al orden de las instancias."""
+def _al_orden_original(valores: np.ndarray, orden: List[int]) -> np.ndarray:
+    """predict() entrega las filas en el orden del sampler (`orden`); esto las devuelve al orden de las instancias."""
     salida = np.empty_like(valores)
-    salida[_orden_por_longitud(dataset)] = valores
+    salida[orden] = valores
     return salida
+
+
+def _predicciones_en_orden(
+    trainer: Trainer, dataset: Any, instancias: Sequence[DatasetInstance], split: str
+) -> Tuple[np.ndarray, List[int], float]:
+    """predict() sobre `dataset`, con los logits devueltos al orden de las instancias.
+
+    Devuelve los logits, las etiquetas verdaderas y los segundos de inferencia. Lanza RuntimeError si, ya
+    reordenadas, las etiquetas que devolvió predict() no son las de las instancias: las predicciones quedarían
+    asignadas a otras instancias y las métricas no valdrían.
+    """
+    inicio = time.perf_counter()
+    salida = trainer.predict(dataset)
+    segundos = max(1e-9, time.perf_counter() - inicio)
+    orden = _orden_por_longitud(dataset)
+    logits = salida.predictions[0] if isinstance(salida.predictions, tuple) else salida.predictions
+    verdaderas = _extract_label_ids(instancias)
+    if _al_orden_original(salida.label_ids, orden).tolist() != verdaderas:
+        raise RuntimeError(
+            f"{split}: las etiquetas de predict() no coinciden con las de las instancias después de reordenar; "
+            "el orden del sampler y el de _al_orden_original no son el mismo"
+        )
+    return _al_orden_original(logits, orden), verdaderas, segundos
 
 class WeightedSequenceTrainer(Trainer):
     """Subclase de HuggingFace Trainer que inyecta Weighted Cross-Entropy o Focal Loss en compute_loss.
@@ -712,15 +739,8 @@ def train_transformer_experiment(
         )
 
     # Evaluación en Dev
-    t_inf0 = time.perf_counter()
-    dev_output = trainer.predict(dev_ds)
-    inf_elapsed = max(1e-9, time.perf_counter() - t_inf0)
-    dev_logits = dev_output.predictions[0] if isinstance(dev_output.predictions, tuple) else dev_output.predictions
-    dev_logits = _al_orden_original(dev_logits, dev_ds)
+    dev_logits, dev_true_ids, inf_elapsed = _predicciones_en_orden(trainer, dev_ds, dev_instances, "dev")
     dev_pred_ids = np.argmax(dev_logits, axis=-1).tolist()
-    dev_true_ids = _extract_label_ids(dev_instances)
-    # Comprobación: las etiquetas que devolvió predict, en el orden original, son las de las instancias
-    assert _al_orden_original(dev_output.label_ids, dev_ds).tolist() == dev_true_ids
     dev_metrics = compute_a6_metrics(dev_true_ids, dev_pred_ids)
     dev_pred_labels = [ID_TO_LABEL[int(i)] for i in dev_pred_ids]
     eval_count = len(dev_instances)
@@ -729,19 +749,9 @@ def train_transformer_experiment(
     test_metrics: Optional[TechnicalMetricsA6] = None
     test_pred_labels: Optional[List[str]] = None
     if test_ds is not None and test_instances is not None:
-        t_test0 = time.perf_counter()
-        test_output = trainer.predict(test_ds)
-        inf_elapsed = max(1e-9, time.perf_counter() - t_test0)
+        test_logits, test_true_ids, inf_elapsed = _predicciones_en_orden(trainer, test_ds, test_instances, "test")
         eval_count = len(test_instances)
-        test_logits = (
-            test_output.predictions[0]
-            if isinstance(test_output.predictions, tuple)
-            else test_output.predictions
-        )
-        test_logits = _al_orden_original(test_logits, test_ds)
         test_pred_ids = np.argmax(test_logits, axis=-1).tolist()
-        test_true_ids = _extract_label_ids(test_instances)
-        assert _al_orden_original(test_output.label_ids, test_ds).tolist() == test_true_ids
         test_metrics = compute_a6_metrics(test_true_ids, test_pred_ids)
         test_pred_labels = [ID_TO_LABEL[int(i)] for i in test_pred_ids]
 
