@@ -15,7 +15,6 @@ from sklearn.pipeline import Pipeline
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding, PreTrainedTokenizerBase
-from src.modeling.lora.modelo import _registrar_cabeza
 
 from src.config.schema import (
     CANONICAL_9_CLASSES,
@@ -550,6 +549,7 @@ class TransformerPredictor(BasePredictor):
             from peft import PeftConfig, PeftModel
             from transformers import AutoConfig
             from src.modeling.heads import ensure_tokenizer_padding
+            from src.modeling.lora.modelo import registrar_cabeza
 
             peft_cfg = PeftConfig.from_pretrained(path_str)
             base_name = str(peft_cfg.base_model_name_or_path)
@@ -559,7 +559,7 @@ class TransformerPredictor(BasePredictor):
                 id2label=ID_TO_LABEL,
                 label2id=LABEL_TO_ID,
             )
-            _registrar_cabeza(hf_config)
+            registrar_cabeza(hf_config)
             base_model = AutoModelForSequenceClassification.from_pretrained(
                 base_name,
                 config=hf_config,

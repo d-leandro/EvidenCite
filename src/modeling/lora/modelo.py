@@ -34,7 +34,7 @@ CLASSIFIER_HEADS = ("score", "classifier")  # nombres de la cabeza de clasificac
 LORA_PLUS_LR_RATIO = 16.0  # LoRA+: la tasa de B es 16 veces la de A
 MUTATES_BASE = ("pissa", "olora")  # modifican W al iniciar: se guardan convertidos a LoRA estándar
 
-def _registrar_cabeza(hf_config) -> None:
+def registrar_cabeza(hf_config) -> None:
     """Gemma 4, Nemotron-H, Granite… no traen ForSequenceClassification en transformers: registra la cabeza
     genérica (lineal sobre el último token que no es relleno), la misma que usan Qwen3 o Llama."""
     if hf_config.model_type in MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES:
@@ -126,7 +126,7 @@ def build_lora_classifier(
 
     hf_config.use_cache = False
     hf_config.get_text_config().use_cache = False  # C2: en los multimodales la config de texto es otra
-    _registrar_cabeza(hf_config)
+    registrar_cabeza(hf_config)
     base_model = AutoModelForSequenceClassification.from_pretrained(
         lora_cfg.pretrained_model_name_or_path,
         config=hf_config,
