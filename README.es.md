@@ -136,6 +136,36 @@ uv run python -m src.data.pipeline --stage chunking
 Para consultar la descripción detallada de capas y contratos de datos, revisa la [Guía del Paquete de Datos (`src/data/README.md`)](src/data/README.md).
 
 ---
+## 5.1 Datos (DVC + Google Drive)
+
+**Antes de empezar:** pide que agreguen tu correo como usuario de prueba y que te compartan la carpeta de Drive. También te deben pasar los valores de las variables por privado.
+
+1. Instala las dependencias:
+   ```bash
+   uv sync
+   ```
+2. Define las variables y configura el remoto:
+
+   **Linux / macOS**
+   ```bash
+   export ID_CARPETA="..."
+   export GDRIVE_CLIENT_ID="..."
+   export GDRIVE_CLIENT_SECRET="..."
+   ./config_dvc.sh
+   ```
+   **Windows (PowerShell)**
+   ```powershell
+   $env:ID_CARPETA="..."
+   $env:GDRIVE_CLIENT_ID="..."
+   $env:GDRIVE_CLIENT_SECRET="..."
+   .\config_dvc.bat
+   ```
+3. Descarga los datos:
+   ```bash
+   uv run dvc pull
+   ```
+   La primera vez se abre el navegador. Si aparece "Google no ha verificado esta app", entra a **Configuración avanzada → Ir a EvidenCite**.
+---
 
 ## 6. Pruebas Unitarias
 
