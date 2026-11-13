@@ -64,10 +64,6 @@ class LLMResponse(BaseModel):
         ...,
         description="Puntajes de confianza en [0.0, 1.0] para cada una de las 9 clases canónicas.",
     )
-    rationale: Optional[str] = Field(
-        default=None,
-        description="Breve justificación textual de la intención de cita predicha.",
-    )
 
 
 def _build_system_prompt(prompt_mode: Literal["generic", "section_conditioned"]) -> str:
@@ -87,7 +83,7 @@ def _build_system_prompt(prompt_mode: Literal["generic", "section_conditioned"])
         "You are an expert computational linguistics annotator specialized in scientific citation "
         "intent classification.\n"
         "Classify the rhetorical function of the target citation (marked with <cite>...</cite> in "
-        "the citing context) into one of the following 9 canonical classes (Lyu et al.):\n\n"
+        "the citing context) into exactly ONE of the following 9 canonical classes (Lyu et al.):\n\n"
         f"{taxonomy_lines}\n"
         f"{section_guidance}\n"
         "Respond strictly with a valid JSON object matching the required schema:\n"

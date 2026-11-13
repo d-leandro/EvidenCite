@@ -687,7 +687,7 @@ def parse_llm_json_response(raw_text: str) -> Tuple[LLMResponse, bool]:
     except Exception:
         uniform = {cls_name: round(1.0 / 9.0, 4) for cls_name in CANONICAL_9_CLASSES}
         fallback = LLMResponse.model_validate(
-            {"predicted_label": "Background", "scores": uniform, "rationale": "Fallback parsing error"}
+            {"predicted_label": "Background", "scores": uniform}
         )
         return fallback, False
 
@@ -985,7 +985,7 @@ class LLMApiPredictor(BasePredictor):
             probabilities=scores_dict,
             confidence=confidence,
             latency_ms=float(latency_ms),
-            rationale=resp.rationale,
+            rationale=None,
             model_name=self.llm_config.model_name,
             configuration=self.rep_config.configuration,
             is_valid_format=valid,
