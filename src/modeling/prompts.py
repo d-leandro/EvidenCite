@@ -32,8 +32,8 @@ class NineClassScores(BaseModel):
     Further_Reading: float = Field(..., ge=0.0, le=1.0, alias="Further Reading")
 
     def to_dict_canonical(self) -> Dict[str, float]:
-        """Retorna el diccionario indexado exactamente por CANONICAL_9_CLASSES."""
-        return {
+        """Retorna el diccionario normalizado (suma 1.0) indexado por CANONICAL_9_CLASSES."""
+        raw_scores: Dict[str, float] = {
             "Background": float(self.Background),
             "Gap": float(self.Gap),
             "Basis": float(self.Basis),
@@ -44,6 +44,11 @@ class NineClassScores(BaseModel):
             "Originator": float(self.Originator),
             "Further Reading": float(self.Further_Reading),
         }
+        total = sum(raw_scores.values())
+        if total <= 0.0:
+            uniform = 1.0 / len(raw_scores)
+            return {cls_name: uniform for cls_name in raw_scores}
+        return {cls_name: val / total for cls_name, val in raw_scores.items()}
 
     def to_prob_vector(self) -> List[float]:
         """Retorna la lista de 9 puntajes en el orden canónico de CANONICAL_9_CLASSES."""

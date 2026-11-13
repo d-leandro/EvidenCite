@@ -33,6 +33,7 @@ from src.modeling.predict import (
 )
 from src.modeling.prompts import (
     LLMResponse,
+    NineClassScores,
     build_llm_messages,
 )
 from src.modeling.train import run_training_experiment
@@ -243,7 +244,16 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
     parsed, is_ok = parse_llm_json_response(f"```json\n{valid_json}\n```")
     assert is_ok is True
     assert parsed.predicted_label == "Comparison"
-    assert len(parsed.scores.to_prob_vector()) == 9
+    prob_vec = parsed.scores.to_prob_vector()
+    assert len(prob_vec) == 9
+    assert abs(sum(prob_vec) - 1.0) < 1e-12
+    assert parsed.scores.to_dict_canonical()["Comparison"] > 0.9  # 0.9 / 0.98
+
+    # Vector nulo (todos en 0.0) debe normalizar a distribución uniforme sin error de división
+    zero_scores = NineClassScores.model_validate({c: 0.0 for c in CANONICAL_9_CLASSES})
+    zero_dict = zero_scores.to_dict_canonical()
+    assert abs(sum(zero_dict.values()) - 1.0) < 1e-12
+    assert abs(zero_dict["Background"] - (1.0 / 9.0)) < 1e-12
 
     _, is_bad = parse_llm_json_response("Not a valid JSON string")
     assert is_bad is False
