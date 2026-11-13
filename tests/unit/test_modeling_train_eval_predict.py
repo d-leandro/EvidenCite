@@ -34,6 +34,8 @@ from src.modeling.predict import (
 from src.modeling.prompts import (
     LLMResponse,
     NineClassScores,
+    _RHETORICAL_NEIGHBORS,
+    _build_few_shot_scores,
     build_llm_messages,
 )
 from src.modeling.train import run_training_experiment
@@ -229,6 +231,36 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
     assert len(msgs_cond) == 4  # system + 1 few-shot (user/assistant) + user
     assert "Related Work:" in msgs_cond[-1]["content"]
     assert "3 Experiments:" in msgs_cond[-1]["content"]
+
+    # Verificar que el turno assistant de Few-Shot no use el patrón fijo 0.92/0.01 y sume exactamente 1.00
+    assistant_shot = LLMResponse.model_validate_json(msgs_cond[2]["content"])
+    shot_raw = {
+        cls_name: float(getattr(assistant_shot.scores, cls_name.replace(" ", "_")))
+        for cls_name in CANONICAL_9_CLASSES
+    }
+    assert abs(sum(shot_raw.values()) - 1.0) < 1e-9
+    assert shot_raw["Background"] != 0.92
+    assert len({v for k, v in shot_raw.items() if k != "Background"}) > 1
+
+    # Verificar las 9 clases en _build_few_shot_scores (determinismo, suma 1.00 y vecindad retórica)
+    gold_scores_seen = set()
+    for i, cls_name in enumerate(CANONICAL_9_CLASSES):
+        dist_a = _build_few_shot_scores(cls_name, seed_key=f"inst_{i}")
+        dist_b = _build_few_shot_scores(cls_name, seed_key=f"inst_{i}")
+        assert dist_a == dist_b
+        assert abs(sum(dist_a.values()) - 1.0) < 1e-9
+        assert dist_a[cls_name] > 0.50
+        assert max(dist_a, key=dist_a.get) == cls_name  # type: ignore[arg-type]
+        prim = _RHETORICAL_NEIGHBORS[cls_name]["primary"]  # type: ignore[index]
+        assert dist_a[prim[0]] + dist_a[prim[1]] >= 0.08  # type: ignore[index]
+        gold_scores_seen.add(dist_a[cls_name])
+    assert len(gold_scores_seen) >= 4  # Heterogeneidad real entre los 9 shots
+
+    # Verificar consistencia monolingüe en inglés en el JSON Schema exportado al LLM
+    schema_dump = str(LLMResponse.model_json_schema())
+    assert "Predicted canonical citation intent label" in schema_dump
+    assert "Etiqueta canónica" not in schema_dump
+    assert "Puntajes de confianza" not in schema_dump
 
     msgs_gen = build_llm_messages(inst_1, rep_cfg, prompt_mode="generic")
     assert "Related Work:" not in msgs_gen[-1]["content"]
