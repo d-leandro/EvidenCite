@@ -33,6 +33,7 @@ from src.modeling.evaluate import compute_a6_metrics
 from src.modeling.predict import (
     LLMApiPredictor,
     PredictionRecord,
+    compute_api_token_costs,
     load_dotenv_if_present,
     run_llm_api_experiment,
     sample_stratified_few_shot_examples,
@@ -68,21 +69,22 @@ def _print_smoke_audit(
     pred_ids = [LABEL_TO_ID[r.predicted_label] for r in records]
     metrics_a6 = compute_a6_metrics(true_ids, pred_ids)
 
-    total_in = sum(r.input_tokens for r in records)
-    total_out = sum(r.output_tokens + r.thoughts_tokens for r in records)
-    total_thoughts = sum(r.thoughts_tokens for r in records)
+    cost_stats = compute_api_token_costs(records, llm_cfg)
+    total_in = cost_stats["total_input_tokens"]
+    total_cached = cost_stats["total_cached_input_tokens"]
+    total_out = cost_stats["billable_output_tokens"]
+    total_thoughts = cost_stats["total_thoughts_tokens"]
     mean_in = total_in / n_eval
+    mean_cached = total_cached / n_eval
     mean_out = total_out / n_eval
     mean_lat_ms = sum(r.latency_ms for r in records) / n_eval
     invalid_count = sum(1 for r in records if not r.is_valid_format)
 
-    smoke_cost_usd = (
-        (total_in / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
-        + (total_out / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
-    )
+    smoke_gross_usd = cost_stats["gross_api_cost_usd"]
+    smoke_net_usd = cost_stats["net_api_cost_usd"]
     proj_in_tokens = mean_in * total_dataset_size
     proj_out_tokens = mean_out * total_dataset_size
-    proj_cost_usd = (
+    proj_gross_usd = (
         (proj_in_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
         + (proj_out_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
     )
@@ -106,7 +108,8 @@ def _print_smoke_audit(
         print(
             f"  [{idx:02d}] id={rec.instance_id} | gold={gold_lbl:<15} | "
             f"pred={rec.predicted_label:<15} ({match_mark}) | conf={rec.confidence:.2f} | "
-            f"valid_json={rec.is_valid_format} | tok(in={rec.input_tokens}, out={rec.output_tokens}, "
+            f"valid_json={rec.is_valid_format} | tok(in={rec.input_tokens}, "
+            f"cached={rec.cached_input_tokens}, out={rec.output_tokens}, "
             f"think={rec.thoughts_tokens}) | lat={rec.latency_ms:.1f} ms"
         )
 
@@ -120,26 +123,37 @@ def _print_smoke_audit(
         else f"thinking_budget={llm_cfg.thinking_budget}"
     )
     print(f"  • Thinking tokens emitidos   : {total_thoughts} ({thinking_desc})")
-    print(f"  • Promedio tokens / instancia: {mean_in:.1f} in | {mean_out:.1f} out")
+    print(
+        f"  • Promedio tokens / instancia: {mean_in:.1f} in "
+        f"({mean_cached:.1f} cached, {cost_stats['cache_hit_rate']:.1%}) | {mean_out:.1f} out"
+    )
     print(f"  • Latencia media / instancia : {mean_lat_ms:.1f} ms")
-    print(f"  • Costo real del smoke test  : ${smoke_cost_usd:.5f} USD")
+    print(
+        f"  • Costo real del smoke test  : ${smoke_net_usd:.5f} USD neto "
+        f"(${smoke_gross_usd:.5f} USD bruto)"
+    )
     print(f"  • Caché persistente          : {llm_cfg.cache_path}")
+
+    steady_records = records[1:] if len(records) > 1 else records
+    steady_cache_rate = compute_api_token_costs(steady_records, llm_cfg)["cache_hit_rate"]
+    cached_rate = (
+        llm_cfg.cost_per_1m_cached_input_tokens_usd
+        if llm_cfg.cost_per_1m_cached_input_tokens_usd is not None
+        else llm_cfg.cost_per_1m_input_tokens_usd
+    )
+    proj_net_usd = (
+        (proj_in_tokens * (1.0 - steady_cache_rate) / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
+        + (proj_in_tokens * steady_cache_rate / 1_000_000.0) * cached_rate
+        + (proj_out_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
+    )
 
     print(f"\nProyección para Corrida Completa (N = {total_dataset_size} instancias):")
     print(f"  • Tokens proyectados         : {proj_in_tokens:,.0f} in | {proj_out_tokens:,.0f} out")
-    print(f"  • Costo bruto proyectado     : ${proj_cost_usd:.2f} USD (sin descuento de Prompt Caching)")
-    if llm_cfg.num_few_shot > 0:
-        # En Few-Shot el prefijo estático representa ~80% de los input tokens y recibe 75%-90% de descuento
-        discount_factor = 0.75 if llm_cfg.provider == "openai" else 0.90
-        cached_in_cost = (
-            (proj_in_tokens * 0.80 / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd * (1.0 - discount_factor)
-            + (proj_in_tokens * 0.20 / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
-        )
-        out_cost = (proj_out_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
-        print(
-            f"  • Costo est. con Prompt Cache: ${cached_in_cost + out_cost:.2f} USD "
-            f"(~{int(discount_factor * 100)}% desc. en prefijo Few-Shot)"
-        )
+    print(f"  • Costo bruto proyectado     : ${proj_gross_usd:.2f} USD (sin descuento de Prompt Caching)")
+    print(
+        f"  • Costo neto est. con Cache  : ${proj_net_usd:.2f} USD "
+        f"(tasa empírica post-warmup={steady_cache_rate:.1%} a ${cached_rate:.3f}/1M)"
+    )
     print(f"  • Tiempo secuencial estimado : ~{proj_minutes:.1f} min")
     print("=" * 88 + "\n")
 
@@ -270,7 +284,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"Macro-F1(9)={metrics_a6.macro_f1_all_9:.4f} | "
                 f"Acc={metrics_a6.micro_f1:.4f} | "
                 f"Latencia={metrics_a7.inference_latency_ms_per_instance:.1f} ms | "
-                f"Costo=${metrics_a7.estimated_api_cost_usd:.2f} USD | "
+                f"Costo neto=${metrics_a7.estimated_api_cost_usd:.2f} USD "
+                f"(bruto=${metrics_a7.gross_api_cost_usd:.2f}, cache={metrics_a7.cache_hit_rate:.1%}) | "
                 f"Resumen en {exp_dir / 'metrics_summary.json'}"
             )
 

@@ -29,6 +29,7 @@ llm_api:
   enforce_structured_output: true
   cache_path: "models/llm_api_cache/gemini38flash_config_a.jsonl"
   cost_per_1m_input_tokens_usd: 0.75
+  cost_per_1m_cached_input_tokens_usd: 0.075
   cost_per_1m_output_tokens_usd: 3.75
   max_retries: 3
   timeout_seconds: 60.0

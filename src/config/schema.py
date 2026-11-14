@@ -341,6 +341,11 @@ class LLMApiConfig(BaseModel):
         description="Archivo JSONL de caché por instance_id para evitar re-facturación ante cortes.",
     )
     cost_per_1m_input_tokens_usd: float = Field(default=0.15, ge=0.0)
+    cost_per_1m_cached_input_tokens_usd: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Tarifa por 1M de cache-read input tokens (USD). Si es None, usa cost_per_1m_input_tokens_usd.",
+    )
     cost_per_1m_output_tokens_usd: float = Field(default=0.60, ge=0.0)
     max_retries: int = Field(default=3, ge=0)
     timeout_seconds: float = Field(default=60.0, gt=0.0)

@@ -296,11 +296,17 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
 
     class FakeCompletions:
         def create(self, **kwargs):  # type: ignore[no-untyped-def]
-            text = responses[call_counter["count"]]
+            idx = call_counter["count"]
+            text = responses[idx]
             call_counter["count"] += 1
+            cached = 128 if idx == 1 else 0
             return SimpleNamespace(
                 choices=[SimpleNamespace(message=SimpleNamespace(content=text))],
-                usage=SimpleNamespace(prompt_tokens=200, completion_tokens=50),
+                usage=SimpleNamespace(
+                    prompt_tokens=200,
+                    completion_tokens=50,
+                    prompt_tokens_details=SimpleNamespace(cached_tokens=cached),
+                ),
             )
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
@@ -314,6 +320,9 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
         llm_api=LLMApiConfig(
             provider="openai",
             model_name="gpt-4o-mini",
+            cost_per_1m_input_tokens_usd=0.40,
+            cost_per_1m_cached_input_tokens_usd=0.10,
+            cost_per_1m_output_tokens_usd=1.60,
             enforce_structured_output=False,
             cache_path=cache_file,
         ),
@@ -325,8 +334,18 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
         custom_client=fake_client,
     )
     assert len(records) == 2
+    assert records[0].cached_input_tokens == 0
+    assert records[1].cached_input_tokens == 128
     assert a7.invalid_format_rate == 0.5  # 1 válida y 1 inválida
-    assert a7.estimated_api_cost_usd > 0.0
+    assert a7.total_input_tokens == 400
+    assert a7.total_cached_input_tokens == 128
+    assert a7.total_output_tokens == 100
+    assert abs(a7.cache_hit_rate - (128 / 400)) < 1e-9
+    # Bruto: 400 * 0.40/1M + 100 * 1.60/1M = 0.00032
+    # Neto:  272 * 0.40/1M + 128 * 0.10/1M + 100 * 1.60/1M = 0.0002816
+    assert abs(a7.gross_api_cost_usd - 0.00032) < 1e-10
+    assert abs(a7.estimated_api_cost_usd - 0.0002816) < 1e-10
+    assert a7.estimated_api_cost_usd < a7.gross_api_cost_usd
     assert cache_file.exists()
 
     # Segunda llamada usa el caché en disco sin invocar de nuevo al cliente
@@ -359,6 +378,7 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
                 text=parsed_resp.model_dump_json(by_alias=True),
                 usage_metadata=SimpleNamespace(
                     prompt_token_count=180,
+                    cached_content_token_count=90,
                     candidates_token_count=45,
                     thoughts_token_count=0,
                 ),
@@ -405,23 +425,56 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
                 seed=42,
                 thinking_budget=None,
                 thinking_level="LOW",
+                cost_per_1m_input_tokens_usd=0.75,
+                cost_per_1m_cached_input_tokens_usd=0.075,
+                cost_per_1m_output_tokens_usd=3.75,
                 enforce_structured_output=True,
                 cache_path=tmp_path / "gemini38_cache.jsonl",
             ),
         }
     )
-    records_38, _, _ = run_llm_api_experiment(
+    records_38, _, a7_38 = run_llm_api_experiment(
         config=exp_cfg_38,
         eval_instances=[inst],
         custom_client=fake_gemini_client,
     )
     assert len(records_38) == 1
+    assert records_38[0].cached_input_tokens == 90
+    assert a7_38.total_input_tokens == 180
+    assert a7_38.total_cached_input_tokens == 90
+    assert abs(a7_38.cache_hit_rate - 0.5) < 1e-9
+    # Bruto: 180 * 0.75/1M + 45 * 3.75/1M = 0.00030375
+    # Neto:   90 * 0.75/1M + 90 * 0.075/1M + 45 * 3.75/1M = 0.000243
+    assert abs(a7_38.gross_api_cost_usd - 0.00030375) < 1e-10
+    assert abs(a7_38.estimated_api_cost_usd - 0.000243) < 1e-10
     assert len(captured_configs) == 1
     cfg_38 = captured_configs[0][2]
     assert cfg_38.temperature is None
     assert cfg_38.seed == 42
     assert cfg_38.thinking_config.thinking_budget is None
     assert str(cfg_38.thinking_config.thinking_level.value) == "LOW"
+
+    # Retrocompatibilidad estricta con artefactos previos de A4 (11 campos originales sin llaves de caché)
+    from src.modeling.evaluate import OperationalMetricsA7
+
+    legacy_a4_payload = {
+        "model_family": "encoder",
+        "configuration": "A",
+        "total_params": 110_000_000,
+        "trainable_params": 110_000_000,
+        "trainable_ratio_pct": 100.0,
+        "train_wall_time_sec": 780.0,
+        "inference_latency_ms_per_instance": 12.45,
+        "throughput_instances_per_sec": 80.3,
+        "peak_memory_mb": 0.0,
+        "invalid_format_rate": 0.0,
+        "estimated_api_cost_usd": 0.0,
+    }
+    legacy_a7 = OperationalMetricsA7(**legacy_a4_payload)
+    assert legacy_a7.gross_api_cost_usd == 0.0
+    assert legacy_a7.total_input_tokens == 0
+    assert legacy_a7.total_cached_input_tokens == 0
+    assert legacy_a7.cache_hit_rate == 0.0
 
 
 def test_prepare_inference_citing_context_in_the_wild() -> None:
