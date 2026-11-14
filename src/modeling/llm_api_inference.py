@@ -174,13 +174,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     llm_cfg = base_config.llm_api
     if llm_cfg.provider in ("openai", "gemini"):
         api_key = os.getenv(llm_cfg.api_key_env, "").strip()
-        if not api_key:
+        use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        has_vertex_adc = (
+            llm_cfg.provider == "gemini"
+            and use_vertex
+            and bool(os.getenv("GOOGLE_CLOUD_PROJECT", "").strip())
+        )
+        if not api_key and not has_vertex_adc:
             print(
                 f"ERROR: La variable de entorno '{llm_cfg.api_key_env}' no está definida o está vacía.\n"
                 f"Por favor agrégala en tu archivo .env o expórtala en la terminal antes de ejecutar.",
                 file=sys.stderr,
             )
             return 1
+        if llm_cfg.provider == "gemini":
+            endpoint_label = (
+                "Google Cloud Vertex AI (aiplatform.googleapis.com)"
+                if use_vertex
+                else "Google AI Studio (generativelanguage.googleapis.com)"
+            )
+            print(f"[Gemini Backend] Enrutando inferencia vía: {endpoint_label}")
 
     all_test_instances = load_jsonl_instances(base_config.paths.test_file)
     total_dataset_size = len(all_test_instances)

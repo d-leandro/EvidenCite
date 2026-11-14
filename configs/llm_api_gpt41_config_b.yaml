@@ -1,5 +1,5 @@
-# Actividad A5 — LLM Insignia Comercial vía API (OpenAI GPT-4.1 · Configuración B: Top-3 Chunks SciBERT)
-experiment_name: "llm_api_gpt41_config_b"
+# Actividad A5 — LLM Comercial vía API (OpenAI GPT-4.1-mini · Configuración B: Top-3 Chunks SciBERT)
+experiment_name: "llm_api_gpt41mini_config_b"
 model_family: "llm_api"
 
 input_representation:
@@ -13,7 +13,7 @@ input_representation:
 
 llm_api:
   provider: "openai"
-  model_name: "gpt-4.1"
+  model_name: "gpt-4.1-mini"
   api_key_env: "OPENAI_API_KEY"
   base_url: null
   temperature: 0.0
@@ -26,8 +26,8 @@ llm_api:
     - 9
   enforce_structured_output: true
   cache_path: "models/llm_api_cache.jsonl"
-  cost_per_1m_input_tokens_usd: 2.00
-  cost_per_1m_output_tokens_usd: 8.00
+  cost_per_1m_input_tokens_usd: 0.40
+  cost_per_1m_output_tokens_usd: 1.60
   max_retries: 3
   timeout_seconds: 60.0
 

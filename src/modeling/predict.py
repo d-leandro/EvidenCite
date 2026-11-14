@@ -833,7 +833,15 @@ class LLMApiPredictor(BasePredictor):
         if self.llm_config.provider == "gemini":
             from google import genai
 
-            self._client = genai.Client(api_key=api_key)
+            use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            self._client = genai.Client(
+                vertexai=True if use_vertex else None,
+                api_key=api_key or None,
+            )
             return self._client
 
         raise ValueError(f"Proveedor LLM no soportado: {self.llm_config.provider}")
