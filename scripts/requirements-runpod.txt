@@ -1,0 +1,22 @@
+# RunPod (PROVEEDOR=runpod): se instala en un entorno virtual limpio, /opt/ev, y no sobre los paquetes de la imagen.
+# El torch 2.9 de la imagen es muy viejo para torchao>=0.16, y actualizarlo encima rompe su torchaudio y choca con el
+# cryptography de Debian. Parte de requirements-colab.txt y agrega lo que Colab ya trae instalado y src.modeling importa.
+# Versiones fijadas como en uv.lock. torch 2.15.0 de PyPI viene para CUDA 13: el pod se pide con driver de CUDA >= 13.0.
+-r requirements-colab.txt
+torch==2.15.0
+transformers==5.22.2
+peft==0.21.2
+accelerate==1.15.0
+bitsandbytes==0.50.2
+torchao==0.18.0
+mlflow-skinny==3.18.0
+dvc[gdrive]==3.67.1
+numpy==2.4.6
+scikit-learn==1.9.1
+pydantic==2.14.3
+pyyaml==6.0.3
+tqdm==4.70.1
+safetensors==0.8.0
+beautifulsoup4==4.15.0
+httpx==0.28.1
+flash-linear-attention
