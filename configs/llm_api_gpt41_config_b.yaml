@@ -25,7 +25,7 @@ llm_api:
     - 0
     - 9
   enforce_structured_output: true
-  cache_path: "models/llm_api_cache.jsonl"
+  cache_path: "models/llm_api_cache/gpt41mini_config_b.jsonl"
   cost_per_1m_input_tokens_usd: 0.40
   cost_per_1m_output_tokens_usd: 1.60
   max_retries: 3
