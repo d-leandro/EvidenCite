@@ -1,9 +1,9 @@
-# Actividad A5 — LLM Eficiente de Frontera vía API (Google Gemini 2.5 Flash · Configuración A: Título + Abstract)
-experiment_name: "llm_api_gemini25flash_config_a"
+# Actividad A5 — LLM Eficiente de Frontera vía API (Google Gemini 3.8 Flash · Configuración B: Top-3 Chunks SciBERT)
+experiment_name: "llm_api_gemini38flash_config_b"
 model_family: "llm_api"
 
 input_representation:
-  configuration: "A"
+  configuration: "B"
   include_citing_section: false
   include_cited_section: true
   max_seq_length: 512
@@ -13,21 +13,23 @@ input_representation:
 
 llm_api:
   provider: "gemini"
-  model_name: "gemini-2.5-flash"
+  model_name: "gemini-3.8-flash"
   api_key_env: "GEMINI_API_KEY"
   base_url: null
-  temperature: 0.0
+  temperature: null
+  seed: 42
   max_output_tokens: 2048
-  thinking_budget: 0
+  thinking_budget: null
+  thinking_level: "LOW"
   prompt_mode: "generic"
   num_few_shot: 0
   shot_variants:
     - 0
     - 9
   enforce_structured_output: true
-  cache_path: "models/llm_api_cache/gemini25flash_config_a.jsonl"
-  cost_per_1m_input_tokens_usd: 0.30
-  cost_per_1m_output_tokens_usd: 2.50
+  cache_path: "models/llm_api_cache/gemini38flash_config_b.jsonl"
+  cost_per_1m_input_tokens_usd: 0.75
+  cost_per_1m_output_tokens_usd: 3.75
   max_retries: 3
   timeout_seconds: 60.0
 

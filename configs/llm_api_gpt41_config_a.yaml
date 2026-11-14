@@ -17,6 +17,7 @@ llm_api:
   api_key_env: "OPENAI_API_KEY"
   base_url: null
   temperature: 0.0
+  seed: 42
   max_output_tokens: 512
   thinking_budget: 0
   prompt_mode: "generic"

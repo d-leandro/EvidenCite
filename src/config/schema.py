@@ -296,12 +296,26 @@ class LLMApiConfig(BaseModel):
         default=None,
         description="URL base personalizada (ej. 'http://localhost:11434/v1' para Ollama/vLLM).",
     )
-    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    temperature: Optional[float] = Field(
+        default=0.0,
+        ge=0.0,
+        le=2.0,
+        description="Temperatura de muestreo (None omite el parámetro para modelos que no lo soportan, ej. Gemini 3.8).",
+    )
+    seed: Optional[int] = Field(
+        default=42,
+        ge=0,
+        description="Semilla determinista best-effort enviada al SDK cuando no es None.",
+    )
     max_output_tokens: int = Field(default=512, ge=64)
-    thinking_budget: int = Field(
+    thinking_budget: Optional[int] = Field(
         default=0,
         ge=0,
-        description="Presupuesto de thinking tokens en Gemini 2.5 (0 desactiva thinking para paridad en A7).",
+        description="Presupuesto de thinking tokens en Gemini 2.5 (None omite el parámetro en Gemini 3.x).",
+    )
+    thinking_level: Optional[Literal["MINIMAL", "LOW", "MEDIUM", "HIGH"]] = Field(
+        default=None,
+        description="Nivel de razonamiento en Gemini 3.x (ej. 'LOW' en gemini-3.8-flash).",
     )
     prompt_mode: Literal["generic", "section_conditioned"] = Field(
         default="section_conditioned",

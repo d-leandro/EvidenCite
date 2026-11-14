@@ -851,13 +851,19 @@ class LLMApiPredictor(BasePredictor):
         messages: List[Dict[str, str]],
     ) -> Tuple[LLMResponse, bool, int, int, int]:
         client = self._get_or_create_client()
+        extra_kwargs: Dict[str, Any] = {}
+        if self.llm_config.temperature is not None:
+            extra_kwargs["temperature"] = self.llm_config.temperature
+        if self.llm_config.seed is not None:
+            extra_kwargs["seed"] = self.llm_config.seed
+
         if self.llm_config.enforce_structured_output:
             completion = client.beta.chat.completions.parse(
                 model=self.llm_config.model_name,
                 messages=messages,
-                temperature=self.llm_config.temperature,
                 max_tokens=self.llm_config.max_output_tokens,
                 response_format=LLMResponse,
+                **extra_kwargs,
             )
             usage = getattr(completion, "usage", None)
             in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
@@ -872,8 +878,8 @@ class LLMApiPredictor(BasePredictor):
         completion = client.chat.completions.create(
             model=self.llm_config.model_name,
             messages=messages,
-            temperature=self.llm_config.temperature,
             max_tokens=self.llm_config.max_output_tokens,
+            **extra_kwargs,
         )
         usage = getattr(completion, "usage", None)
         in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
@@ -901,12 +907,22 @@ class LLMApiPredictor(BasePredictor):
         combined_contents = "\n\n".join(user_parts)
         config_kwargs: Dict[str, Any] = {
             "system_instruction": system_instruction or None,
-            "temperature": self.llm_config.temperature,
             "max_output_tokens": self.llm_config.max_output_tokens,
-            "thinking_config": types.ThinkingConfig(
-                thinking_budget=self.llm_config.thinking_budget
-            ),
         }
+        if self.llm_config.temperature is not None:
+            config_kwargs["temperature"] = self.llm_config.temperature
+        if self.llm_config.seed is not None:
+            config_kwargs["seed"] = self.llm_config.seed
+
+        if self.llm_config.thinking_level is not None:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel(self.llm_config.thinking_level)
+            )
+        elif self.llm_config.thinking_budget is not None:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=self.llm_config.thinking_budget
+            )
+
         if self.llm_config.enforce_structured_output:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = LLMResponse

@@ -114,7 +114,12 @@ def _print_smoke_audit(
     print(f"  • Instancias evaluadas       : {len(records)} / {total_dataset_size}")
     print(f"  • Macro-F1 (muestra)         : {metrics_a6.macro_f1_present:.4f} (Accuracy: {metrics_a6.micro_f1:.4f})")
     print(f"  • Tasa de formato inválido   : {invalid_count}/{len(records)} ({invalid_count / n_eval:.2%})")
-    print(f"  • Thinking tokens emitidos   : {total_thoughts} (thinking_budget={llm_cfg.thinking_budget})")
+    thinking_desc = (
+        f"thinking_level={llm_cfg.thinking_level}"
+        if llm_cfg.thinking_level is not None
+        else f"thinking_budget={llm_cfg.thinking_budget}"
+    )
+    print(f"  • Thinking tokens emitidos   : {total_thoughts} ({thinking_desc})")
     print(f"  • Promedio tokens / instancia: {mean_in:.1f} in | {mean_out:.1f} out")
     print(f"  • Latencia media / instancia : {mean_lat_ms:.1f} ms")
     print(f"  • Costo real del smoke test  : ${smoke_cost_usd:.5f} USD")

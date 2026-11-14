@@ -392,6 +392,37 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
     assert len(captured_configs) == 1
     assert captured_configs[0][2].thinking_config.thinking_budget == 0
 
+    # Validar configuración Gemini 3.8 Flash: thinking_level="LOW", sin temperature ni thinking_budget
+    captured_configs.clear()
+    exp_cfg_38 = exp_cfg.model_copy(
+        update={
+            "experiment_name": "test_gemini_38_low",
+            "llm_api": LLMApiConfig(
+                provider="gemini",
+                model_name="gemini-3.8-flash",
+                api_key_env="GEMINI_API_KEY",
+                temperature=None,
+                seed=42,
+                thinking_budget=None,
+                thinking_level="LOW",
+                enforce_structured_output=True,
+                cache_path=tmp_path / "gemini38_cache.jsonl",
+            ),
+        }
+    )
+    records_38, _, _ = run_llm_api_experiment(
+        config=exp_cfg_38,
+        eval_instances=[inst],
+        custom_client=fake_gemini_client,
+    )
+    assert len(records_38) == 1
+    assert len(captured_configs) == 1
+    cfg_38 = captured_configs[0][2]
+    assert cfg_38.temperature is None
+    assert cfg_38.seed == 42
+    assert cfg_38.thinking_config.thinking_budget is None
+    assert str(cfg_38.thinking_config.thinking_level.value) == "LOW"
+
 
 def test_prepare_inference_citing_context_in_the_wild() -> None:
     """Valida la inserción de <cite> y enmascaramiento de citas secundarias con [OTHERCIT]."""
