@@ -9,7 +9,7 @@ RP_DISCO="${RP_DISCO:-150}"   # GB de disco del contenedor: entorno virtual, pes
 RP_ESTADO="${RP_ESTADO:-$HOME/.cache/evidencite-runpod}"; mkdir -p "$RP_ESTADO"
 RP_SSH=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ServerAliveInterval=30 -o BatchMode=yes)
 [[ -n "${RP_LLAVE:-}" ]] && RP_SSH+=(-i "$RP_LLAVE" -o IdentitiesOnly=yes)   # llave privada si no es la de ssh por defecto
-declare -A RP_GPU=([G4]="NVIDIA RTX PRO 6000 Blackwell Server Edition" [A100]="NVIDIA A100-SXM4-80GB" [L4]="NVIDIA L4" [H100]="NVIDIA H100 NVL" [H200]="NVIDIA H200")
+declare -A RP_GPU=([B200]="NVIDIA B200"  [G4]="NVIDIA RTX PRO 6000 Blackwell Server Edition" [A100]="NVIDIA A100-SXM4-80GB" [L4]="NVIDIA L4" [H100]="NVIDIA H100 NVL" [H200]="NVIDIA H200")
 # `colab install`: entorno virtual limpio en /opt/ev con requirements-runpod.txt, sin tocar los paquetes de la imagen;
 # gcc y los headers de Python los usa torch.compile. Falla si torch no ve la GPU.
 RP_PREPARAR='set -e
