@@ -20,7 +20,11 @@
 #        VARIANTES="lora dora" LRS="5e-5 1e-4" CONFIGS="A B" scripts/probar_variantes.sh G4 EPOCAS=4 SCHEDULER=cosine
 #        MODELOS="Qwen/Qwen3-4B-Base" SESION=s4b scripts/probar_variantes.sh G4  # otra sesión en paralelo
 #        scripts/probar_variantes.sh local                                    # las 10 variantes con el humo
-# Listas (separadas por espacios): VARIANTES, LRS, CONFIGS y MODELOS. Cada CLAVE=valor llega a todas las corridas.
+#        SEMILLAS="1234 5678" MODELOS="Qwen/Qwen3-4B-Base" scripts/probar_variantes.sh G4   # repeticiones con otras semillas
+# Listas (separadas por espacios): VARIANTES, LRS, CONFIGS, MODELOS y SEMILLAS. Cada CLAVE=valor llega a todas las
+# corridas. Sin SEMILLAS se usa SEMILLA (42 por defecto). Toda semilla distinta de 42 va al final del nombre de la corrida
+# (…_lr1e-4_s1234), así que convive con las de 42 en el mismo experimento; cada semilla termina todos los modelos antes
+# de empezar la siguiente.
 # Datos: como en correr_experimento.sh. En Colab, DATOS_TAG y GDRIVE_SA_JSON (obligatorios), DATOS_DVC e ID_CARPETA;
 # en local, DATASET o la carpeta DATOS_DVC del repo.
 set -uo pipefail
@@ -38,6 +42,12 @@ else
   read -ra VARIANTES <<< "${VARIANTES:-lora lora_plus eva dora}"     # LoRA como control + LoRA+, EVA y DoRA
   read -ra LRS <<< "${LRS:-1e-4}"; read -ra CONFIGS <<< "${CONFIGS:-B}"; read -ra MODELOS <<< "${MODELOS:-Qwen/Qwen3-8B-Base}"
 fi
+read -ra SEMILLAS <<< "${SEMILLAS:-$(valor SEMILLA 42)}"
+SIN_SEMILLA=(); for par in "${VARIABLES[@]}"; do [[ "$par" == SEMILLA=* ]] || SIN_SEMILLA+=("$par"); done   # la pone cada corrida
+# Nombre de la corrida en MLflow. La semilla 42 no se nombra, para que las corridas que ya existen sigan contando.
+nombre_corrida() {   # $1 modelo · $2 variante · $3 configuración · $4 tasa · $5 semilla
+  local n="${1##*/}_${2}_${3}_lr${4}"; [[ "$5" != 42 ]] && n+="_s$5"; echo "$n"
+}
 EXPERIMENTO="$(valor MLFLOW_EXPERIMENTO variantes_lora)"
 FALLIDAS=()
 if [[ -n "$(ip_mlflow)" ]]; then echo "MLflow: experimento $EXPERIMENTO · servidor $(ip_mlflow)"
@@ -62,8 +72,9 @@ if [[ "$GPU" == local ]]; then
   SALIDAS="$(mktemp -d)"
   trap 'rm -rf "$SALIDAS" "${DATOS_TMP:-}"' EXIT
   [[ -z "$(valor DATOS_DIR)" ]] && { DATOS="$(datos_locales)" || exit 1; }
+  for semilla in "${SEMILLAS[@]}"; do
   for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante in "${VARIANTES[@]}"; do for lr in "${LRS[@]}"; do
-    nombre="${modelo##*/}_${variante}_${config}_lr${lr}"
+    nombre="$(nombre_corrida "$modelo" "$variante" "$config" "$lr" "$semilla")"
     [[ -f "resultados/$nombre.zip" ]] && { echo "== $nombre: ya está en resultados/, la salto"; continue; }
     echo "== $nombre"
     previas=(FAMILIA=lora SALIDAS_DIR="$SALIDAS" MODO="$(valor MODO mini)" SALTAR_EXISTENTES=1
@@ -72,14 +83,14 @@ if [[ "$GPU" == local ]]; then
     [[ -n "$(ip_mlflow)" ]] && previas+=(MLFLOW_IP="$(ip_mlflow)")
     registro="$(mktemp)"
     ( cd "$REPO" &&
-      env "${previas[@]}" "${VARIABLES[@]}" MODELO="$modelo" LORA_TIPO="$variante" CONFIGURACION="$config" LR="$lr" \
-        NOMBRE_CORRIDA="$nombre" "$PY" -m src.modeling ) > "$registro" 2>&1
+      env "${previas[@]}" "${SIN_SEMILLA[@]}" SEMILLA="$semilla" MODELO="$modelo" LORA_TIPO="$variante" \
+        CONFIGURACION="$config" LR="$lr" NOMBRE_CORRIDA="$nombre" "$PY" -m src.modeling ) > "$registro" 2>&1
     tr '\r' '\n' < "$registro" | grep -a "macro-F1 (9)\|^AVISO\|MLflowNoEncontrado" | sed 's/^ */   /' | cut -c1-140
     if [[ "$(destino_resultados "$registro")" == local ]]; then
       mkdir -p resultados && cp "$SALIDAS/$nombre.zip" "resultados/$nombre.zip"
     fi
     cerrar_corrida "$nombre" "$registro"
-  done; done; done; done
+  done; done; done; done; done
   resumen_final local
   exit 0
 fi
@@ -100,13 +111,14 @@ preparar_sesion() {
 }
 preparar_sesion || { echo "No se pudo preparar la sesión de Colab '$SESION'"; exit 1; }
 
+for semilla in "${SEMILLAS[@]}"; do
 for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante in "${VARIANTES[@]}"; do for lr in "${LRS[@]}"; do
-  nombre="${modelo##*/}_${variante}_${config}_lr${lr}"
+  nombre="$(nombre_corrida "$modelo" "$variante" "$config" "$lr" "$semilla")"
   [[ -f "resultados/$nombre.zip" ]] && { echo "== $nombre: ya está en resultados/, la salto"; continue; }
   echo "== $nombre · sesión $SESION · $(date '+%Y-%m-%d %H:%M')"
   colab restart-kernel -s "$SESION" || true      # libera la memoria de la corrida anterior
-  entorno=("${COMUNES[@]}" "${VARIABLES[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "MODELO=$modelo" "LORA_TIPO=$variante"
-           "CONFIGURACION=$config" "LR=$lr" "NOMBRE_CORRIDA=$nombre")
+  entorno=("${COMUNES[@]}" "${SIN_SEMILLA[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "SEMILLA=$semilla" "MODELO=$modelo"
+           "LORA_TIPO=$variante" "CONFIGURACION=$config" "LR=$lr" "NOMBRE_CORRIDA=$nombre")
   [[ -n "$(ip_mlflow)" ]] && entorno+=("MLFLOW_IP=$(ip_mlflow)")
   args=(-s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT")
   for par in "${entorno[@]}"; do args+=(--env "$par"); done
@@ -127,5 +139,5 @@ for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante
     fi
   fi
   cerrar_corrida "$nombre" "$registro"
-done; done; done; done
+done; done; done; done; done
 resumen_final "$SESION"
