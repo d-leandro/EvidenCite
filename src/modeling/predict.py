@@ -1,12 +1,18 @@
 """Inferencia unificada y servicios de predicción para TF-IDF, Encoders/LoRA y LLMs Comerciales (Actividades A5, A8)."""
 
 from abc import ABC, abstractmethod
+import hashlib
 import json
+import logging
 import os
 from pathlib import Path
+import random
 import re
+import tempfile
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
+from tqdm.std import tqdm
 
 import joblib
 import numpy as np
@@ -289,6 +295,7 @@ class PredictionRecord(BaseModel):
         description="True si la salida cumplió el contrato esperado (relevante para LLMs en A7).",
     )
     input_tokens: int = Field(default=0, ge=0)
+    cached_input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     thoughts_tokens: int = Field(default=0, ge=0)
 
@@ -683,9 +690,77 @@ def parse_llm_json_response(raw_text: str) -> Tuple[LLMResponse, bool]:
     except Exception:
         uniform = {cls_name: round(1.0 / 9.0, 4) for cls_name in CANONICAL_9_CLASSES}
         fallback = LLMResponse.model_validate(
-            {"predicted_label": "Background", "scores": uniform, "rationale": "Fallback parsing error"}
+            {"predicted_label": "Background", "scores": uniform}
         )
         return fallback, False
+
+
+logger = logging.getLogger(__name__)
+
+
+def load_dotenv_if_present() -> None:
+    """Carga variables de entorno desde el archivo .env en la raíz del proyecto o ~/.env si existen."""
+    for candidate in (Path(".env"), Path(__file__).resolve().parents[2] / ".env", Path.home() / ".env"):
+        if candidate.is_file():
+            with open(candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#") or "=" not in stripped:
+                        continue
+                    k, v = stripped.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+
+
+def sample_stratified_few_shot_examples(
+    train_file: Path,
+    num_few_shot: int,
+    seed: int = 42,
+) -> List[DatasetInstance]:
+    """Selecciona deterministamente (seed) ejemplares estratificados por clase desde train.jsonl con evidencia A+B completa."""
+    if num_few_shot <= 0 or not train_file.exists():
+        return []
+    from src.modeling.dataset import load_jsonl_instances
+
+    train_instances = load_jsonl_instances(train_file)
+    by_class: Dict[str, List[DatasetInstance]] = {cls_name: [] for cls_name in CANONICAL_9_CLASSES}
+
+    for inst in train_instances:
+        lbl = resolve_canonical_label(inst.label)
+        if lbl not in by_class:
+            continue
+        has_a = bool((inst.cited_paper.title or "").strip() and (inst.cited_paper.abstract or "").strip())
+        has_b = len(inst.cited_paper.retrieved_chunks or []) >= 1
+        if has_a and has_b:
+            by_class[lbl].append(inst)
+
+    rng = random.Random(seed)
+    for cls_name in CANONICAL_9_CLASSES:
+        if not by_class[cls_name]:
+            # Fallback si alguna clase no tuviera ambos campos simultáneamente
+            by_class[cls_name] = [
+                inst for inst in train_instances if resolve_canonical_label(inst.label) == cls_name
+            ]
+        rng.shuffle(by_class[cls_name])
+
+    selected: List[DatasetInstance] = []
+    round_idx = 0
+    while len(selected) < num_few_shot:
+        added_in_round = False
+        for cls_name in CANONICAL_9_CLASSES:
+            if len(selected) >= num_few_shot:
+                break
+            candidates = by_class[cls_name]
+            if round_idx < len(candidates):
+                selected.append(candidates[round_idx])
+                added_in_round = True
+        if not added_in_round:
+            break
+        round_idx += 1
+
+    return selected
 
 
 class LLMApiPredictor(BasePredictor):
@@ -704,10 +779,13 @@ class LLMApiPredictor(BasePredictor):
         self._load_cache()
 
     def _cache_key(self, instance_id: str) -> str:
-        return (
+        base_key = (
             f"{instance_id}::{self.rep_config.configuration}::"
             f"{self.llm_config.prompt_mode}::{self.llm_config.model_name}"
         )
+        if self.llm_config.num_few_shot > 0:
+            return f"{base_key}::fs{self.llm_config.num_few_shot}"
+        return base_key
 
     def _load_cache(self) -> None:
         cache_path = self.llm_config.cache_path
@@ -741,6 +819,7 @@ class LLMApiPredictor(BasePredictor):
         if self._client is not None:
             return self._client
 
+        load_dotenv_if_present()
         api_key = os.getenv(self.llm_config.api_key_env, "")
         if self.llm_config.provider in ("openai", "ollama"):
             from openai import OpenAI
@@ -757,51 +836,72 @@ class LLMApiPredictor(BasePredictor):
         if self.llm_config.provider == "gemini":
             from google import genai
 
-            self._client = genai.Client(api_key=api_key)
+            use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            self._client = genai.Client(
+                vertexai=True if use_vertex else None,
+                api_key=api_key or None,
+            )
             return self._client
 
         raise ValueError(f"Proveedor LLM no soportado: {self.llm_config.provider}")
 
+    @staticmethod
+    def _extract_openai_usage(completion: Any) -> Tuple[int, int, int]:
+        """Extrae (input_tokens, cached_input_tokens, output_tokens) desde usage de OpenAI."""
+        usage = getattr(completion, "usage", None)
+        in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
+        details = getattr(usage, "prompt_tokens_details", None)
+        raw_cached = int(getattr(details, "cached_tokens", 0) or 0)
+        cached_in_tok = max(0, min(raw_cached, in_tok))
+        out_tok = int(getattr(usage, "completion_tokens", 0) or 0)
+        return in_tok, cached_in_tok, out_tok
+
     def _call_openai_or_ollama(
         self,
         messages: List[Dict[str, str]],
-    ) -> Tuple[LLMResponse, bool, int, int, int]:
+    ) -> Tuple[LLMResponse, bool, int, int, int, int]:
         client = self._get_or_create_client()
+        extra_kwargs: Dict[str, Any] = {}
+        if self.llm_config.temperature is not None:
+            extra_kwargs["temperature"] = self.llm_config.temperature
+        if self.llm_config.seed is not None:
+            extra_kwargs["seed"] = self.llm_config.seed
+
         if self.llm_config.enforce_structured_output:
             completion = client.beta.chat.completions.parse(
                 model=self.llm_config.model_name,
                 messages=messages,
-                temperature=self.llm_config.temperature,
                 max_tokens=self.llm_config.max_output_tokens,
                 response_format=LLMResponse,
+                **extra_kwargs,
             )
-            usage = getattr(completion, "usage", None)
-            in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
-            out_tok = int(getattr(usage, "completion_tokens", 0) or 0)
+            in_tok, cached_in_tok, out_tok = self._extract_openai_usage(completion)
             parsed_msg = completion.choices[0].message.parsed
             if isinstance(parsed_msg, LLMResponse):
-                return parsed_msg, True, in_tok, out_tok, 0
+                return parsed_msg, True, in_tok, cached_in_tok, out_tok, 0
             raw_content = completion.choices[0].message.content or ""
             resp, valid = parse_llm_json_response(raw_content)
-            return resp, valid, in_tok, out_tok, 0
+            return resp, valid, in_tok, cached_in_tok, out_tok, 0
 
         completion = client.chat.completions.create(
             model=self.llm_config.model_name,
             messages=messages,
-            temperature=self.llm_config.temperature,
             max_tokens=self.llm_config.max_output_tokens,
+            **extra_kwargs,
         )
-        usage = getattr(completion, "usage", None)
-        in_tok = int(getattr(usage, "prompt_tokens", 0) or 0)
-        out_tok = int(getattr(usage, "completion_tokens", 0) or 0)
+        in_tok, cached_in_tok, out_tok = self._extract_openai_usage(completion)
         raw_content = completion.choices[0].message.content or ""
         resp, valid = parse_llm_json_response(raw_content)
-        return resp, valid, in_tok, out_tok, 0
+        return resp, valid, in_tok, cached_in_tok, out_tok, 0
 
     def _call_gemini_native(
         self,
         messages: List[Dict[str, str]],
-    ) -> Tuple[LLMResponse, bool, int, int, int]:
+    ) -> Tuple[LLMResponse, bool, int, int, int, int]:
         from google.genai import types
 
         client = self._get_or_create_client()
@@ -817,35 +917,65 @@ class LLMApiPredictor(BasePredictor):
         combined_contents = "\n\n".join(user_parts)
         config_kwargs: Dict[str, Any] = {
             "system_instruction": system_instruction or None,
-            "temperature": self.llm_config.temperature,
             "max_output_tokens": self.llm_config.max_output_tokens,
-            "thinking_config": types.ThinkingConfig(
-                thinking_budget=self.llm_config.thinking_budget
-            ),
         }
+        if self.llm_config.temperature is not None:
+            config_kwargs["temperature"] = self.llm_config.temperature
+        if self.llm_config.seed is not None:
+            config_kwargs["seed"] = self.llm_config.seed
+
+        if self.llm_config.thinking_level is not None:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel(self.llm_config.thinking_level)
+            )
+        elif self.llm_config.thinking_budget is not None:
+            config_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=self.llm_config.thinking_budget
+            )
+
         if self.llm_config.enforce_structured_output:
             config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_schema"] = LLMResponse
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
-        response = client.models.generate_content(
-            model=self.llm_config.model_name,
-            contents=combined_contents,
-            config=gen_config,
-        )
+        max_attempts = max(1, self.llm_config.max_retries + 1)
+        response = None
+        for attempt in range(max_attempts):
+            try:
+                response = client.models.generate_content(
+                    model=self.llm_config.model_name,
+                    contents=combined_contents,
+                    config=gen_config,
+                )
+                break
+            except Exception as exc:
+                if attempt + 1 >= max_attempts:
+                    raise
+                wait_sec = min(30.0, 2.0 ** attempt)
+                logger.warning(
+                    "Reintento Gemini (%d/%d) tras error (%s: %s); esperando %.1fs...",
+                    attempt + 1,
+                    self.llm_config.max_retries,
+                    type(exc).__name__,
+                    exc,
+                    wait_sec,
+                )
+                time.sleep(wait_sec)
 
         usage = getattr(response, "usage_metadata", None)
         in_tok = int(getattr(usage, "prompt_token_count", 0) or 0)
+        raw_cached = int(getattr(usage, "cached_content_token_count", 0) or 0)
+        cached_in_tok = max(0, min(raw_cached, in_tok))
         out_tok = int(getattr(usage, "candidates_token_count", 0) or 0)
         thought_tok = int(getattr(usage, "thoughts_token_count", 0) or 0)
 
         parsed_obj = getattr(response, "parsed", None)
         if isinstance(parsed_obj, LLMResponse):
-            return parsed_obj, True, in_tok, out_tok, thought_tok
+            return parsed_obj, True, in_tok, cached_in_tok, out_tok, thought_tok
 
         raw_text = getattr(response, "text", "") or ""
         resp, valid = parse_llm_json_response(raw_text)
-        return resp, valid, in_tok, out_tok, thought_tok
+        return resp, valid, in_tok, cached_in_tok, out_tok, thought_tok
 
     def predict(
         self,
@@ -874,9 +1004,13 @@ class LLMApiPredictor(BasePredictor):
 
         t0 = time.perf_counter()
         if self.llm_config.provider in ("openai", "ollama"):
-            resp, valid, in_tok, out_tok, thought_tok = self._call_openai_or_ollama(messages)
+            resp, valid, in_tok, cached_in_tok, out_tok, thought_tok = self._call_openai_or_ollama(
+                messages
+            )
         elif self.llm_config.provider == "gemini":
-            resp, valid, in_tok, out_tok, thought_tok = self._call_gemini_native(messages)
+            resp, valid, in_tok, cached_in_tok, out_tok, thought_tok = self._call_gemini_native(
+                messages
+            )
         else:
             raise ValueError(f"Proveedor no soportado: {self.llm_config.provider}")
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -891,11 +1025,12 @@ class LLMApiPredictor(BasePredictor):
             probabilities=scores_dict,
             confidence=confidence,
             latency_ms=float(latency_ms),
-            rationale=resp.rationale,
+            rationale=None,
             model_name=self.llm_config.model_name,
             configuration=self.rep_config.configuration,
             is_valid_format=valid,
             input_tokens=in_tok,
+            cached_input_tokens=cached_in_tok,
             output_tokens=out_tok,
             thoughts_tokens=thought_tok,
         )
@@ -907,11 +1042,19 @@ class LLMApiPredictor(BasePredictor):
         requests: Sequence[Union[InferenceRequest, DatasetInstance, str]],
         batch_size: int = 32,
         few_shot_examples: Optional[Sequence[DatasetInstance]] = None,
+        show_progress: bool = True,
         **kwargs: Any,
     ) -> List[PredictionRecord]:
+        iterator: Sequence[Union[InferenceRequest, DatasetInstance, str]] = requests
+        if show_progress and len(requests) > 1:
+            desc = (
+                f"LLM API ({self.llm_config.model_name} · "
+                f"cfg={self.rep_config.configuration} · fs={self.llm_config.num_few_shot})"
+            )
+            iterator = tqdm(requests, desc=desc, unit="inst")  # type: ignore[assignment]
         return [
             self.predict(req, few_shot_examples=few_shot_examples, **kwargs)
-            for req in requests
+            for req in iterator
         ]
 
 
@@ -1018,6 +1161,44 @@ def predict_transformer_batch(
     return pred.predict_batch(instances, batch_size=batch_size)
 
 
+def compute_api_token_costs(
+    records: Sequence[PredictionRecord],
+    llm_cfg: LLMApiConfig,
+) -> Dict[str, Any]:
+    """Calcula totales de tokens, tasa de caché, costo bruto y costo neto (USD) para A5/A7."""
+    total_in = sum(r.input_tokens for r in records)
+    total_cached = sum(max(0, min(r.cached_input_tokens, r.input_tokens)) for r in records)
+    uncached_in = total_in - total_cached
+    total_out = sum(r.output_tokens for r in records)
+    total_thoughts = sum(r.thoughts_tokens for r in records)
+    billable_out = total_out + total_thoughts
+
+    cached_rate = (
+        llm_cfg.cost_per_1m_cached_input_tokens_usd
+        if llm_cfg.cost_per_1m_cached_input_tokens_usd is not None
+        else llm_cfg.cost_per_1m_input_tokens_usd
+    )
+    out_cost = (billable_out / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
+    gross_cost = (total_in / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd + out_cost
+    net_cost = (
+        (uncached_in / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
+        + (total_cached / 1_000_000.0) * cached_rate
+        + out_cost
+    )
+    cache_hit_rate = (total_cached / float(total_in)) if total_in > 0 else 0.0
+    return {
+        "total_input_tokens": int(total_in),
+        "total_cached_input_tokens": int(total_cached),
+        "total_uncached_input_tokens": int(uncached_in),
+        "total_output_tokens": int(total_out),
+        "total_thoughts_tokens": int(total_thoughts),
+        "billable_output_tokens": int(billable_out),
+        "cache_hit_rate": float(cache_hit_rate),
+        "gross_api_cost_usd": float(gross_cost),
+        "net_api_cost_usd": float(net_cost),
+    }
+
+
 def run_llm_api_experiment(
     config: ExperimentConfig,
     eval_instances: Optional[Sequence[DatasetInstance]] = None,
@@ -1036,6 +1217,13 @@ def run_llm_api_experiment(
         from src.modeling.dataset import load_jsonl_instances
 
         eval_instances = load_jsonl_instances(config.paths.test_file)
+
+    if few_shot_examples is None and llm_cfg.num_few_shot > 0:
+        few_shot_examples = sample_stratified_few_shot_examples(
+            train_file=config.paths.train_file,
+            num_few_shot=llm_cfg.num_few_shot,
+            seed=config.seed,
+        )
 
     predictor = LLMApiPredictor(
         llm_config=llm_cfg,
@@ -1057,12 +1245,7 @@ def run_llm_api_experiment(
     throughput = (1000.0 / mean_latency_ms) if mean_latency_ms > 0 else 0.0
     invalid_rate = float(sum(1 for r in records if not r.is_valid_format)) / float(n_total)
 
-    total_in_tokens = sum(r.input_tokens for r in records)
-    total_out_tokens = sum(r.output_tokens + r.thoughts_tokens for r in records)
-    est_cost_usd = (
-        (total_in_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_input_tokens_usd
-        + (total_out_tokens / 1_000_000.0) * llm_cfg.cost_per_1m_output_tokens_usd
-    )
+    cost_stats = compute_api_token_costs(records, llm_cfg)
 
     metrics_a7 = OperationalMetricsA7(
         model_family="llm_api",
@@ -1075,7 +1258,13 @@ def run_llm_api_experiment(
         throughput_instances_per_sec=throughput,
         peak_memory_mb=0.0,
         invalid_format_rate=invalid_rate,
-        estimated_api_cost_usd=float(est_cost_usd),
+        estimated_api_cost_usd=cost_stats["net_api_cost_usd"],
+        gross_api_cost_usd=cost_stats["gross_api_cost_usd"],
+        total_input_tokens=cost_stats["total_input_tokens"],
+        total_cached_input_tokens=cost_stats["total_cached_input_tokens"],
+        total_output_tokens=cost_stats["total_output_tokens"],
+        total_thoughts_tokens=cost_stats["total_thoughts_tokens"],
+        cache_hit_rate=cost_stats["cache_hit_rate"],
     )
 
     exp_dir = Path(config.paths.output_dir) / config.experiment_name
@@ -1100,6 +1289,9 @@ def run_llm_api_experiment(
             from src.modeling.registro_mlflow import abrir_mlflow, en_colab, versiones
             registro = abrir_mlflow(config, en_colab(), versiones())
             if registro is not None:
+                if config.paths.test_file.is_file():
+                    h_test = hashlib.sha256(config.paths.test_file.read_bytes()).hexdigest()
+                    registro.parametros({"sha256_test": h_test})
                 registro.metricas({
                     "test_macro_f1_all_9": metrics_a6.macro_f1_all_9,
                     "test_macro_f1_present": metrics_a6.macro_f1_present,
@@ -1107,14 +1299,30 @@ def run_llm_api_experiment(
                     "test_weighted_f1": metrics_a6.weighted_f1,
                     "a7_latency_ms": metrics_a7.inference_latency_ms_per_instance,
                     "a7_throughput": metrics_a7.throughput_instances_per_sec,
+                    "a7_trainable_ratio_pct": metrics_a7.trainable_ratio_pct,
+                    "a7_train_wall_time_sec": metrics_a7.train_wall_time_sec,
                     "a7_api_cost_usd": metrics_a7.estimated_api_cost_usd,
+                    "a7_api_gross_cost_usd": metrics_a7.gross_api_cost_usd,
+                    "a7_cache_hit_rate": metrics_a7.cache_hit_rate,
+                    "a7_total_input_tokens": float(metrics_a7.total_input_tokens),
+                    "a7_total_cached_input_tokens": float(metrics_a7.total_cached_input_tokens),
+                    "a7_total_output_tokens": float(metrics_a7.total_output_tokens),
+                    "a7_total_thoughts_tokens": float(metrics_a7.total_thoughts_tokens),
                     "a7_invalid_format_rate": metrics_a7.invalid_format_rate,
                 })
-                for archivo in ("config.json", "metrics_summary.json"):
-                    ruta_arch = exp_dir / archivo
-                    if ruta_arch.exists():
-                        registro.artefacto(ruta_arch)
-                registro.cerrar("FINISHED")
+                with tempfile.TemporaryDirectory(prefix="mlflow_a5_tel_") as tmp_dir:
+                    tel_path = Path(tmp_dir) / "predictions_telemetry.jsonl"
+                    with tel_path.open("w", encoding="utf-8") as tel_f:
+                        for rec in records:
+                            rec_id = rec.instance_id or ""
+                            entry = {"cache_key": predictor._cache_key(rec_id), "record": rec.model_dump()}
+                            tel_f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                    for archivo in ("config.json", "metrics_summary.json"):
+                        ruta_arch = exp_dir / archivo
+                        if ruta_arch.exists():
+                            registro.artefacto(ruta_arch)
+                    registro.artefacto(tel_path)
+                    registro.cerrar("FINISHED")
         except Exception as e:
             logger.warning("Aviso: no se pudo registrar la corrida de LLM API en MLflow (%s: %s)", type(e).__name__, e)
 

@@ -19,7 +19,7 @@ llm_api:
   temperature: 0.0
   max_output_tokens: 512
   thinking_budget: 0
-  prompt_mode: "section_conditioned"
+  prompt_mode: "generic"
   num_few_shot: 0
   enforce_structured_output: true
   cache_path: "models/llm_api_cache.jsonl"

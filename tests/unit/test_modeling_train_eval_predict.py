@@ -33,6 +33,9 @@ from src.modeling.predict import (
 )
 from src.modeling.prompts import (
     LLMResponse,
+    NineClassScores,
+    _RHETORICAL_NEIGHBORS,
+    _build_few_shot_scores,
     build_llm_messages,
 )
 from src.modeling.train import run_training_experiment
@@ -219,17 +222,49 @@ def test_weighted_sequence_trainer_and_lora_smoke(tmp_path: Path) -> None:
 
 def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: Path) -> None:
     """Valida Forma 2 de RespuestaLLM, prompts A5 y medición de invalid_format_rate en A7."""
-    inst_1 = make_synthetic_instance(idx=1, label="Comparison", citing_section="Experiments")
+    inst_1 = make_synthetic_instance(idx=1, label="Comparison", citing_section="Related Work")
     inst_2 = make_synthetic_instance(idx=2, label="Background", citing_section="Introduction")
-    rep_cfg = InputRepresentationConfig(configuration="B")
+    rep_cfg = InputRepresentationConfig(configuration="B", include_citing_section=True, include_cited_section=True)
 
-    # 1. Verificación de prompts genérico vs section_conditioned
+    # 1. Verificación de prompts genérico vs section_conditioned (paridad 1:1 Config B)
     msgs_cond = build_llm_messages(inst_1, rep_cfg, prompt_mode="section_conditioned", few_shot_examples=[inst_2])
     assert len(msgs_cond) == 4  # system + 1 few-shot (user/assistant) + user
-    assert "Experiments:" in msgs_cond[-1]["content"]
+    assert "Related Work:" in msgs_cond[-1]["content"]
+    assert "3 Experiments:" in msgs_cond[-1]["content"]
+
+    # Verificar que el turno assistant de Few-Shot no use el patrón fijo 0.92/0.01 y sume exactamente 1.00
+    assistant_shot = LLMResponse.model_validate_json(msgs_cond[2]["content"])
+    shot_raw = {
+        cls_name: float(getattr(assistant_shot.scores, cls_name.replace(" ", "_")))
+        for cls_name in CANONICAL_9_CLASSES
+    }
+    assert abs(sum(shot_raw.values()) - 1.0) < 1e-9
+    assert shot_raw["Background"] != 0.92
+    assert len({v for k, v in shot_raw.items() if k != "Background"}) > 1
+
+    # Verificar las 9 clases en _build_few_shot_scores (determinismo, suma 1.00 y vecindad retórica)
+    gold_scores_seen = set()
+    for i, cls_name in enumerate(CANONICAL_9_CLASSES):
+        dist_a = _build_few_shot_scores(cls_name, seed_key=f"inst_{i}")
+        dist_b = _build_few_shot_scores(cls_name, seed_key=f"inst_{i}")
+        assert dist_a == dist_b
+        assert abs(sum(dist_a.values()) - 1.0) < 1e-9
+        assert dist_a[cls_name] > 0.50
+        assert max(dist_a, key=dist_a.get) == cls_name  # type: ignore[arg-type]
+        prim = _RHETORICAL_NEIGHBORS[cls_name]["primary"]  # type: ignore[index]
+        assert dist_a[prim[0]] + dist_a[prim[1]] >= 0.08  # type: ignore[index]
+        gold_scores_seen.add(dist_a[cls_name])
+    assert len(gold_scores_seen) >= 4  # Heterogeneidad real entre los 9 shots
+
+    # Verificar consistencia monolingüe en inglés en el JSON Schema exportado al LLM
+    schema_dump = str(LLMResponse.model_json_schema())
+    assert "Predicted canonical citation intent label" in schema_dump
+    assert "Etiqueta canónica" not in schema_dump
+    assert "Puntajes de confianza" not in schema_dump
 
     msgs_gen = build_llm_messages(inst_1, rep_cfg, prompt_mode="generic")
-    assert "Experiments:" not in msgs_gen[-1]["content"]
+    assert "Related Work:" not in msgs_gen[-1]["content"]
+    assert "3 Experiments:" in msgs_gen[-1]["content"]
 
     # 2. Parseo JSON válido e inválido (Forma 2 con alias 'Further Reading')
     valid_json = LLMResponse.model_validate(
@@ -241,7 +276,16 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
     parsed, is_ok = parse_llm_json_response(f"```json\n{valid_json}\n```")
     assert is_ok is True
     assert parsed.predicted_label == "Comparison"
-    assert len(parsed.scores.to_prob_vector()) == 9
+    prob_vec = parsed.scores.to_prob_vector()
+    assert len(prob_vec) == 9
+    assert abs(sum(prob_vec) - 1.0) < 1e-12
+    assert parsed.scores.to_dict_canonical()["Comparison"] > 0.9  # 0.9 / 0.98
+
+    # Vector nulo (todos en 0.0) debe normalizar a distribución uniforme sin error de división
+    zero_scores = NineClassScores.model_validate({c: 0.0 for c in CANONICAL_9_CLASSES})
+    zero_dict = zero_scores.to_dict_canonical()
+    assert abs(sum(zero_dict.values()) - 1.0) < 1e-12
+    assert abs(zero_dict["Background"] - (1.0 / 9.0)) < 1e-12
 
     _, is_bad = parse_llm_json_response("Not a valid JSON string")
     assert is_bad is False
@@ -252,11 +296,17 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
 
     class FakeCompletions:
         def create(self, **kwargs):  # type: ignore[no-untyped-def]
-            text = responses[call_counter["count"]]
+            idx = call_counter["count"]
+            text = responses[idx]
             call_counter["count"] += 1
+            cached = 128 if idx == 1 else 0
             return SimpleNamespace(
                 choices=[SimpleNamespace(message=SimpleNamespace(content=text))],
-                usage=SimpleNamespace(prompt_tokens=200, completion_tokens=50),
+                usage=SimpleNamespace(
+                    prompt_tokens=200,
+                    completion_tokens=50,
+                    prompt_tokens_details=SimpleNamespace(cached_tokens=cached),
+                ),
             )
 
     fake_client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
@@ -270,6 +320,9 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
         llm_api=LLMApiConfig(
             provider="openai",
             model_name="gpt-4o-mini",
+            cost_per_1m_input_tokens_usd=0.40,
+            cost_per_1m_cached_input_tokens_usd=0.10,
+            cost_per_1m_output_tokens_usd=1.60,
             enforce_structured_output=False,
             cache_path=cache_file,
         ),
@@ -281,8 +334,18 @@ def test_prompts_and_llm_api_predictor_with_cache_and_invalid_format(tmp_path: P
         custom_client=fake_client,
     )
     assert len(records) == 2
+    assert records[0].cached_input_tokens == 0
+    assert records[1].cached_input_tokens == 128
     assert a7.invalid_format_rate == 0.5  # 1 válida y 1 inválida
-    assert a7.estimated_api_cost_usd > 0.0
+    assert a7.total_input_tokens == 400
+    assert a7.total_cached_input_tokens == 128
+    assert a7.total_output_tokens == 100
+    assert abs(a7.cache_hit_rate - (128 / 400)) < 1e-9
+    # Bruto: 400 * 0.40/1M + 100 * 1.60/1M = 0.00032
+    # Neto:  272 * 0.40/1M + 128 * 0.10/1M + 100 * 1.60/1M = 0.0002816
+    assert abs(a7.gross_api_cost_usd - 0.00032) < 1e-10
+    assert abs(a7.estimated_api_cost_usd - 0.0002816) < 1e-10
+    assert a7.estimated_api_cost_usd < a7.gross_api_cost_usd
     assert cache_file.exists()
 
     # Segunda llamada usa el caché en disco sin invocar de nuevo al cliente
@@ -315,6 +378,7 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
                 text=parsed_resp.model_dump_json(by_alias=True),
                 usage_metadata=SimpleNamespace(
                     prompt_token_count=180,
+                    cached_content_token_count=90,
                     candidates_token_count=45,
                     thoughts_token_count=0,
                 ),
@@ -347,6 +411,70 @@ def test_gemini_native_sdk_path_with_thinking_budget(tmp_path: Path) -> None:
     assert a7.invalid_format_rate == 0.0
     assert len(captured_configs) == 1
     assert captured_configs[0][2].thinking_config.thinking_budget == 0
+
+    # Validar configuración Gemini 3.8 Flash: thinking_level="LOW", sin temperature ni thinking_budget
+    captured_configs.clear()
+    exp_cfg_38 = exp_cfg.model_copy(
+        update={
+            "experiment_name": "test_gemini_38_low",
+            "llm_api": LLMApiConfig(
+                provider="gemini",
+                model_name="gemini-3.8-flash",
+                api_key_env="GEMINI_API_KEY",
+                temperature=None,
+                seed=42,
+                thinking_budget=None,
+                thinking_level="LOW",
+                cost_per_1m_input_tokens_usd=0.75,
+                cost_per_1m_cached_input_tokens_usd=0.075,
+                cost_per_1m_output_tokens_usd=3.75,
+                enforce_structured_output=True,
+                cache_path=tmp_path / "gemini38_cache.jsonl",
+            ),
+        }
+    )
+    records_38, _, a7_38 = run_llm_api_experiment(
+        config=exp_cfg_38,
+        eval_instances=[inst],
+        custom_client=fake_gemini_client,
+    )
+    assert len(records_38) == 1
+    assert records_38[0].cached_input_tokens == 90
+    assert a7_38.total_input_tokens == 180
+    assert a7_38.total_cached_input_tokens == 90
+    assert abs(a7_38.cache_hit_rate - 0.5) < 1e-9
+    # Bruto: 180 * 0.75/1M + 45 * 3.75/1M = 0.00030375
+    # Neto:   90 * 0.75/1M + 90 * 0.075/1M + 45 * 3.75/1M = 0.000243
+    assert abs(a7_38.gross_api_cost_usd - 0.00030375) < 1e-10
+    assert abs(a7_38.estimated_api_cost_usd - 0.000243) < 1e-10
+    assert len(captured_configs) == 1
+    cfg_38 = captured_configs[0][2]
+    assert cfg_38.temperature is None
+    assert cfg_38.seed == 42
+    assert cfg_38.thinking_config.thinking_budget is None
+    assert str(cfg_38.thinking_config.thinking_level.value) == "LOW"
+
+    # Retrocompatibilidad estricta con artefactos previos de A4 (11 campos originales sin llaves de caché)
+    from src.modeling.evaluate import OperationalMetricsA7
+
+    legacy_a4_payload = {
+        "model_family": "encoder",
+        "configuration": "A",
+        "total_params": 110_000_000,
+        "trainable_params": 110_000_000,
+        "trainable_ratio_pct": 100.0,
+        "train_wall_time_sec": 780.0,
+        "inference_latency_ms_per_instance": 12.45,
+        "throughput_instances_per_sec": 80.3,
+        "peak_memory_mb": 0.0,
+        "invalid_format_rate": 0.0,
+        "estimated_api_cost_usd": 0.0,
+    }
+    legacy_a7 = OperationalMetricsA7(**legacy_a4_payload)
+    assert legacy_a7.gross_api_cost_usd == 0.0
+    assert legacy_a7.total_input_tokens == 0
+    assert legacy_a7.total_cached_input_tokens == 0
+    assert legacy_a7.cache_hit_rate == 0.0
 
 
 def test_prepare_inference_citing_context_in_the_wild() -> None:
@@ -677,6 +805,117 @@ def test_docling_pdf_resolution_and_in_memory_retrieval(tmp_path: Path, monkeypa
     record = tf_pred.predict(completed_req)
     assert record.predicted_label in CANONICAL_9_CLASSES
     assert abs(sum(record.probabilities.values()) - 1.0) < 1e-4
+
+
+def test_registro_mlflow_responde_auth_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Valida que RegistroMLflow._responde adjunte Authorization solo cuando haya credenciales."""
+    import urllib.request
+    from src.modeling.registro_mlflow import RegistroMLflow
+
+    captured_headers: list = []
+
+    class FakeResp:
+        status = 200
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+        def __exit__(self, *args):  # type: ignore[no-untyped-def]
+            return False
+
+    def fake_urlopen(req, timeout=5):  # type: ignore[no-untyped-def]
+        captured_headers.append(dict(req.header_items()))
+        return FakeResp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert "Authorization" not in captured_headers[-1]
+
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "AAA")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "secret")
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert captured_headers[-1].get("Authorization", "").startswith("Basic ")
+
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_TOKEN", "tok123")
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert captured_headers[-1].get("Authorization") == "Bearer tok123"
+
+
+def test_run_llm_api_experiment_mlflow_logs_parity_and_telemetry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica homologación A4/A5 en MLflow (métricas A7 base, sha256_test y predictions_telemetria.jsonl)."""
+    import json
+    from src.modeling import registro_mlflow
+
+    test_jsonl = tmp_path / "mini_test.jsonl"
+    test_jsonl.write_text('{"id":"x"}\n', encoding="utf-8")
+
+    inst_1 = make_synthetic_instance(idx=21, label="Comparison", citing_section="Experiments")
+    parsed_resp = LLMResponse.model_validate(
+        {
+            "predicted_label": "Comparison",
+            "scores": {c: (0.9 if c == "Comparison" else 0.02) for c in CANONICAL_9_CLASSES},
+        }
+    )
+
+    class FakeOpenAIClient:
+        class _Comp:
+            @staticmethod
+            def parse(**kwargs):  # type: ignore[no-untyped-def]
+                return SimpleNamespace(
+                    choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed_resp, content=None))],
+                    usage=SimpleNamespace(prompt_tokens=100, completion_tokens=50),
+                )
+        beta = SimpleNamespace(chat=SimpleNamespace(completions=_Comp()))
+
+    recorded: dict = {"params": {}, "metrics": {}, "artifacts": {}}
+
+    class FakeRegistro:
+        def parametros(self, vals):  # type: ignore[no-untyped-def]
+            recorded["params"].update(vals)
+        def metricas(self, vals):  # type: ignore[no-untyped-def]
+            recorded["metrics"].update(vals)
+        def artefacto(self, path: Path):  # type: ignore[no-untyped-def]
+            recorded["artifacts"][path.name] = path.read_text(encoding="utf-8")
+        def cerrar(self, estado: str):  # type: ignore[no-untyped-def]
+            recorded["status"] = estado
+            return True
+
+    monkeypatch.setattr(registro_mlflow, "abrir_mlflow", lambda cfg, colab, vers: FakeRegistro())
+
+    exp_cfg = ExperimentConfig(
+        experiment_name="test_a5_mlflow_parity",
+        model_family="llm_api",
+        paths=PathsConfig(output_dir=tmp_path, test_file=test_jsonl, mlflow_experiment_name="EvidenCite_A6_A7_Evaluacion_Comparativa"),
+        input_representation=InputRepresentationConfig(configuration="A"),
+        llm_api=LLMApiConfig(
+            provider="openai",
+            model_name="gpt-4.1-mini",
+            cache_path=tmp_path / "cache.jsonl",
+        ),
+    )
+    run_llm_api_experiment(
+        config=exp_cfg,
+        eval_instances=[inst_1],
+        custom_client=FakeOpenAIClient(),
+        enable_mlflow=True,
+    )
+
+    assert recorded["status"] == "FINISHED"
+    assert "sha256_test" in recorded["params"]
+    assert recorded["metrics"]["a7_trainable_ratio_pct"] == 0.0
+    assert recorded["metrics"]["a7_train_wall_time_sec"] == 0.0
+    assert set(recorded["artifacts"]) == {"config.json", "metrics_summary.json", "predictions_telemetry.jsonl"}
+    tel_lines = [json.loads(ln) for ln in recorded["artifacts"]["predictions_telemetry.jsonl"].splitlines()]
+    assert len(tel_lines) == 1
+    assert tel_lines[0]["record"]["predicted_label"] == "Comparison"
+    assert tel_lines[0]["record"]["input_tokens"] == 100
+
 
 
 

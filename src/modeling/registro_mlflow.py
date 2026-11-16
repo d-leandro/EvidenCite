@@ -7,6 +7,7 @@ y la cierra en FINISHED (o FAILED si falla). Si no hay servidor, avisa y los res
 descargar_modelo baja de MLflow el mejor modelo de una corrida, para quien lo consume (create_predictor).
 """
 
+import base64
 import contextlib
 import json
 import os
@@ -173,8 +174,17 @@ class RegistroMLflow:
     @staticmethod
     def _responde(uri: str) -> bool:
         """True si el endpoint /health del servidor contesta en menos de 5 s."""
+        req = urllib.request.Request(f"{uri}/health")
+        user = os.environ.get("MLFLOW_TRACKING_USERNAME", "").strip()
+        pwd = os.environ.get("MLFLOW_TRACKING_PASSWORD", "").strip()
+        token_env = os.environ.get("MLFLOW_TRACKING_TOKEN", "").strip()
+        if user and pwd:
+            creds = base64.b64encode(f"{user}:{pwd}".encode("utf-8")).decode("ascii")
+            req.add_header("Authorization", f"Basic {creds}")
+        elif token_env:
+            req.add_header("Authorization", f"Bearer {token_env}")
         try:
-            with urllib.request.urlopen(f"{uri}/health", timeout=5) as respuesta:
+            with urllib.request.urlopen(req, timeout=5) as respuesta:
                 return respuesta.status == 200
         except Exception:  # noqa: BLE001  (conexión rechazada, tiempo agotado, DNS, HTTP 5xx...)
             return False
