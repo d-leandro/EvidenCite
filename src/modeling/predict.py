@@ -1,12 +1,14 @@
 """Inferencia unificada y servicios de predicción para TF-IDF, Encoders/LoRA y LLMs Comerciales (Actividades A5, A8)."""
 
 from abc import ABC, abstractmethod
+import hashlib
 import json
 import logging
 import os
 from pathlib import Path
 import random
 import re
+import tempfile
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -1287,6 +1289,9 @@ def run_llm_api_experiment(
             from src.modeling.registro_mlflow import abrir_mlflow, en_colab, versiones
             registro = abrir_mlflow(config, en_colab(), versiones())
             if registro is not None:
+                if config.paths.test_file.is_file():
+                    h_test = hashlib.sha256(config.paths.test_file.read_bytes()).hexdigest()
+                    registro.parametros({"sha256_test": h_test})
                 registro.metricas({
                     "test_macro_f1_all_9": metrics_a6.macro_f1_all_9,
                     "test_macro_f1_present": metrics_a6.macro_f1_present,
@@ -1294,6 +1299,8 @@ def run_llm_api_experiment(
                     "test_weighted_f1": metrics_a6.weighted_f1,
                     "a7_latency_ms": metrics_a7.inference_latency_ms_per_instance,
                     "a7_throughput": metrics_a7.throughput_instances_per_sec,
+                    "a7_trainable_ratio_pct": metrics_a7.trainable_ratio_pct,
+                    "a7_train_wall_time_sec": metrics_a7.train_wall_time_sec,
                     "a7_api_cost_usd": metrics_a7.estimated_api_cost_usd,
                     "a7_api_gross_cost_usd": metrics_a7.gross_api_cost_usd,
                     "a7_cache_hit_rate": metrics_a7.cache_hit_rate,
@@ -1303,11 +1310,19 @@ def run_llm_api_experiment(
                     "a7_total_thoughts_tokens": float(metrics_a7.total_thoughts_tokens),
                     "a7_invalid_format_rate": metrics_a7.invalid_format_rate,
                 })
-                for archivo in ("config.json", "metrics_summary.json"):
-                    ruta_arch = exp_dir / archivo
-                    if ruta_arch.exists():
-                        registro.artefacto(ruta_arch)
-                registro.cerrar("FINISHED")
+                with tempfile.TemporaryDirectory(prefix="mlflow_a5_tel_") as tmp_dir:
+                    tel_path = Path(tmp_dir) / "predictions_telemetry.jsonl"
+                    with tel_path.open("w", encoding="utf-8") as tel_f:
+                        for rec in records:
+                            rec_id = rec.instance_id or ""
+                            entry = {"cache_key": predictor._cache_key(rec_id), "record": rec.model_dump()}
+                            tel_f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                    for archivo in ("config.json", "metrics_summary.json"):
+                        ruta_arch = exp_dir / archivo
+                        if ruta_arch.exists():
+                            registro.artefacto(ruta_arch)
+                    registro.artefacto(tel_path)
+                    registro.cerrar("FINISHED")
         except Exception as e:
             logger.warning("Aviso: no se pudo registrar la corrida de LLM API en MLflow (%s: %s)", type(e).__name__, e)
 

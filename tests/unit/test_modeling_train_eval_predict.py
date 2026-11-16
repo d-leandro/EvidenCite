@@ -807,6 +807,117 @@ def test_docling_pdf_resolution_and_in_memory_retrieval(tmp_path: Path, monkeypa
     assert abs(sum(record.probabilities.values()) - 1.0) < 1e-4
 
 
+def test_registro_mlflow_responde_auth_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Valida que RegistroMLflow._responde adjunte Authorization solo cuando haya credenciales."""
+    import urllib.request
+    from src.modeling.registro_mlflow import RegistroMLflow
+
+    captured_headers: list = []
+
+    class FakeResp:
+        status = 200
+        def __enter__(self):  # type: ignore[no-untyped-def]
+            return self
+        def __exit__(self, *args):  # type: ignore[no-untyped-def]
+            return False
+
+    def fake_urlopen(req, timeout=5):  # type: ignore[no-untyped-def]
+        captured_headers.append(dict(req.header_items()))
+        return FakeResp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert "Authorization" not in captured_headers[-1]
+
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "AAA")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "secret")
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert captured_headers[-1].get("Authorization", "").startswith("Basic ")
+
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_TOKEN", "tok123")
+    assert RegistroMLflow._responde("http://fake-mlflow:5000") is True
+    assert captured_headers[-1].get("Authorization") == "Bearer tok123"
+
+
+def test_run_llm_api_experiment_mlflow_logs_parity_and_telemetry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifica homologación A4/A5 en MLflow (métricas A7 base, sha256_test y predictions_telemetria.jsonl)."""
+    import json
+    from src.modeling import registro_mlflow
+
+    test_jsonl = tmp_path / "mini_test.jsonl"
+    test_jsonl.write_text('{"id":"x"}\n', encoding="utf-8")
+
+    inst_1 = make_synthetic_instance(idx=21, label="Comparison", citing_section="Experiments")
+    parsed_resp = LLMResponse.model_validate(
+        {
+            "predicted_label": "Comparison",
+            "scores": {c: (0.9 if c == "Comparison" else 0.02) for c in CANONICAL_9_CLASSES},
+        }
+    )
+
+    class FakeOpenAIClient:
+        class _Comp:
+            @staticmethod
+            def parse(**kwargs):  # type: ignore[no-untyped-def]
+                return SimpleNamespace(
+                    choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed_resp, content=None))],
+                    usage=SimpleNamespace(prompt_tokens=100, completion_tokens=50),
+                )
+        beta = SimpleNamespace(chat=SimpleNamespace(completions=_Comp()))
+
+    recorded: dict = {"params": {}, "metrics": {}, "artifacts": {}}
+
+    class FakeRegistro:
+        def parametros(self, vals):  # type: ignore[no-untyped-def]
+            recorded["params"].update(vals)
+        def metricas(self, vals):  # type: ignore[no-untyped-def]
+            recorded["metrics"].update(vals)
+        def artefacto(self, path: Path):  # type: ignore[no-untyped-def]
+            recorded["artifacts"][path.name] = path.read_text(encoding="utf-8")
+        def cerrar(self, estado: str):  # type: ignore[no-untyped-def]
+            recorded["status"] = estado
+            return True
+
+    monkeypatch.setattr(registro_mlflow, "abrir_mlflow", lambda cfg, colab, vers: FakeRegistro())
+
+    exp_cfg = ExperimentConfig(
+        experiment_name="test_a5_mlflow_parity",
+        model_family="llm_api",
+        paths=PathsConfig(output_dir=tmp_path, test_file=test_jsonl, mlflow_experiment_name="EvidenCite_A6_A7_Evaluacion_Comparativa"),
+        input_representation=InputRepresentationConfig(configuration="A"),
+        llm_api=LLMApiConfig(
+            provider="openai",
+            model_name="gpt-4.1-mini",
+            cache_path=tmp_path / "cache.jsonl",
+        ),
+    )
+    run_llm_api_experiment(
+        config=exp_cfg,
+        eval_instances=[inst_1],
+        custom_client=FakeOpenAIClient(),
+        enable_mlflow=True,
+    )
+
+    assert recorded["status"] == "FINISHED"
+    assert "sha256_test" in recorded["params"]
+    assert recorded["metrics"]["a7_trainable_ratio_pct"] == 0.0
+    assert recorded["metrics"]["a7_train_wall_time_sec"] == 0.0
+    assert set(recorded["artifacts"]) == {"config.json", "metrics_summary.json", "predictions_telemetry.jsonl"}
+    tel_lines = [json.loads(ln) for ln in recorded["artifacts"]["predictions_telemetry.jsonl"].splitlines()]
+    assert len(tel_lines) == 1
+    assert tel_lines[0]["record"]["predicted_label"] == "Comparison"
+    assert tel_lines[0]["record"]["input_tokens"] == 100
+
+
+
 
 
 
