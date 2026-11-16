@@ -10,6 +10,7 @@ from src.config.schema import (
     LABEL_TO_ID,
     ExperimentConfig,
     InputRepresentationConfig,
+    PathsConfig,
     TfidfModelConfig,
     load_base_config,
     load_experiment_config,
@@ -65,6 +66,7 @@ def test_load_all_declarative_yaml_configs() -> None:
         assert cfg.paths.train_file == Path("data/labeled/train.jsonl")
         assert cfg.paths.dev_file == Path("data/labeled/dev.jsonl")
         assert cfg.paths.test_file == Path("data/labeled/test.jsonl")
+        assert cfg.paths.mlflow_experiment_name == PathsConfig().mlflow_experiment_name == "EvidenCite_A6_A7_Evaluacion_Comparativa"
 
 
 def test_base_config_inheritance_and_override(tmp_path: Path) -> None:

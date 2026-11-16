@@ -71,6 +71,12 @@ class OperationalMetricsA7(BaseModel):
     peak_memory_mb: float = Field(default=0.0, ge=0.0)
     invalid_format_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     estimated_api_cost_usd: float = Field(default=0.0, ge=0.0)
+    gross_api_cost_usd: float = Field(default=0.0, ge=0.0)
+    total_input_tokens: int = Field(default=0, ge=0)
+    total_cached_input_tokens: int = Field(default=0, ge=0)
+    total_output_tokens: int = Field(default=0, ge=0)
+    total_thoughts_tokens: int = Field(default=0, ge=0)
+    cache_hit_rate: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class PairedSignificanceResult(BaseModel):

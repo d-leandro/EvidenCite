@@ -1,0 +1,35 @@
+# Actividad A5 — LLM Comercial vía API (OpenAI GPT-4.1-mini · Configuración B: Top-3 Chunks SciBERT)
+experiment_name: "llm_api_gpt41mini_config_b"
+model_family: "llm_api"
+
+input_representation:
+  configuration: "B"
+  include_citing_section: false
+  include_cited_section: true
+  max_seq_length: 512
+  enforce_per_chunk_budget: true
+  top_k_chunks: 3
+  strip_cite_tags: false
+
+llm_api:
+  provider: "openai"
+  model_name: "gpt-4.1-mini"
+  api_key_env: "OPENAI_API_KEY"
+  base_url: null
+  temperature: 0.0
+  seed: 42
+  max_output_tokens: 512
+  thinking_budget: 0
+  prompt_mode: "generic"
+  num_few_shot: 0
+  shot_variants:
+    - 0
+    - 9
+  enforce_structured_output: true
+  cache_path: "models/llm_api_cache/gpt41mini_config_b.jsonl"
+  cost_per_1m_input_tokens_usd: 0.40
+  cost_per_1m_cached_input_tokens_usd: 0.10
+  cost_per_1m_output_tokens_usd: 1.60
+  max_retries: 3
+  timeout_seconds: 60.0
+

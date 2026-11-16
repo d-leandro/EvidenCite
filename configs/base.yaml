@@ -8,4 +8,4 @@ paths:
   test_file: "data/labeled/test.jsonl"
   output_dir: "models"
   mlflow_tracking_uri: ""  # http://ip:puerto del servidor; vacío: MLFLOW_IP, MLFLOW_TRACKING_URI o mlflow_ip.txt
-  mlflow_experiment_name: "EvidenCite-A4-A7"
+  mlflow_experiment_name: "EvidenCite_A6_A7_Evaluacion_Comparativa"

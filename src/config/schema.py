@@ -62,7 +62,7 @@ class PathsConfig(BaseModel):
         ),
     )
     mlflow_experiment_name: str = Field(
-        default="EvidenCite-A4-A7",
+        default="EvidenCite_A6_A7_Evaluacion_Comparativa",
         description="Nombre del experimento en MLflow.",
     )
 
@@ -296,18 +296,39 @@ class LLMApiConfig(BaseModel):
         default=None,
         description="URL base personalizada (ej. 'http://localhost:11434/v1' para Ollama/vLLM).",
     )
-    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    temperature: Optional[float] = Field(
+        default=0.0,
+        ge=0.0,
+        le=2.0,
+        description="Temperatura de muestreo (None omite el parámetro para modelos que no lo soportan, ej. Gemini 3.8).",
+    )
+    seed: Optional[int] = Field(
+        default=42,
+        ge=0,
+        description="Semilla determinista best-effort enviada al SDK cuando no es None.",
+    )
     max_output_tokens: int = Field(default=512, ge=64)
-    thinking_budget: int = Field(
+    thinking_budget: Optional[int] = Field(
         default=0,
         ge=0,
-        description="Presupuesto de thinking tokens en Gemini 2.5 (0 desactiva thinking para paridad en A7).",
+        description="Presupuesto de thinking tokens en Gemini 2.5 (None omite el parámetro en Gemini 3.x).",
+    )
+    thinking_level: Optional[Literal["MINIMAL", "LOW", "MEDIUM", "HIGH"]] = Field(
+        default=None,
+        description="Nivel de razonamiento en Gemini 3.x (ej. 'LOW' en gemini-3.8-flash).",
     )
     prompt_mode: Literal["generic", "section_conditioned"] = Field(
         default="section_conditioned",
         description="Modo de prompt en A5: 'generic' (sin sección explícita) vs 'section_conditioned'.",
     )
     num_few_shot: int = Field(default=0, ge=0, le=18)
+    shot_variants: Optional[List[int]] = Field(
+        default=None,
+        description=(
+            "Lista opcional de valores num_few_shot a evaluar secuencialmente desde un mismo YAML "
+            "(ej. [0, 9] para ejecutar Zero-Shot y 9-Shot estratificado)."
+        ),
+    )
     enforce_structured_output: bool = Field(
         default=True,
         description=(
@@ -320,6 +341,11 @@ class LLMApiConfig(BaseModel):
         description="Archivo JSONL de caché por instance_id para evitar re-facturación ante cortes.",
     )
     cost_per_1m_input_tokens_usd: float = Field(default=0.15, ge=0.0)
+    cost_per_1m_cached_input_tokens_usd: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description="Tarifa por 1M de cache-read input tokens (USD). Si es None, usa cost_per_1m_input_tokens_usd.",
+    )
     cost_per_1m_output_tokens_usd: float = Field(default=0.60, ge=0.0)
     max_retries: int = Field(default=3, ge=0)
     timeout_seconds: float = Field(default=60.0, gt=0.0)
