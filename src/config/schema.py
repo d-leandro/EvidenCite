@@ -62,7 +62,7 @@ class PathsConfig(BaseModel):
         ),
     )
     mlflow_experiment_name: str = Field(
-        default="EvidenCite-A4-A7",
+        default="EvidenCite_A6_A7_Evaluacion_Comparativa",
         description="Nombre del experimento en MLflow.",
     )
 
