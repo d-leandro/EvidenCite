@@ -407,8 +407,8 @@ def archivo_ip_mlflow(colab: bool) -> Path:
 
 
 def en_colab() -> bool:
-    """True en un runtime de Google Colab, desde la interfaz web o desde la CLI."""
-    return "COLAB_RELEASE_TAG" in os.environ
+    """True en un runtime remoto: Google Colab (web o CLI) o un pod de RunPod."""
+    return "COLAB_RELEASE_TAG" in os.environ or "RUNPOD_POD_ID" in os.environ
 
 
 def versiones() -> dict:

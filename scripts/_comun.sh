@@ -140,3 +140,6 @@ destino_resultados() {
 opciones_sesion() {
   [[ "$1" != G4 ]] && echo "--high-mem" || true
 }
+
+# PROVEEDOR=runpod: `colab` pasa a ser una función que usa un pod de RunPod (ver _runpod.sh)
+if [[ "${PROVEEDOR:-colab}" == runpod ]]; then source "$REPO/scripts/_runpod.sh"; fi
