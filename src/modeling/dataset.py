@@ -195,6 +195,8 @@ class CitationIntentDataset(Dataset):
             self.rep_config,
             tokenizer=self.tokenizer,
         )
+        if self.rep_config.explicit_segments and text_cited is not None:
+            text_cited = "\n\nCited paper: " + text_cited
 
         padding_strategy: bool | str = False if self.dynamic_padding else "max_length"
         if self.max_length is None:

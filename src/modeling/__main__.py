@@ -74,6 +74,7 @@ ALIAS = {
     "ATENCION": ("familia", "attn_implementation"),
     "NUM_WORKERS": ("familia", "dataloader_num_workers"),
     "AGRUPAR_LONGITUD": ("familia", "group_by_length"),
+    "SEGMENTOS": ("input_representation", "explicit_segments"),
 }
 # Valores de lora.zip que cambian de nombre en el esquema
 VALORES = {

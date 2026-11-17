@@ -123,6 +123,7 @@ class InputRepresentationConfig(BaseModel):
         default=False,
         description="Si True, elimina las etiquetas '<cite>' y '</cite>' conservando el texto interno.",
     )
+    explicit_segments: bool = Field(default=False, description="Rotula el segmento citado en vez de dejar la unión al tokenizador.")
 
 
 class TfidfModelConfig(BaseModel):
