@@ -98,6 +98,7 @@ def format_instance_parts(
 
     if (
         rep_config.enforce_per_chunk_budget
+        and rep_config.max_seq_length is not None  # sin límite no hay presupuesto que repartir
         and tokenizer is not None
         and len(formatted_chunks) > 0
     ):
@@ -196,8 +197,12 @@ class CitationIntentDataset(Dataset):
         )
 
         padding_strategy: bool | str = False if self.dynamic_padding else "max_length"
-
-        if text_cited is not None:
+        if self.max_length is None:
+            # Sin límite (el modelo no declara su contexto máximo): no se recorta ni se rellena hasta un máximo
+            padding_strategy = False if self.dynamic_padding else "longest"
+            encoding = self.tokenizer(text=text_citing, text_pair=text_cited, padding=padding_strategy,
+                                      truncation=False, return_tensors="pt")
+        elif text_cited is not None:
             # Protegemos text_citing truncando solo el segundo segmento salvo que text_citing
             # por sí solo supere max_length - 2
             citing_len = len(self.tokenizer.encode(text_citing, add_special_tokens=False))

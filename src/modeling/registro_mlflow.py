@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import queue
+import re
 import sys
 import tempfile
 import threading
@@ -47,6 +48,17 @@ except ImportError:
 AVISO_SIN_SERVIDOR = "servidor de MLflow no encontrado, los resultados se guardarán localmente"
 # Si se define (python -m src.modeling lo hace), la salida de la consola se sube a la corrida como salida.log.
 SALIDA_CONSOLA: Path | None = None
+
+
+def nombre_modelo_valido(nombre: str) -> str:
+    """El nombre de la corrida convertido en un nombre de modelo que MLflow acepta.
+
+    MLflow admite cualquier nombre de corrida, pero rechaza (INVALID_PARAMETER_VALUE) un modelo registrado cuyo
+    nombre tenga / : . % " o '. Con el punto de «Llama-3.2-3B…», «granite-4.2-3b…» o «Qwen3.5-4B…» el modelo se
+    descartaba: la corrida quedaba sin modelo en la columna Models y sus resultados, en local. Aquí esos caracteres
+    pasan a «-». Quien descarga el modelo lo busca por la corrida (descargar_modelo), no por este nombre.
+    """
+    return re.sub(r"[/:.%\"']", "-", nombre) or "modelo"
 
 
 class MLflowNoEncontrado(UserWarning):
@@ -132,7 +144,8 @@ class RegistroMLflow:
     def modelo(self, nombre: str, carpetas: dict, tipo: str, parametros: dict) -> None:
         """Encola el mejor modelo: un modelo registrado de la corrida (columna Models) con los archivos de `carpetas`
         ({subcarpeta en el modelo o None para la raíz: carpeta local}). Las carpetas deben existir hasta cerrar()."""
-        self.cola.put(("modelo", {"nombre": nombre, "carpetas": {k: str(v) for k, v in carpetas.items()},
+        self.cola.put(("modelo", {"nombre": nombre_modelo_valido(nombre),
+                                  "carpetas": {k: str(v) for k, v in carpetas.items()},
                                   "tipo": tipo, "parametros": {k: str(v)[:6000] for k, v in parametros.items()},
                                   "model_id": None}))
 
@@ -442,7 +455,7 @@ def parametros_experimento(cfg: ExperimentConfig) -> dict:
     """Los parámetros que registraba train.py más todos los de la familia (tasa, lotes, LoRA, optimizaciones)."""
     rep = cfg.input_representation
     familia = getattr(cfg, cfg.model_family, None)
-    return {
+    parametros = {
         "experiment_name": cfg.experiment_name,
         "model_family": cfg.model_family,
         "configuration": rep.configuration,
@@ -451,6 +464,11 @@ def parametros_experimento(cfg: ExperimentConfig) -> dict:
         "enforce_per_chunk_budget": rep.enforce_per_chunk_budget,
         **(familia.model_dump() if familia is not None else {}),
     }
+    if rep.max_seq_length is None:
+        # Todavía sin resolver (el contexto máximo del modelo se conoce al cargarlo): train.py lo registra entonces.
+        # Un parámetro de MLflow no se puede cambiar, así que aquí no se registra un «None» provisional.
+        del parametros["max_seq_length"]
+    return parametros
 
 
 def direcciones_mlflow(uri_config: str = "", colab: bool = False) -> list[str]:

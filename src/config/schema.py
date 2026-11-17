@@ -97,11 +97,13 @@ class InputRepresentationConfig(BaseModel):
         default=True,
         description="Si True en Config B, antepone '{section_heading}: ' a cada chunk citado.",
     )
-    max_seq_length: int = Field(
-        default=512,
+    max_seq_length: Optional[int] = Field(
+        default=None,
         ge=32,
-        le=8192,
-        description="Presupuesto máximo de tokens para la secuencia de entrada (ADR-04: 512).",
+        description=(
+            "Presupuesto máximo de tokens de la secuencia de entrada. None (por defecto): el contexto máximo del "
+            "modelo, que se resuelve al cargarlo (heads.longitud_maxima_del_modelo) y queda en config.json y MLflow."
+        ),
     )
     enforce_per_chunk_budget: bool = Field(
         default=True,
@@ -359,7 +361,14 @@ class ExperimentConfig(BaseModel):
         ...,
         description="Familia del modelo evaluado en el Eje 2.",
     )
-    seed: int = Field(default=42, ge=0)
+    seed: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Semilla del experimento. None (por defecto): el entrenamiento sortea una en cada corrida "
+            "(train.run_training_experiment) y la deja en config.json y MLflow."
+        ),
+    )
     device: Literal["auto", "cuda", "mps", "cpu"] = Field(default="auto")
     paths: PathsConfig = Field(default_factory=PathsConfig)
     input_representation: InputRepresentationConfig = Field(

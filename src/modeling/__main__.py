@@ -9,6 +9,9 @@ ExperimentConfig de src/config/schema.py con, en orden de prioridad creciente:
    familia). Las listas van separadas por comas: TARGET_MODULES=q_proj,v_proj.
 3. Los nombres de lora.zip (ALIAS): MODELO, LORA_TIPO, LR, EPOCAS, BATCH, SCHEDULER, PRECISION, DATOS_DIR...
 
+MAX_LONGITUD y SEMILLA son opcionales. Sin MAX_LONGITUD la entrada se recorta al contexto máximo del modelo; sin
+SEMILLA cada corrida sortea la suya. El valor que se usó queda registrado en la corrida.
+
 FAMILIA elige la familia: lora (llm_lora, por defecto), scibert (encoder) o tfidf. MODELO=humo usa el modelo
 minúsculo de prueba de la familia, y MODO=mini toma 96/64/64 instancias y una época: juntos verifican el pipeline en
 segundos.
@@ -159,7 +162,7 @@ def construir_config(env: typing.Mapping[str, str] = os.environ) -> tuple[Experi
         config.experiment_name = "_".join(p for p in partes if p) + f"_{datetime.now():%Y%m%d-%H%M%S}"
     modo = env.get("MODO", "completo").lower()
     if modo == "mini":  # pocas instancias (ver main), una época y secuencias cortas
-        config.input_representation.max_seq_length = min(config.input_representation.max_seq_length, 256)
+        config.input_representation.max_seq_length = min(config.input_representation.max_seq_length or 256, 256)
         sub = getattr(config, familia)
         if familia != "tfidf":
             sub.num_train_epochs = 1
@@ -234,6 +237,7 @@ def _correr(config: ExperimentConfig, modo: str, salida: Path) -> Path | None:
                   "loss_type", "class_weight_scheme", "bf16", "fp16", "group_by_length", "torch_compile"):
         if hasattr(sub, campo):
             print(f"  {campo:<30}{getattr(sub, campo)}")
+    print(f"  {'max_seq_length':<30}{config.input_representation.max_seq_length or 'el máximo del modelo'}")
     if os.environ.get("SALTAR_EXISTENTES") == "1" and registro_mlflow.existe_en_mlflow(config, registro_mlflow.en_colab()):
         print(f"YA EN MLFLOW: experimento {config.paths.mlflow_experiment_name} · corrida {config.experiment_name}")
         return None

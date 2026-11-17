@@ -5,6 +5,7 @@ import itertools
 import json
 import os
 from pathlib import Path
+import secrets
 import shutil
 import time
 import sys
@@ -57,6 +58,7 @@ from src.modeling.heads import (
     count_model_parameters,
     create_smoke_model,
     ensure_tokenizer_padding,
+    longitud_maxima_del_modelo,
 )
 from src.modeling import registro_mlflow
 from src.modeling.lora import create_lora_optimizer, initialize_eva, save_converted_adapter
@@ -568,6 +570,19 @@ def train_transformer_experiment(
 
     ensure_tokenizer_padding(tokenizer, model)  # type: ignore[arg-type]
 
+    if rep_cfg.max_seq_length is None:
+        # Sin MAX_LONGITUD: el contexto máximo del modelo. Queda en la configuración de la corrida (config.json, los
+        # parámetros de MLflow y los del modelo registrado), así quien use el modelo recorta igual.
+        maximo = longitud_maxima_del_modelo(model, tokenizer)
+        rep_cfg = rep_cfg.model_copy(update={"max_seq_length": maximo})
+        config = config.model_copy(update={"input_representation": rep_cfg})
+        if maximo is None:
+            print("AVISO: el modelo no declara su contexto máximo: la entrada no se recorta (fija MAX_LONGITUD)")
+        else:
+            print(f"MAX_LONGITUD: {maximo} tokens, el contexto máximo del modelo (no se pasó MAX_LONGITUD)")
+            if registro is not None:
+                registro.parametros({"max_seq_length": maximo})
+
     train_ds = CitationIntentDataset(
         tokenizer=tokenizer,
         instances=list(train_instances),
@@ -837,6 +852,12 @@ def run_training_experiment(
         raise ValueError(
             f"Para model_family='{config.model_family}' utilice las funciones de inferencia en src.modeling.predict."
         )
+    if config.seed is None:
+        # Sin SEMILLA: una distinta en cada corrida, sorteada con la entropía del sistema operativo. De ella salen los
+        # pesos iniciales de LoRA y de la cabeza, el orden de los datos y el dropout. Queda en la configuración de la
+        # corrida (config.json y el parámetro seed de MLflow), así la corrida se puede repetir pasándola en SEMILLA.
+        config = config.model_copy(update={"seed": secrets.randbits(32)})
+        print(f"SEMILLA: {config.seed}, sorteada para esta corrida (no se pasó SEMILLA)")
     registro: Optional[RegistroMLflow] = None
     if enable_mlflow:
         try:

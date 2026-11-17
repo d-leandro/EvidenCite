@@ -531,6 +531,12 @@ class TransformerPredictor(BasePredictor):
         device: str = "auto",
         model_name: str = "transformer_classifier",
     ) -> None:
+        if rep_config.max_seq_length is None:  # sin límite fijado: el contexto máximo del modelo, como en train.py
+            from src.modeling.heads import longitud_maxima_del_modelo
+
+            rep_config = rep_config.model_copy(
+                update={"max_seq_length": longitud_maxima_del_modelo(model, tokenizer)}
+            )
         super().__init__(rep_config)
         self.model = model
         self.tokenizer = tokenizer
