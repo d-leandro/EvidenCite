@@ -1,6 +1,8 @@
 """Entrenamiento unificado para TF-IDF, Encoders Científicos (SciBERT/SPECTER2) y LLMs con PEFT/LoRA."""
 
 import contextlib
+from functools import partial
+import inspect
 import itertools
 import json
 import os
@@ -21,6 +23,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, SequentialSampler, Sampler
 from transformers import (
     AutoTokenizer,
@@ -62,7 +65,19 @@ from src.modeling.heads import (
 )
 from src.modeling import registro_mlflow
 from src.modeling.lora import create_lora_optimizer, initialize_eva, save_converted_adapter
+from src.modeling.lora.generativo import (
+    ETIQUETA_SI_INVALIDA,
+    AjustesPrompt,
+    PromptsGenerativos,
+    collate_fn_train,
+    generar_respuestas,
+    interpretar_respuesta,
+    renderizar_prompt,
+    respuesta_objetivo,
+    tokens_de_respuesta,
+)
 from src.modeling.loss import build_loss_fn, compute_class_weights
+from src.modeling.prompts import build_llm_messages
 from src.modeling.registro_mlflow import (
     RealTimeMLflowCallback,
     RegistroMLflow,
@@ -225,6 +240,122 @@ class WeightedSequenceTrainer(Trainer):
 
         return (loss, outputs) if return_outputs else loss
 
+
+class GenerativeLoraTrainer(WeightedSequenceTrainer):
+    """El Trainer de LLM_MODO=generativo (LoRA CAUSAL_LM). Hereda de WeightedSequenceTrainer el optimizador de LoRA+ y
+    LoRA-FA, el orden de evaluación por longitud y que la pérdida se divide por la acumulación de gradiente.
+
+    - compute_loss: entropía cruzada de los tokens de la respuesta (labels != -100). El logit de la posición t predice
+      el token t + 1, y solo se calculan los logits de esas posiciones (logits_to_keep): unas pocas por instancia, en
+      vez de todo el prompt por todo el vocabulario. Cada instancia promedia sus tokens y pesa lo que su clase
+      (PESOS_CLASE), como la weighted CE del clasificador; con loss_type=cross_entropy, todas pesan 1.
+    - evaluation_loop: a eval_loss le agrega las métricas de generar la respuesta de cada instancia de dev.
+      eval_f1_macro decide el early stopping y el mejor punto, como en el clasificador.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        dev_prompts: Optional[PromptsGenerativos] = None,
+        dev_instances: Sequence[DatasetInstance] = (),
+        max_new_tokens: int = 8,
+        pad_multiple: Optional[int] = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.dev_prompts = dev_prompts
+        self.dev_instances = list(dev_instances)
+        self.max_new_tokens = max_new_tokens
+        self.pad_multiple = pad_multiple
+        base = self.model.get_base_model() if hasattr(self.model, "get_base_model") else self.model
+        self._recorta_logits = "logits_to_keep" in inspect.signature(base.forward).parameters
+
+    def compute_loss(
+        self,
+        model: torch.nn.Module,
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        return_outputs: bool = False,
+        num_items_in_batch: Optional[int] = None,
+    ) -> Any:
+        labels = inputs["labels"]
+        objetivo = labels[:, 1:]  # el logit de la posición t predice el token t + 1
+        posiciones = torch.zeros_like(labels, dtype=torch.bool)
+        posiciones[:, :-1] = objetivo != -100
+        extra = {"logits_to_keep": posiciones} if self._recorta_logits else {}
+        autocast = (
+            torch.autocast(device_type=self.args.device.type, dtype=self.autocast_dtype)
+            if self.autocast_dtype is not None
+            else contextlib.nullcontext()
+        )
+        with autocast:
+            outputs = model(input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"], **extra)
+        logits = outputs.logits
+        if logits.dim() == 3:  # el modelo no recortó: [lote, posiciones, vocabulario]
+            logits = logits[posiciones]
+        por_token = F.cross_entropy(logits.float(), objetivo[objetivo != -100], reduction="none")
+        filas = posiciones.nonzero()[:, 0]  # la instancia de cada token, en el mismo orden
+        por_instancia = torch.zeros(len(labels), device=por_token.device).index_add_(0, filas, por_token)
+        por_instancia = por_instancia / posiciones.sum(dim=1).clamp(min=1)
+        pesos = torch.ones_like(por_instancia)
+        if self.class_weights is not None and self.loss_type != "cross_entropy" and "clase" in inputs:
+            pesos = self.class_weights.to(por_instancia.device)[inputs["clase"]]
+        loss = (pesos * por_instancia).sum() / pesos.sum().clamp(min=1e-8)
+        return (loss, outputs) if return_outputs else loss
+
+    def evaluation_loop(
+        self,
+        dataloader: DataLoader,
+        description: str,
+        prediction_loss_only: Optional[bool] = None,
+        ignore_keys: Optional[List[str]] = None,
+        metric_key_prefix: str = "eval",
+    ) -> Any:
+        # Solo la pérdida: guardar los logits de dev (posiciones × vocabulario) no sirve aquí y no cabe en memoria
+        salida = super().evaluation_loop(dataloader, description, prediction_loss_only=True,
+                                         ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
+        if self.dev_prompts is not None and metric_key_prefix == "eval":
+            predichas, verdaderas, _, filas = _predicciones_generadas(self, self.dev_prompts, self.dev_instances)
+            a6 = compute_a6_metrics(verdaderas, predichas)
+            metricas = {
+                "f1_macro": a6.macro_f1_all_9,
+                "f1_macro_present": a6.macro_f1_present,
+                "f1_micro": a6.micro_f1,
+                "f1_weighted": a6.weighted_f1,
+                "precision_macro": a6.macro_precision,
+                "recall_macro": a6.macro_recall,
+                "invalid_format_rate": sum(not f["formato_valido"] for f in filas) / max(1, len(filas)),
+            }
+            salida.metrics.update({f"{metric_key_prefix}_{k}": v for k, v in metricas.items()})
+        return salida
+
+
+def _predicciones_generadas(
+    trainer: GenerativeLoraTrainer, prompts: PromptsGenerativos, instancias: Sequence[DatasetInstance]
+) -> Tuple[List[str], List[int], float, List[Dict[str, Any]]]:
+    """Genera la respuesta a cada instancia y la interpreta.
+
+    Devuelve las etiquetas predichas (Background si la respuesta no es ninguna clase, como hace la API), los ids de
+    las verdaderas, los segundos de inferencia y una fila por instancia con el texto generado (generaciones.jsonl).
+    """
+    textos, segundos = generar_respuestas(
+        trainer.model,
+        prompts,
+        trainer.processing_class,
+        batch_size=trainer.args.per_device_eval_batch_size,
+        max_new_tokens=trainer.max_new_tokens,
+        autocast_dtype=trainer.autocast_dtype,
+        pad_to_multiple_of=trainer.pad_multiple,
+    )
+    leidas = [interpretar_respuesta(t) for t in textos]
+    predichas = [e or ETIQUETA_SI_INVALIDA for e in leidas]
+    filas = [
+        {"instance_id": inst.instance_id, "etiqueta": item["etiqueta"], "generado": texto, "prediccion": pred,
+         "formato_valido": leida is not None}
+        for inst, item, texto, pred, leida in zip(instancias, prompts.items, textos, predichas, leidas)
+    ]
+    return predichas, _extract_label_ids(instancias), segundos, filas
+
+
 class BarraTexto(ProgressCallback):
     """Barras de texto de tqdm, como en lora.zip. Dentro de un kernel de Jupyter (y por eso con `colab exec`) el
     Trainer usa NotebookProgressCallback, una tabla HTML que se redibuja en cada paso: por la CLI cada redibujo
@@ -375,8 +506,9 @@ def _log_to_mlflow_safe(
                     "test_weighted_f1": artifact.test_metrics_a6.weighted_f1,
                 }
             )
-        for archivo in ("config.json", "metrics_summary.json"):
-            registro.artefacto(exp_dir / archivo)
+        for archivo in ("config.json", "metrics_summary.json", "generaciones.jsonl"):
+            if (exp_dir / archivo).exists():  # generaciones.jsonl solo en el modo generativo
+                registro.artefacto(exp_dir / archivo)
         if config.model_family == "tfidf":
             staging.mkdir(exist_ok=True)
             enlace = staging / "tfidf_pipeline.joblib"
@@ -535,7 +667,8 @@ def train_transformer_experiment(
     split_hashes: Optional[Dict[str, str]] = None,
     registro: Optional[RegistroMLflow] = None,
 ) -> ExperimentRunArtifact:
-    """Entrena y evalúa un clasificador basado en Transformer (SciBERT/SPECTER2 o LLM con LoRA SEQ_CLS)."""
+    """Entrena y evalúa un modelo basado en Transformer: SciBERT/SPECTER2, LLM con LoRA SEQ_CLS (clasificador) o LLM
+    con LoRA CAUSAL_LM (LLM_MODO=generativo: escribe la etiqueta en respuesta al prompt de A5)."""
     set_seed(config.seed)
     rep_cfg = config.input_representation
 
@@ -547,10 +680,14 @@ def train_transformer_experiment(
         sub_cfg = config.llm_lora
     else:
         raise ValueError(f"Familia no soportada en train_transformer_experiment: {config.model_family}")
+    generativo = config.model_family == "llm_lora" and sub_cfg.task_type == "CAUSAL_LM"
 
     if sub_cfg.pretrained_model_name_or_path == SMOKE_MODEL_NAME:
         # Modelo de humo: BERT o Qwen3 minúsculo creado aquí, con tokenizador entrenado sobre train (sin descargas)
         texts = [format_instance_as_single_text(inst, rep_cfg) for inst in train_instances]
+        if generativo:  # que aprenda también el prompt de A5: si no, solo el de sistema ocupa ~1.700 tokens
+            texts = [renderizar_prompt(build_llm_messages(inst, rep_cfg, prompt_mode=sub_cfg.prompt_mode), None,
+                                       usar_plantilla=False)[0] + respuesta_objetivo(inst) for inst in train_instances]
         smoke_dir = create_smoke_model(config, texts, config.paths.output_dir / config.experiment_name / "modelo_humo")
         sub_cfg = sub_cfg.model_copy(update={"pretrained_model_name_or_path": smoke_dir})
         config = config.model_copy(update={config.model_family: sub_cfg})
@@ -583,34 +720,61 @@ def train_transformer_experiment(
             if registro is not None:
                 registro.parametros({"max_seq_length": maximo})
 
-    train_ds = CitationIntentDataset(
-        tokenizer=tokenizer,
-        instances=list(train_instances),
-        rep_config=rep_cfg,
-        dynamic_padding=sub_cfg.dynamic_padding,
-    )
-    dev_ds = CitationIntentDataset(
-        tokenizer=tokenizer,
-        instances=list(dev_instances),
-        rep_config=rep_cfg,
-        dynamic_padding=sub_cfg.dynamic_padding,
-    )
-    test_ds = (
-        CitationIntentDataset(
+    hay_test = test_instances is not None and len(test_instances) > 0
+    if generativo:
+        # Mismo prompt que A5. dev va dos veces: con respuesta (eval_loss) y sin ella (generar → eval_f1_macro)
+        reserva = tokens_de_respuesta(tokenizer)  # la etiqueta más larga + EOS; también es max_new_tokens
+        maximo = rep_cfg.max_seq_length
+        ajustes = AjustesPrompt(rep_cfg, sub_cfg.prompt_mode, sub_cfg.use_chat_template,
+                                None if maximo is None else maximo - reserva)
+        t_prompts = time.perf_counter()
+        train_ds = PromptsGenerativos(train_instances, tokenizer, ajustes, entrenamiento=True)
+        dev_ds = PromptsGenerativos(dev_instances, tokenizer, ajustes, entrenamiento=True)
+        dev_prompts = PromptsGenerativos(dev_instances, tokenizer, ajustes, entrenamiento=False)
+        test_prompts = PromptsGenerativos(test_instances, tokenizer, ajustes, entrenamiento=False) if hay_test else None
+        test_ds = None
+        largos = sorted(train_ds.longitudes())
+        formato = "plantilla de chat" if sub_cfg.use_chat_template and getattr(tokenizer, "chat_template", None) \
+            else "texto plano"
+        print(f"Modo generativo: prompts de A5 ({sub_cfg.prompt_mode}, {formato}) en "
+              f"{time.perf_counter() - t_prompts:.0f} s · train: mediana {largos[len(largos) // 2]}, máximo "
+              f"{largos[-1]} tokens · respuesta: hasta {reserva} tokens con el EOS")
+        print(f"Fin del primer ejemplo de train: {tokenizer.decode(train_ds[0]['input_ids'][-40:])!r}")
+        for nombre, ds in (("train", train_ds), ("dev", dev_prompts), ("test", test_prompts)):
+            if ds is not None and ds.recortados:
+                print(f"AVISO: {ds.recortados} de {len(ds)} prompts de {nombre} no caben en MAX_LONGITUD={maximo}: se "
+                      "recortó el final de la evidencia del citado (la API los recibe completos)")
+    else:
+        train_ds = CitationIntentDataset(
             tokenizer=tokenizer,
-            instances=list(test_instances),
+            instances=list(train_instances),
             rep_config=rep_cfg,
             dynamic_padding=sub_cfg.dynamic_padding,
         )
-        if (test_instances is not None and len(test_instances) > 0)
-        else None
-    )
+        dev_ds = CitationIntentDataset(
+            tokenizer=tokenizer,
+            instances=list(dev_instances),
+            rep_config=rep_cfg,
+            dynamic_padding=sub_cfg.dynamic_padding,
+        )
+        test_ds = (
+            CitationIntentDataset(
+                tokenizer=tokenizer,
+                instances=list(test_instances),
+                rep_config=rep_cfg,
+                dynamic_padding=sub_cfg.dynamic_padding,
+            )
+            if hay_test
+            else None
+        )
 
     train_label_ids = _extract_label_ids(train_instances)
     class_weights = compute_class_weights(
         train_label_ids,
         scheme=sub_cfg.class_weight_scheme,
     )
+    if generativo and sub_cfg.loss_type == "focal":
+        print("AVISO: en modo generativo no hay focal loss: se usa la entropía cruzada ponderada por PESOS_CLASE")
 
     exp_dir = config.paths.output_dir / config.experiment_name
     exp_dir.mkdir(parents=True, exist_ok=True)
@@ -646,6 +810,10 @@ def train_transformer_experiment(
     if fp8 and not compile_model:
         print("AVISO: FP8 desactivado: necesita COMPILAR=si (sin compilar, torchao calcula también el gradiente de "
               "los pesos congelados y sale más lento)")
+        fp8 = False
+    if fp8 and generativo:
+        print("AVISO: FP8 desactivado en modo generativo: generate() multiplica con formas (un token por paso, lotes "
+              "incompletos) que FP8 no admite")
         fp8 = False
 
     training_args = TrainingArguments(
@@ -683,15 +851,20 @@ def train_transformer_experiment(
         gradient_checkpointing=sub_cfg.gradient_checkpointing,
         label_names=["labels"],
         gradient_checkpointing_kwargs={"use_reentrant": False} if sub_cfg.gradient_checkpointing else None,
+        # El Trainer quita del lote las claves que forward() no recibe: en el generativo se perdería "clase"
+        remove_unused_columns=not generativo,
     )
 
     # Relleno dinámico hasta un múltiplo de 8 en CUDA (tensor cores); de 16 con FP8, que lo exige
     pad_multiple = (16 if fp8 else 8) if cuda else None
-    collator = (
-        DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=pad_multiple)
-        if sub_cfg.dynamic_padding
-        else None
-    )
+    if generativo:  # relleno a la derecha y labels = -100 en el relleno
+        collator = partial(collate_fn_train, pad_id=tokenizer.pad_token_id, pad_to_multiple_of=pad_multiple)
+    else:
+        collator = (
+            DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=pad_multiple)
+            if sub_cfg.dynamic_padding
+            else None
+        )
 
     if config.model_family == "llm_lora" and sub_cfg.lora_variant == "eva":
         # EVA inicia el adaptador con las activaciones de los primeros lotes de train
@@ -715,14 +888,13 @@ def train_transformer_experiment(
     if registro is not None:
         callbacks.append(RealTimeMLflowCallback(registro))  # curvas en MLflow mientras entrena
 
-    trainer = WeightedSequenceTrainer(
+    comunes: Dict[str, Any] = dict(
         model=model,
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=dev_ds,
         processing_class=tokenizer,
         data_collator=collator,
-        compute_metrics=compute_hf_metrics,
         callbacks=callbacks,
         class_weights=class_weights,
         loss_type=sub_cfg.loss_type,
@@ -730,6 +902,14 @@ def train_transformer_experiment(
         autocast_dtype=autocast_dtype,
         lora_config=sub_cfg if config.model_family == "llm_lora" else None,
     )
+    if generativo:
+        # Sin compute_metrics: las métricas de dev salen de generar (GenerativeLoraTrainer.evaluation_loop)
+        trainer: WeightedSequenceTrainer = GenerativeLoraTrainer(
+            **comunes, compute_metrics=None, dev_prompts=dev_prompts, dev_instances=dev_instances,
+            max_new_tokens=reserva, pad_multiple=pad_multiple,
+        )
+    else:
+        trainer = WeightedSequenceTrainer(**comunes, compute_metrics=compute_hf_metrics)
 
     # La barra de texto en lugar de la tabla de Jupyter (o de la barra de tqdm.auto fuera de Jupyter)
     for callback in list(trainer.callback_handler.callbacks):
@@ -753,22 +933,42 @@ def train_transformer_experiment(
             }
         )
 
-    # Evaluación en Dev
-    dev_logits, dev_true_ids, inf_elapsed = _predicciones_en_orden(trainer, dev_ds, dev_instances, "dev")
-    dev_pred_ids = np.argmax(dev_logits, axis=-1).tolist()
-    dev_metrics = compute_a6_metrics(dev_true_ids, dev_pred_ids)
-    dev_pred_labels = [ID_TO_LABEL[int(i)] for i in dev_pred_ids]
-    eval_count = len(dev_instances)
-
-    # Evaluación en Test (si se proporciona)
     test_metrics: Optional[TechnicalMetricsA6] = None
     test_pred_labels: Optional[List[str]] = None
-    if test_ds is not None and test_instances is not None:
-        test_logits, test_true_ids, inf_elapsed = _predicciones_en_orden(trainer, test_ds, test_instances, "test")
-        eval_count = len(test_instances)
-        test_pred_ids = np.argmax(test_logits, axis=-1).tolist()
-        test_metrics = compute_a6_metrics(test_true_ids, test_pred_ids)
-        test_pred_labels = [ID_TO_LABEL[int(i)] for i in test_pred_ids]
+    invalid_rate = 0.0
+    if generativo:
+        # Dev y test generando la respuesta con el mejor adaptador (load_best_model_at_end), como la API en A5
+        dev_pred_labels, dev_true_ids, inf_elapsed, filas = _predicciones_generadas(trainer, dev_prompts, dev_instances)
+        dev_metrics = compute_a6_metrics(dev_true_ids, dev_pred_labels)
+        eval_count = len(dev_instances)
+        generaciones = [{"split": "dev", **f} for f in filas]
+        if test_prompts is not None and test_instances is not None:
+            test_pred_labels, test_true_ids, inf_elapsed, filas = _predicciones_generadas(
+                trainer, test_prompts, test_instances)
+            test_metrics = compute_a6_metrics(test_true_ids, test_pred_labels)
+            eval_count = len(test_instances)
+            generaciones += [{"split": "test", **f} for f in filas]
+        # Como en A5: la tasa de respuestas inválidas del último split evaluado (test si lo hay)
+        invalid_rate = sum(not f["formato_valido"] for f in filas) / max(1, len(filas))
+        with open(exp_dir / "generaciones.jsonl", "w", encoding="utf-8") as archivo:
+            for fila in generaciones:
+                archivo.write(json.dumps(fila, ensure_ascii=False) + "\n")
+        print(f"Modo generativo: {invalid_rate:.1%} de respuestas inválidas (cuentan como {ETIQUETA_SI_INVALIDA})")
+    else:
+        # Evaluación en Dev
+        dev_logits, dev_true_ids, inf_elapsed = _predicciones_en_orden(trainer, dev_ds, dev_instances, "dev")
+        dev_pred_ids = np.argmax(dev_logits, axis=-1).tolist()
+        dev_metrics = compute_a6_metrics(dev_true_ids, dev_pred_ids)
+        dev_pred_labels = [ID_TO_LABEL[int(i)] for i in dev_pred_ids]
+        eval_count = len(dev_instances)
+
+        # Evaluación en Test (si se proporciona)
+        if test_ds is not None and test_instances is not None:
+            test_logits, test_true_ids, inf_elapsed = _predicciones_en_orden(trainer, test_ds, test_instances, "test")
+            eval_count = len(test_instances)
+            test_pred_ids = np.argmax(test_logits, axis=-1).tolist()
+            test_metrics = compute_a6_metrics(test_true_ids, test_pred_ids)
+            test_pred_labels = [ID_TO_LABEL[int(i)] for i in test_pred_ids]
 
     total_params, trainable_params, trainable_ratio_pct = count_model_parameters(model)
     latency_ms = (inf_elapsed * 1000.0) / max(1, eval_count)
@@ -784,7 +984,7 @@ def train_transformer_experiment(
         inference_latency_ms_per_instance=float(latency_ms),
         throughput_instances_per_sec=float(throughput),
         peak_memory_mb=_get_peak_memory_mb(device_str),
-        invalid_format_rate=0.0,
+        invalid_format_rate=invalid_rate,
         estimated_api_cost_usd=0.0,
     )
 

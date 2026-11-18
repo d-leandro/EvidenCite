@@ -565,6 +565,12 @@ class TransformerPredictor(BasePredictor):
             from src.modeling.lora.modelo import registrar_cabeza
 
             peft_cfg = PeftConfig.from_pretrained(path_str)
+            if peft_cfg.task_type == "CAUSAL_LM":
+                # Cargarlo como clasificador daría una cabeza al azar sin avisar
+                raise ValueError(
+                    f"{model_dir} es un adaptador generativo (LLM_MODO=generativo): TransformerPredictor solo carga "
+                    "clasificadores (SEQ_CLS). Para generar con él, ver src/modeling/lora/generativo.py"
+                )
             base_name = str(peft_cfg.base_model_name_or_path)
             hf_config = AutoConfig.from_pretrained(
                 base_name,

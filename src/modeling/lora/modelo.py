@@ -1,4 +1,5 @@
-"""Definición del clasificador LLM con PEFT/LoRA (SEQ_CLS): las variantes de lora.zip y su modelo de humo."""
+"""Definición del LLM con PEFT/LoRA: clasificador (SEQ_CLS) o generativo (CAUSAL_LM, LLM_MODO=generativo), las
+variantes de lora.zip y su modelo de humo."""
 
 import contextlib
 from pathlib import Path
@@ -19,6 +20,7 @@ from safetensors.torch import load_file, save_file
 import torch
 from transformers import (
     AutoConfig,
+    AutoModelForCausalLM,
     AutoModelForSequenceClassification,
     BitsAndBytesConfig,
     PreTrainedModel,
@@ -52,7 +54,7 @@ def _peft_config(lora_cfg: LoraModelConfig, target_modules, modules_to_save):
     if lora_cfg.lora_variant == "vera":
         # Proyecciones aleatorias compartidas entre capas; solo se entrenan vectores de escala (por eso r alto).
         return VeraConfig(
-            task_type=TaskType.SEQ_CLS,
+            task_type=TaskType(lora_cfg.task_type),  # SEQ_CLS o CAUSAL_LM
             r=256,
             target_modules=target_modules,
             vera_dropout=lora_cfg.lora_dropout,
@@ -69,7 +71,7 @@ def _peft_config(lora_cfg: LoraModelConfig, target_modules, modules_to_save):
         "eva": {"init_lora_weights": "eva", "eva_config": EvaConfig(rho=2.0)},  # varianza de las activaciones
     }.get(lora_cfg.lora_variant, {})
     return LoraConfig(
-        task_type=TaskType.SEQ_CLS,
+        task_type=TaskType(lora_cfg.task_type),
         r=lora_cfg.r,
         lora_alpha=lora_cfg.lora_alpha,
         lora_dropout=lora_cfg.lora_dropout,
@@ -92,7 +94,7 @@ def build_lora_classifier(
     dtype: Optional[torch.dtype] = None,
     device: Optional[str] = None,
 ) -> PreTrainedModel:
-    """Instancia AutoModelForSequenceClassification envuelto con PEFT (TaskType.SEQ_CLS) en la variante de lora_cfg.
+    """Instancia AutoModelForSequenceClassification envuelto con PEFT (TaskType(lora_cfg.task_type)) en la variante de lora_cfg.
 
     - dtype: precisión de los pesos de la base (bf16/fp16 con precisión mixta); los entrenables quedan en fp32.
     - device: la base se mueve allí antes de crear el adaptador (PiSSA, OLoRA y EVA lo inician a partir de W).
@@ -100,17 +102,22 @@ def build_lora_classifier(
     - eva: el adaptador queda sin iniciar hasta llamar a initialize_eva con lotes de train.
     """
     variant = lora_cfg.lora_variant
+    generativo = lora_cfg.task_type == "CAUSAL_LM"
     quantize = variant == "qlora" and torch.cuda.is_available()
     if variant == "qlora" and not quantize:
         print("AVISO: qlora necesita CUDA y bitsandbytes; se entrena LoRA estándar sin cuantizar.")
 
-    hf_config = AutoConfig.from_pretrained(
-        lora_cfg.pretrained_model_name_or_path,
-        num_labels=len(CANONICAL_9_CLASSES),
-        id2label=ID_TO_LABEL,
-        label2id=LABEL_TO_ID,
-    )
-    hf_config.use_cache = False  # la caché de KV solo sirve para generar
+    if generativo:
+        hf_config = AutoConfig.from_pretrained(lora_cfg.pretrained_model_name_or_path)
+        clase_auto, sin_cuantizar = AutoModelForCausalLM, ["lm_head"]  # lm_head en 4 bits degrada la generación
+    else:
+        hf_config = AutoConfig.from_pretrained(
+            lora_cfg.pretrained_model_name_or_path,
+            num_labels=len(CANONICAL_9_CLASSES),
+            id2label=ID_TO_LABEL,
+            label2id=LABEL_TO_ID,
+        )
+        clase_auto, sin_cuantizar = AutoModelForSequenceClassification, list(CLASSIFIER_HEADS)
     quantization = {}
     if quantize:
         quantization = {
@@ -119,20 +126,23 @@ def build_lora_classifier(
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_compute_dtype=dtype or torch.bfloat16,
-                llm_int8_skip_modules=list(CLASSIFIER_HEADS),
+                llm_int8_skip_modules=sin_cuantizar,
             ),
             "device_map": {"": 0},
         }
 
+    # La caché de KV solo sirve para generar: se apaga para entrenar. El modo generativo la pide al llamar a
+    # generate() (use_cache=True), sin tocar la config.
     hf_config.use_cache = False
     hf_config.get_text_config().use_cache = False  # C2: en los multimodales la config de texto es otra
-    registrar_cabeza(hf_config)
-    base_model = AutoModelForSequenceClassification.from_pretrained(
+    if not generativo:
+        registrar_cabeza(hf_config)
+    base_model = clase_auto.from_pretrained(
         lora_cfg.pretrained_model_name_or_path,
         config=hf_config,
-        ignore_mismatched_sizes=True,
         dtype=dtype or torch.float32,
         attn_implementation=lora_cfg.attn_implementation,
+        **({} if generativo else {"ignore_mismatched_sizes": True}),  # la cabeza nueva no está en el checkpoint
         **quantization,
     )
     if quantize:
@@ -144,12 +154,13 @@ def build_lora_classifier(
     elif device is not None:
         base_model.to(device)
 
-    # Filtramos modules_to_save para incluir únicamente atributos presentes en el modelo base
+    # Filtramos modules_to_save para incluir únicamente atributos presentes en el modelo base. En el generativo no hay
+    # cabeza que entrenar: se entrena solo el adaptador.
     model_module_names = {name.split(".")[0] for name, _ in base_model.named_modules() if name}
-    active_modules_to_save = [
-        m for m in lora_cfg.modules_to_save if m in model_module_names
-    ] or None
-    # "all-linear": PEFT toma todas las capas lineales salvo la cabeza de clasificación
+    active_modules_to_save = None if generativo else (
+        [m for m in lora_cfg.modules_to_save if m in model_module_names] or None
+    )
+    # "all-linear": PEFT toma todas las capas lineales salvo la de salida (la cabeza de clasificación o lm_head)
     target_modules = "all-linear" if lora_cfg.target_modules == ["all-linear"] else list(lora_cfg.target_modules)
 
     peft_config = _peft_config(lora_cfg, target_modules, active_modules_to_save)

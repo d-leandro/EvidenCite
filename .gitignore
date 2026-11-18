@@ -94,3 +94,7 @@ spec_dataset_*.md
 # IPython
 profile_default/
 ipython_config.py
+
+# Archivos swap de Vim y nano
+*.swp
+*.swo

@@ -75,15 +75,20 @@ ALIAS = {
     "NUM_WORKERS": ("familia", "dataloader_num_workers"),
     "AGRUPAR_LONGITUD": ("familia", "group_by_length"),
     "SEGMENTOS": ("input_representation", "explicit_segments"),
+    "LLM_MODO": ("familia", "task_type"),
+    "MODO_PROMPT": ("familia", "prompt_mode"),
+    "PLANTILLA_CHAT": ("familia", "use_chat_template"),
 }
 # Valores de lora.zip que cambian de nombre en el esquema
 VALORES = {
     "PESOS_CLASE": {"ninguno": "none", "inverso": "balanced", "raiz_inversa": "sqrt_balanced"},
     "LORA_MODULOS": {"auto": "all-linear"},
     "COMPILAR": {"auto": "1", "si": "1", "sí": "1", "no": "0"},
+    "LLM_MODO": {"clasificador": "SEQ_CLS", "generativo": "CAUSAL_LM"},
 }
 MINI = {"train": 96, "dev": 64, "test": 64}
 
+MAX_MINI = {"SEQ_CLS": 256, "CAUSAL_LM": 1024}
 
 def _convertir(valor: str, anotacion):
     """Texto de una variable de entorno al tipo del campo (bool, int, float, lista o texto); None si es un bloque."""
@@ -120,6 +125,8 @@ def construir_config(env: typing.Mapping[str, str] = os.environ) -> tuple[Experi
     familia = FAMILIAS.get(env.get("FAMILIA") or env.get("MODEL_FAMILY") or "lora")
     if familia is None:
         raise ValueError("FAMILIA debe ser lora, scibert o tfidf")
+    if env.get("LLM_MODO") and env["LLM_MODO"].strip().lower() not in VALORES["LLM_MODO"]:
+        raise ValueError("LLM_MODO debe ser clasificador o generativo")
     datos: dict = {"experiment_name": "corrida", "model_family": familia}
     if env.get("CONFIG_YAML"):
         datos = _fusionar(load_experiment_config(Path(env["CONFIG_YAML"])).model_dump(), datos)
@@ -156,15 +163,18 @@ def construir_config(env: typing.Mapping[str, str] = os.environ) -> tuple[Experi
         _poner(cambios, "paths", "mlflow_experiment_name", env["MLFLOW_EXPERIMENTO"])
 
     config = ExperimentConfig.model_validate(_fusionar(base.model_dump(), cambios))
+    sub = getattr(config, familia)
+    tarea = getattr(sub, "task_type", "SEQ_CLS")
     if "experiment_name" not in cambios:
-        sub = getattr(config, familia)
         modelo = getattr(sub, "pretrained_model_name_or_path", "").rstrip("/").split("/")[-1]
-        partes = [familia, modelo, getattr(sub, "lora_variant", ""), config.input_representation.configuration]
+        generativo = "gen" if tarea == "CAUSAL_LM" else ""  # que no choque con la corrida del clasificador
+        partes = [familia, generativo, modelo, getattr(sub, "lora_variant", ""),
+                  config.input_representation.configuration]
         config.experiment_name = "_".join(p for p in partes if p) + f"_{datetime.now():%Y%m%d-%H%M%S}"
     modo = env.get("MODO", "completo").lower()
     if modo == "mini":  # pocas instancias (ver main), una época y secuencias cortas
-        config.input_representation.max_seq_length = min(config.input_representation.max_seq_length or 256, 256)
-        sub = getattr(config, familia)
+        tope = MAX_MINI[tarea]
+        config.input_representation.max_seq_length = min(config.input_representation.max_seq_length or tope, tope)
         if familia != "tfidf":
             sub.num_train_epochs = 1
             sub.per_device_train_batch_size = min(sub.per_device_train_batch_size, 8)
@@ -233,9 +243,12 @@ def _correr(config: ExperimentConfig, modo: str, salida: Path) -> Path | None:
     sub = getattr(config, config.model_family)
     print(f"== {config.experiment_name} · {config.model_family} · configuración "
           f"{config.input_representation.configuration} · modo {modo}")
-    for campo in ("pretrained_model_name_or_path", "lora_variant", "learning_rate", "num_train_epochs",
-                  "per_device_train_batch_size", "gradient_accumulation_steps", "lr_scheduler", "evals_per_epoch",
-                  "loss_type", "class_weight_scheme", "bf16", "fp16", "group_by_length", "torch_compile"):
+    campos = ["pretrained_model_name_or_path", "task_type", "lora_variant", "learning_rate", "num_train_epochs",
+              "per_device_train_batch_size", "gradient_accumulation_steps", "lr_scheduler", "evals_per_epoch",
+              "loss_type", "class_weight_scheme", "bf16", "fp16", "group_by_length", "torch_compile"]
+    if getattr(sub, "task_type", "") == "CAUSAL_LM":
+        campos += ["prompt_mode", "use_chat_template"]
+    for campo in campos:
         if hasattr(sub, campo):
             print(f"  {campo:<30}{getattr(sub, campo)}")
     print(f"  {'max_seq_length':<30}{config.input_representation.max_seq_length or 'el máximo del modelo'}")

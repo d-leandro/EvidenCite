@@ -50,7 +50,10 @@ SIN_SEMILLA=(); for par in "${VARIABLES[@]}"; do [[ "$par" == SEMILLA=* ]] || SI
 # Nombre de la corrida en MLflow. La semilla 42 no se nombra, para que las corridas que ya existen sigan contando;
 # tampoco la primera repetición al azar.
 nombre_corrida() {   # $1 modelo · $2 variante · $3 configuración · $4 tasa · $5 semilla o repetición (r<n>)
-  local n="${1##*/}_${2}_${3}_lr${4}"; case "$5" in 42|r1) ;; r*) n+="_$5" ;; *) n+="_s$5" ;; esac; echo "$n"
+  local n="${1##*/}_${2}_${3}_lr${4}"; case "$5" in 42|r1) ;; r*) n+="_$5" ;; *) n+="_s$5" ;; esac
+  # LLM_MODO=generativo: otro nombre, o SALTAR_EXISTENTES saltaría la corrida porque ya está la del clasificador
+  [[ "$(valor LLM_MODO clasificador)" == generativo ]] && n+="_gen"
+  echo "$n"
 }
 semilla_env() { [[ "$1" == r* ]] || echo "SEMILLA=$1"; }   # una repetición al azar no pasa SEMILLA
 EXPERIMENTO="$(valor MLFLOW_EXPERIMENTO variantes_lora)"

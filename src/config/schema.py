@@ -236,9 +236,25 @@ class LoraModelConfig(TrainerOptimizationConfig):
         default="HuggingFaceTB/SmolLM2-135M",
         description="Modelo base de pesos abiertos para clasificación de secuencias con LoRA.",
     )
-    task_type: Literal["SEQ_CLS"] = Field(
+    task_type: Literal["SEQ_CLS" , "CAUSAL_LM"] = Field(
         default="SEQ_CLS",
-        description="Tipo de tarea PEFT (fijado a SEQ_CLS con cabeza lineal sobre las 9 clases).",
+        description="Tipo de tarea PEFT, se elige con LLM_MODO. SEQ_CLS (clasificador): cabeza lineal sobre las 9 clases, "
+            "entrega probabilidades. CAUSAL_LM (generativo): sin cabeza nueva; el modelo escribe la etiqueta como "
+            "respuesta al mismo prompt que reciben los LLM por API (src/modeling/lora/generativo.py).",
+    )
+    prompt_mode: Literal["generic", "section_conditioned"] = Field(
+        default="generic",
+        description=(
+            "Solo CAUSAL_LM: variante del prompt de A5. Debe ser la de llm_api.prompt_mode en la corrida por API con "
+            "que se compara (generic en los YAML de configs/)."
+        ),
+    )
+    use_chat_template: bool = Field(
+        default=True,
+        description=(
+            "Solo CAUSAL_LM: arma el prompt con la plantilla de chat del tokenizador si la trae; si no, en texto "
+            "plano con los rótulos [User]/[Assistant]."
+        ),
     )
     fp8_base: bool = Field(
         default=False,

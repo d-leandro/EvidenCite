@@ -38,8 +38,9 @@ source "$REPO/scripts/_comun.sh"
 trazas_codigo   # commit del código para las etiquetas de MLflow
 
 FAMILIA="$(valor FAMILIA lora)"
+GEN=""; [[ "$(valor LLM_MODO clasificador)" == generativo ]] && GEN="gen_"   # LLM_MODO=generativo: lora_gen_...
 case "$FAMILIA" in
-  lora)    NOMBRE="lora_$(valor LORA_TIPO lora)_$(valor CONFIGURACION A)_$(date +%m%d-%H%M%S)" ;;
+  lora)    NOMBRE="lora_${GEN}$(valor LORA_TIPO lora)_$(valor CONFIGURACION A)_$(date +%m%d-%H%M%S)" ;;
   scibert) NOMBRE="scibert_$(valor CONFIGURACION A)_$(date +%m%d-%H%M%S)" ;;
   tfidf)   NOMBRE="tfidf_$(valor CONFIGURACION A)_$(date +%m%d-%H%M%S)" ;;
   *)       echo "FAMILIA debe ser lora, scibert o tfidf"; exit 1 ;;
