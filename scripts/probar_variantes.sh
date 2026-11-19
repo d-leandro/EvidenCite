@@ -59,14 +59,19 @@ semilla_env() { [[ "$1" == r* ]] || echo "SEMILLA=$1"; }   # una repetición al 
 EXPERIMENTO="$(valor MLFLOW_EXPERIMENTO variantes_lora)"
 FALLIDAS=()
 if [[ -n "$(ip_mlflow)" ]]; then echo "MLflow: experimento $EXPERIMENTO · servidor $(ip_mlflow)"
+elif [[ "${SOLO_MLFLOW:-0}" == 1 ]]; then echo "SOLO_MLFLOW=1 necesita MLFLOW_IP o mlflow_ip.txt"; exit 1
 else echo "Sin MLFLOW_IP ni mlflow_ip.txt: las corridas guardarán en local"; fi
+# SOLO_MLFLOW=1: nada se baja a esta máquina. Una corrida que no llegó completa a MLflow cuenta como fallida.
+solo_mlflow() { [[ "${SOLO_MLFLOW:-0}" == 1 ]]; }
 
 # Después de cada corrida: con MLflow no queda nada; si quedó en local o falló, el registro va a registros/.
 cerrar_corrida() {   # $1 nombre · $2 registro temporal
   case "$(destino_resultados "$2")" in
     mlflow) rm -f "$2"; echo "   listo en MLflow" ;;
     ya)     rm -f "$2"; echo "   ya estaba terminada en MLflow: la salto" ;;
-    local)  mkdir -p registros && mv "$2" "registros/$1.log"; echo "   en local: resultados/$1.zip" ;;
+    local)  mkdir -p registros && mv "$2" "registros/$1.log"
+            if solo_mlflow; then FALLIDAS+=("$1"); echo "   NO LLEGÓ COMPLETA A MLFLOW (SOLO_MLFLOW=1: no se baja)"
+            else echo "   en local: resultados/$1.zip"; fi ;;
     *)      mkdir -p registros && mv "$2" "registros/$1.log"; FALLIDAS+=("$1"); echo "   FALLÓ: revisa registros/$1.log" ;;
   esac
 }
@@ -94,7 +99,7 @@ if [[ "$GPU" == local ]]; then
       env "${previas[@]}" "${SIN_SEMILLA[@]}" $(semilla_env "$semilla") MODELO="$modelo" LORA_TIPO="$variante" \
         CONFIGURACION="$config" LR="$lr" NOMBRE_CORRIDA="$nombre" "$PY" -m src.modeling ) > "$registro" 2>&1
     tr '\r' '\n' < "$registro" | grep -a "macro-F1 (9)\|^AVISO\|MLflowNoEncontrado" | sed 's/^ */   /' | cut -c1-140
-    if [[ "$(destino_resultados "$registro")" == local ]]; then
+    if [[ "$(destino_resultados "$registro")" == local ]] && ! solo_mlflow; then
       mkdir -p resultados && cp "$SALIDAS/$nombre.zip" "resultados/$nombre.zip"
     fi
     cerrar_corrida "$nombre" "$registro"
@@ -138,7 +143,7 @@ for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante
     colab stop -s "$SESION" >/dev/null 2>&1
     preparar_sesion && colab exec "${args[@]}" 2>&1 | tee "$registro"
   fi
-  if [[ "$(destino_resultados "$registro")" == local ]]; then
+  if [[ "$(destino_resultados "$registro")" == local ]] && ! solo_mlflow; then
     # Sin MLflow, la corrida quedó en la sesión: se baja a .part y se renombra al final (un zip a medias no cuenta).
     mkdir -p resultados
     if ! { colab download -s "$SESION" "/content/salidas/$nombre.zip" "resultados/$nombre.zip.part" &&

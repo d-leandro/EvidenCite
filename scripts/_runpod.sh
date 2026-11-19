@@ -10,10 +10,36 @@ RP_ESTADO="${RP_ESTADO:-$HOME/.cache/evidencite-runpod}"; mkdir -p "$RP_ESTADO"
 RP_SSH=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ServerAliveInterval=30 -o BatchMode=yes)
 [[ -n "${RP_LLAVE:-}" ]] && RP_SSH+=(-i "$RP_LLAVE" -o IdentitiesOnly=yes)   # llave privada si no es la de ssh por defecto
 declare -A RP_GPU=([B200]="NVIDIA B200"  [G4]="NVIDIA RTX PRO 6000 Blackwell Server Edition" [A100]="NVIDIA A100-SXM4-80GB" [L4]="NVIDIA L4" [H100]="NVIDIA H100 NVL" [H200]="NVIDIA H200")
+# IP pública y puerto SSH del pod $RP_ID, de la REST API v2 de RunPod (api.runpod.io/v2; la v1, rest.runpod.io, se
+# retiró el 15-11-2026). En v2 vienen en ssh.direct; mientras el pod arranca, ssh.direct es null y esto imprime "- -".
+# También acepta el formato de v1 (publicIp + portMappings), por si RunPod lo devuelve en otra ruta.
+RP_IP_PUERTO='import json, os, re, sys
+def pod(x):  # el pod con nuestro id, sea la respuesta un pod o una lista {"pods": [...]}
+    if isinstance(x, dict):
+        if x.get("id") == os.environ["RP_ID"]:
+            return x
+        x = list(x.values())
+    for v in x if isinstance(x, list) else []:
+        r = pod(v)
+        if r:
+            return r
+try:
+    p = pod(json.load(sys.stdin)) or {}
+except ValueError:
+    p = {}
+d = (p.get("ssh") or {}).get("direct") or {}
+host, puerto = d.get("host") or d.get("ip"), d.get("port")
+if not (host and puerto) and d.get("command"):  # p. ej. "ssh root@1.2.3.4 -p 40123"
+    m = re.search(r"@([\w.-]+)\s+-p\s*(\d+)", d["command"])
+    host, puerto = m.groups() if m else (None, None)
+if not (host and puerto) and p.get("publicIp"):
+    host, puerto = p["publicIp"], (p.get("portMappings") or {}).get("22")
+print(host or "-", puerto or "-")'
+rp_api() { curl -fsS -m 20 -H "Authorization: Bearer ${RUNPOD_API_KEY:?exporta RUNPOD_API_KEY}" "https://api.runpod.io/v2/$1"; }
 # `colab install`: entorno virtual limpio en /opt/ev con requirements-runpod.txt, sin tocar los paquetes de la imagen;
 # gcc y los headers de Python los usa torch.compile. Falla si torch no ve la GPU.
 RP_PREPARAR='set -e
-(apt-get update -qq && apt-get install -y -qq build-essential python3-dev) >/dev/null 2>&1 || true
+(sleep 30 ; timeout 120 apt-get update -qq -o Acquire::http::Timeout=20 && DEBIAN_FRONTEND=noninteractive timeout 300 apt-get install -y -qq build-essential python3-dev) >/dev/null 2>&1 || true
 command -v uv >/dev/null || PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install -q uv
 [ -x /opt/ev/bin/python ] || uv venv -q --python python3 /opt/ev
 VIRTUAL_ENV=/opt/ev uv pip install -q -r /content/requirements-runpod.txt
@@ -23,13 +49,14 @@ VIRTUAL_ENV=/opt/ev uv pip install -q -r /content/requirements-runpod.txt
 _rp_crear() {
   local nombre="evidencite-$1-$(date +%s)" id ip="-" puerto="-"
   [[ -n "${RP_GPU[$2]:-}" ]] || { echo "La GPU $2 no tiene equivalente en RunPod (usa G4, A100 o L4)" >&2; return 1; }
+  [[ -n "${RUNPOD_API_KEY:-}" ]] || { echo "Exporta RUNPOD_API_KEY: la IP del pod se pide a la API de RunPod" >&2; return 1; }
   runpodctl pod create --name "$nombre" --image "$RP_IMAGEN" --gpu-id "${RP_GPU[$2]}" --container-disk-in-gb "$RP_DISCO" \
     --ports 22/tcp --cloud-type SECURE --min-cuda-version "$RP_CUDA" >/dev/null || return 1
   id="$(runpodctl pod list --name "$nombre" --output json | "$PY" -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])')" || return 1
+  echo "$id - -" > "$RP_ESTADO/$1"   # desde ya, para que `stop` y la limpieza al salir lo borren aunque falle lo que sigue
   for _ in $(seq 60); do   # hasta 10 min por la IP pública y el puerto SSH
-    read -r ip puerto < <(curl -fsS -H "Authorization: Bearer ${RUNPOD_API_KEY:?exporta RUNPOD_API_KEY}" "https://rest.runpod.io/v1/pods/$id" |
-      "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("publicIp") or "-", (d.get("portMappings") or {}).get("22", "-"))')
-    [[ "$ip" != - && "$puerto" != - ]] && break; sleep 10
+    read -r ip puerto < <({ rp_api "pods/$id" || rp_api pods; } 2>/dev/null | RP_ID="$id" "$PY" -c "$RP_IP_PUERTO") || true
+    [[ "${ip:--}" != - && "${puerto:--}" != - ]] && break; ip=-; puerto=-; sleep 10
   done
   echo "$id $ip $puerto" > "$RP_ESTADO/$1"
   for _ in $(seq 30); do   # sshd tarda unos segundos más que la IP

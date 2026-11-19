@@ -22,8 +22,8 @@
 #        scripts/correr_experimento.sh local FAMILIA=scibert                        # humo SciBERT, modo mini
 #        DATOS_TAG=labeled-v1 DATOS_DVC=data/labeled scripts/correr_experimento.sh G4 MODELO=Qwen/Qwen3-8B-Base
 # Los parámetros (CLAVE=valor) están en src/modeling/__main__.py y en src/modeling/MIGRACION_LORA.md.
-# Variables del script: MLFLOW_IP, SESION, TIMEOUT y HF_TOKEN. La salida se ve en la consola; solo si algo falla o queda
-# en local se guarda en registros/.
+# Variables del script: MLFLOW_IP, SESION, TIMEOUT, HF_TOKEN y SOLO_MLFLOW (1: nada se baja a esta máquina). La salida
+# se ve en la consola; solo si algo falla o queda en local se guarda en registros/.
 # Datos en Colab, solo con DVC (si falta algo, falla antes de crear la sesión): DATOS_TAG (obligatorio; tag de git, ya
 # subido a GitHub, con la versión de los datos), GDRIVE_SA_JSON (obligatorio; ruta a la llave JSON de la cuenta de
 # servicio, con acceso de lectura a la carpeta de Drive), DATOS_DVC (data/dataset por defecto, o data/labeled) e
@@ -47,7 +47,11 @@ case "$FAMILIA" in
 esac
 NOMBRE="$(valor NOMBRE_CORRIDA "$NOMBRE")"
 IP_MLFLOW="$(ip_mlflow)"
-[[ -n "$IP_MLFLOW" ]] && echo "MLflow: $IP_MLFLOW" || echo "Sin MLFLOW_IP ni mlflow_ip.txt: la corrida guardará en local"
+# SOLO_MLFLOW=1: nada se baja a esta máquina. Una corrida que no llegó completa a MLflow cuenta como fallida.
+solo_mlflow() { [[ "${SOLO_MLFLOW:-0}" == 1 ]]; }
+if [[ -n "$IP_MLFLOW" ]]; then echo "MLflow: $IP_MLFLOW"
+elif solo_mlflow; then echo "SOLO_MLFLOW=1 necesita MLFLOW_IP o mlflow_ip.txt"; exit 1
+else echo "Sin MLFLOW_IP ni mlflow_ip.txt: la corrida guardará en local"; fi
 REGISTRO="$(mktemp)"   # la salida de la corrida; se conserva en registros/ solo si hace falta
 
 # Al terminar: si todo quedó en MLflow no queda nada en local; si no, el registro va a registros/<nombre>.log.
@@ -55,6 +59,9 @@ terminar() {
   case "$(destino_resultados "$REGISTRO")" in
     mlflow) rm -f "$REGISTRO"; echo "Listo: todo quedó en MLflow (corrida $NOMBRE); nada en local." ;;
     local)  mkdir -p registros && mv "$REGISTRO" "registros/$NOMBRE.log"
+            if solo_mlflow; then
+              echo "NO LLEGÓ COMPLETA A MLFLOW (SOLO_MLFLOW=1: no se baja) · registros/$NOMBRE.log"; return 1
+            fi
             echo "Resultados en local: resultados/$NOMBRE.zip · salida en registros/$NOMBRE.log" ;;
     *)      mkdir -p registros && mv "$REGISTRO" "registros/$NOMBRE.log"; echo "Falló: revisa registros/$NOMBRE.log"
             return 1 ;;
@@ -72,7 +79,7 @@ if [[ "$GPU" == local ]]; then
   echo "Corrida $NOMBRE · $FAMILIA · local"
   ( cd "$REPO" && env "${PREVIAS[@]}" "${VARIABLES[@]}" NOMBRE_CORRIDA="$NOMBRE" "$PY" -m src.modeling ) \
     2>&1 | tee "$REGISTRO"
-  if [[ "$(destino_resultados "$REGISTRO")" == local ]]; then
+  if [[ "$(destino_resultados "$REGISTRO")" == local ]] && ! solo_mlflow; then
     mkdir -p resultados && cp "$SALIDAS/$NOMBRE.zip" "resultados/$NOMBRE.zip"
   fi
   terminar
@@ -100,7 +107,7 @@ colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" || exit 1
 trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT    # se apaga al terminar, aunque algo falle
 subir_a_sesion "$SESION" "$TMP" || exit 1
 colab exec -s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT" "${ENV[@]}" 2>&1 | tee "$REGISTRO"
-if [[ "$(destino_resultados "$REGISTRO")" == local ]]; then
+if [[ "$(destino_resultados "$REGISTRO")" == local ]] && ! solo_mlflow; then
   # Sin MLflow, la corrida quedó en la sesión: se baja antes de apagarla.
   mkdir -p resultados
   if ! colab download -s "$SESION" "/content/salidas/$NOMBRE.zip" "$PWD/resultados/$NOMBRE.zip"; then
