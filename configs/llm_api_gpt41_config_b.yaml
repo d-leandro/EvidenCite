@@ -2,6 +2,9 @@
 experiment_name: "llm_api_gpt41mini_config_b"
 model_family: "llm_api"
 
+paths:
+  mlflow_experiment_name: "EvidenCite_A5_LLM_API"
+
 input_representation:
   configuration: "B"
   include_citing_section: false

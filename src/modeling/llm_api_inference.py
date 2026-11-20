@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import List, Sequence
+from typing import List, Mapping, Sequence
 
 # Asegurar que la raíz del repositorio esté en sys.path
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -158,6 +158,20 @@ def _print_smoke_audit(
     print("=" * 88 + "\n")
 
 
+def resolve_mlflow_experiment_name(
+    cli_experiment_name: str | None,
+    config: ExperimentConfig,
+    env: Mapping[str, str] = os.environ,
+) -> str:
+    """Resuelve el experimento de MLflow: --experiment-name > MLFLOW_EXPERIMENTO > YAML > base.yaml."""
+    if cli_experiment_name and cli_experiment_name.strip():
+        return cli_experiment_name.strip()
+    env_exp = env.get("MLFLOW_EXPERIMENTO", "").strip()
+    if env_exp:
+        return env_exp
+    return config.paths.mlflow_experiment_name
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Orquestador de inferencia Zero-Shot y Few-Shot con LLMs comerciales vía API (Actividad A5)."
@@ -167,6 +181,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         required=True,
         help="Ruta al archivo YAML de configuración (ej. configs/llm_api_gpt41_config_a.yaml).",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        "--experiment",
+        dest="experiment_name",
+        type=str,
+        default=None,
+        help=(
+            "Nombre del experimento en MLflow. Si se omite, usa MLFLOW_EXPERIMENTO, "
+            "luego paths.mlflow_experiment_name del YAML y finalmente configs/base.yaml."
+        ),
     )
     parser.add_argument(
         "--limit",
@@ -188,6 +213,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     if base_config.model_family != "llm_api" or base_config.llm_api is None:
         raise ValueError(
             f"El archivo {args.config} debe tener model_family='llm_api' y bloque llm_api definido."
+        )
+
+    resolved_exp = resolve_mlflow_experiment_name(args.experiment_name, base_config)
+    if resolved_exp != base_config.paths.mlflow_experiment_name:
+        base_config = base_config.model_copy(
+            update={
+                "paths": base_config.paths.model_copy(
+                    update={"mlflow_experiment_name": resolved_exp}
+                )
+            }
         )
 
     llm_cfg = base_config.llm_api
