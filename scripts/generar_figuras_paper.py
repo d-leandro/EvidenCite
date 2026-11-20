@@ -448,40 +448,21 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     """Fig. 8 del manuscrito: Frontera de Pareto + Sensibilidad por estrato A1/A2."""
     fig, axes = plt.subplots(1, 2, figsize=(13.6, 4.9))
 
-    # Panel A: Frontera de Pareto
+    # Panel A: Frontera de Pareto (Alternativa A: círculos uniformes + sombreado región dominada)
     ax0 = axes[0]
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
     label_specs = {
         "gpt41_zs_a":  ((-8, -32),  "right"),
         "gpt41_zs_b":  ((-8, 28),   "right"),
-        "gpt41_fs_a":  ((0, -34),   "center"),
-        "gpt41_fs_b":  ((12, 10),   "left"),
-        "gemini_zs_a": ((-16, -6),  "right"),
+        "gpt41_fs_a":  ((-6, -34),  "center"),
+        "gpt41_fs_b":  ((12, 12),   "left"),
+        "gemini_zs_a": ((-16, -8),  "right"),
         "gemini_zs_b": ((-8, 18),   "right"),
-        "gemini_fs_a": ((0, -38),   "center"),
+        "gemini_fs_a": ((0, -36),   "center"),
         "gemini_fs_b": ((0, 18),    "center"),
     }
-
-    for _, r in df_summary.iterrows():
-        vid = r["vid"]
-        marker = "o" if "gpt" in vid else "D"
-        sz = 185 if vid == "gemini_zs_b" else 130
-        ax0.scatter(
-            r["Costo Neto / 10k ($)"], r["Macro-F1"],
-            s=sz, marker=marker, color=COLORS[vid],
-            edgecolors="black", linewidth=1.3 if vid == "gemini_zs_b" else 1.0, zorder=4,
-        )
-        lbl_pt = f"{r['Variante']}\n(${fmt_es(r['Costo Neto / 10k ($)'], 2)}; {fmt_es(r['Macro-F1'], 3)})"
-        (dx, dy), ha_align = label_specs[vid]
-        ax0.annotate(
-            lbl_pt,
-            xy=(r["Costo Neto / 10k ($)"], r["Macro-F1"]),
-            xytext=(dx, dy),
-            textcoords="offset points",
-            ha=ha_align,
-            fontsize=10.8,
-            fontweight="bold" if vid in ("gemini_zs_b", "gpt41_zs_b") else "normal",
-            arrowprops=dict(arrowstyle="-", color="#666666", lw=0.85),
-        )
 
     pareto_sorted = df_summary.sort_values(["Costo Neto / 10k ($)", "Macro-F1"], ascending=[True, False])
     pareto_pts = []
@@ -490,13 +471,66 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
         if rr["Macro-F1"] > best_f1:
             pareto_pts.append((rr["Costo Neto / 10k ($)"], rr["Macro-F1"]))
             best_f1 = rr["Macro-F1"]
+
+    xlim_min, xlim_max = 2.6, 82.0
+    ylim_min, ylim_max = 0.365, 0.665
+
+    # Sombreado suave de la región estrictamente dominada (bajo la frontera y a la derecha del óptimo)
+    dom_x = [p[0] for p in pareto_pts] + [xlim_max]
+    dom_y = [p[1] for p in pareto_pts] + [pareto_pts[-1][1]]
+    ax0.fill_between(dom_x, dom_y, ylim_min, color="#94A3B8", alpha=0.13, zorder=1)
+    ax0.plot(
+        [pareto_pts[-1][0], xlim_max], [pareto_pts[-1][1], pareto_pts[-1][1]],
+        linestyle=":", color="#94A3B8", linewidth=1.1, zorder=2,
+    )
     ax0.plot(
         [p[0] for p in pareto_pts], [p[1] for p in pareto_pts],
-        linestyle="--", color="#333333", linewidth=1.6, label="Frontera de Pareto (0-Shot)", zorder=2,
+        linestyle="--", color="#334155", linewidth=1.6, zorder=3,
     )
+
+    color_gpt = "#1F6AA5"
+    color_gem = "#C53030"
+
+    for _, r in df_summary.iterrows():
+        vid = r["vid"]
+        is_gpt = "gpt" in vid
+        is_0s = "_zs_" in vid
+        fam_color = color_gpt if is_gpt else color_gem
+        x_val = r["Costo Neto / 10k ($)"]
+        y_val = r["Macro-F1"]
+
+        if vid == "gemini_zs_b":
+            ax0.scatter(
+                x_val, y_val,
+                s=255, marker="o", facecolors="none",
+                edgecolors=fam_color, linewidth=1.35, alpha=0.65, zorder=4,
+            )
+
+        ax0.scatter(
+            x_val, y_val,
+            s=115, marker="o",
+            facecolors=fam_color if is_0s else "white",
+            edgecolors="#1A202C" if is_0s else fam_color,
+            linewidth=1.15 if is_0s else 2.0,
+            zorder=5,
+        )
+        lbl_pt = f"{r['Variante']}\n(${fmt_es(x_val, 2)}; {fmt_es(y_val, 3)})"
+        (dx, dy), ha_align = label_specs[vid]
+        ax0.annotate(
+            lbl_pt,
+            xy=(x_val, y_val),
+            xytext=(dx, dy),
+            textcoords="offset points",
+            ha=ha_align,
+            fontsize=10.6,
+            fontweight="bold" if vid in ("gemini_zs_b", "gpt41_zs_b") else "normal",
+            arrowprops=dict(arrowstyle="-", color="#64748B", lw=0.85),
+            zorder=6,
+        )
+
     ax0.set_xscale("log")
-    ax0.set_xlim(2.6, 82.0)
-    ax0.set_ylim(0.365, 0.665)
+    ax0.set_xlim(xlim_min, xlim_max)
+    ax0.set_ylim(ylim_min, ylim_max)
     ax0.set_xticks([3, 5, 10, 20, 40, 60])
     ax0.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${int(x)}"))
     ax0.xaxis.set_minor_formatter(mticker.NullFormatter())
@@ -504,8 +538,21 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     ax0.set_xlabel("Costo neto por 10.000 citas (USD, escala log)")
     ax0.set_ylabel("Macro-F1 (9 clases)")
     ax0.set_title("(a) Frontera de Pareto costo vs. Macro-F1", pad=10)
-    ax0.grid(True, which="major", linestyle="--", alpha=0.35)
-    ax0.legend(loc="lower right", frameon=True, framealpha=0.95, fontsize=11.0)
+    ax0.grid(True, which="major", linestyle="--", alpha=0.32, zorder=0)
+
+    legend_handles = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.5, label="GPT-4.1-mini"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.5, label="Gemini-3.8-Flash"),
+        Line2D([0], [0], color="#334155", linestyle="--", linewidth=1.5, label="Frontera de Pareto"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.5, label="0-Shot (Pareto)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="white", markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.5, label="9-Shot (dominado)"),
+        Patch(facecolor="#94A3B8", alpha=0.22, edgecolor="none", label="Región dominada"),
+    ]
+    ax0.legend(
+        handles=legend_handles, loc="lower right", ncol=2,
+        frameon=True, framealpha=0.95, fontsize=9.0,
+        handletextpad=0.4, columnspacing=0.9, borderpad=0.45,
+    )
 
     # Panel B: Sensibilidad sobre Gold Humano por estrato previo A1/A2
     ax1 = axes[1]
