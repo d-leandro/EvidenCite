@@ -98,3 +98,13 @@ ipython_config.py
 # Archivos swap de Vim y nano
 *.swp
 *.swo
+
+# Artefactos temporales de compilación LaTeX
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
