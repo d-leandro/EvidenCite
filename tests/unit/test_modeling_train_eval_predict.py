@@ -919,6 +919,33 @@ def test_run_llm_api_experiment_mlflow_logs_parity_and_telemetry(
     assert tel_lines[0]["record"]["input_tokens"] == 100
 
 
+def test_llm_api_inference_experiment_name_precedence() -> None:
+    """Verifica precedencia en el imperative shell A5: --experiment-name > MLFLOW_EXPERIMENTO > YAML > base.yaml."""
+    from src.config.schema import load_experiment_config
+    from src.modeling.llm_api_inference import parse_args, resolve_mlflow_experiment_name
+
+    cfg_yaml = load_experiment_config(
+        Path("configs/llm_api_gpt41_config_a.yaml"),
+        Path("configs/base.yaml"),
+    )
+    cfg_base = load_experiment_config(
+        Path("configs/llm_api.yaml"),
+        Path("configs/base.yaml"),
+    )
+
+    # 1. Fallback a base.yaml cuando el YAML no define paths.mlflow_experiment_name
+    assert resolve_mlflow_experiment_name(None, cfg_base, env={}) == "EvidenCite_A6_A7_Evaluacion_Comparativa"
+    # 2. YAML operativo A5 sobrescribe base.yaml
+    assert resolve_mlflow_experiment_name(None, cfg_yaml, env={}) == "EvidenCite_A5_LLM_API"
+    # 3. Variable de entorno MLFLOW_EXPERIMENTO sobrescribe YAML y base.yaml
+    assert resolve_mlflow_experiment_name(None, cfg_yaml, env={"MLFLOW_EXPERIMENTO": "exp_env"}) == "exp_env"
+    # 4. Flag CLI (--experiment-name / --experiment) tiene máxima prioridad
+    args = parse_args(["--config", "configs/llm_api_gpt41_config_a.yaml", "--experiment-name", "exp_cli"])
+    assert resolve_mlflow_experiment_name(args.experiment_name, cfg_yaml, env={"MLFLOW_EXPERIMENTO": "exp_env"}) == "exp_cli"
+    args_alias = parse_args(["--config", "configs/llm_api_gpt41_config_a.yaml", "--experiment", "exp_alias"])
+    assert args_alias.experiment_name == "exp_alias"
+
+
 
 
 

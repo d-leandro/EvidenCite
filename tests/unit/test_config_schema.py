@@ -157,3 +157,19 @@ def test_max_seq_length_y_seed_son_opcionales() -> None:
     assert InputRepresentationConfig(max_seq_length=131072).max_seq_length == 131072
     with pytest.raises(ValidationError):
         InputRepresentationConfig(max_seq_length=8)
+
+def test_a5_declarative_configs_override_mlflow_experiment_name() -> None:
+    """Verifica que los YAMLs operativos A5 definan EvidenCite_A5_LLM_API sin alterar base.yaml."""
+    base_cfg = load_base_config(Path("configs/base.yaml"))
+    assert base_cfg.paths.mlflow_experiment_name == "EvidenCite_A6_A7_Evaluacion_Comparativa"
+
+    a5_yamls = [
+        "configs/llm_api_gpt41_config_a.yaml",
+        "configs/llm_api_gpt41_config_b.yaml",
+        "configs/llm_api_gemini38flash_config_a.yaml",
+        "configs/llm_api_gemini38flash_config_b.yaml",
+    ]
+    for rel_path in a5_yamls:
+        cfg = load_experiment_config(Path(rel_path), Path("configs/base.yaml"))
+        assert cfg.paths.mlflow_experiment_name == "EvidenCite_A5_LLM_API"
+

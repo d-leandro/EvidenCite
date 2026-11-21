@@ -123,6 +123,8 @@ gold_df = pd.DataFrame([
 print(f'Gold Test Split cargado: {test_path} | N = {N_TEST:,} instancias')
 print(f"Cobertura citing_section no nula: {gold_df['citing_section'].notna().sum():,}/{N_TEST:,} ({gold_df['citing_section'].notna().mean()*100:.2f}%)")
 print('Distribución label_source:', dict(gold_df['label_source'].value_counts(dropna=False)))
+print('Distribución prior_label_source:', dict(gold_df['prior_label_source'].value_counts(dropna=False)))
+print('Distribución panel_agreement:', dict(gold_df['panel_agreement'].round(4).value_counts(dropna=False)))
 """))
 
     cells.append(_code("""
@@ -249,7 +251,9 @@ for vid, label, exp_dir_name, cache_fname, model_name, shots, cfg, suffix in VAR
             'latency_ms': float(r['latency_ms']),
             'citing_section': gold_df.iloc[idx]['citing_section'],
             'label_source': gold_df.iloc[idx]['label_source'],
+            'prior_label_source': gold_df.iloc[idx]['prior_label_source'],
             'panel_agreement': gold_df.iloc[idx]['panel_agreement'],
+            'panel_label': gold_df.iloc[idx]['panel_label'],
             'context_chars': int(gold_df.iloc[idx]['context_chars']),
             '_cache_line': int(r['_cache_line']),
             '_cache_key': r['_cache_key'],
@@ -307,7 +311,7 @@ for _, row in failed.iterrows():
         ['Variante', 'y_pred', 'confidence', 'output_tokens', 'latency_ms']
     ]
     print(f"\\n--- FALLO: {iid} | {row['Variante']} | cache_key={row['_cache_key']} | línea_cache={row['_cache_line']} | test_idx={row['test_idx']} ---")
-    print(f"Gold='{row['y_true']}' | Sección='{row['citing_section']}' | label_source={row['label_source']} | panel_agreement={row['panel_agreement']}")
+    print(f"Gold='{row['y_true']}' | Sección='{row['citing_section']}' | label_source={row['label_source']} (prior={row['prior_label_source']}) | panel_agreement={row['panel_agreement']}")
     print(f"Telemetría: input={row['input_tokens']}, cached={row['cached_input_tokens']}, output={row['output_tokens']}, thoughts={row['thoughts_tokens']}, latency_ms={row['latency_ms']:.2f}")
     print(f"Fallback aplicado en código: predicted_label='{row['y_pred']}', confidence={row['confidence']:.6f} (1/9)")
     print('Contexto citante:', g_match['citation_context'])
@@ -443,17 +447,20 @@ gs = fig.add_gridspec(1, 2, width_ratios=[1.55, 1.0], wspace=0.15)
 
 ax0 = fig.add_subplot(gs[0, 0])
 mat_f1 = df_f1_cls[[v[1] for v in VARIANTS]].to_numpy().T  # 8 x 9
-im = ax0.imshow(mat_f1, cmap='YlGnBu', aspect='auto', vmin=0.20, vmax=0.85)
+hm_vmin = min(0.20, float(mat_f1.min()))
+hm_vmax = max(0.85, float(mat_f1.max()))
+im = ax0.imshow(mat_f1, cmap='YlGnBu', aspect='auto', vmin=hm_vmin, vmax=hm_vmax)
 ax0.set_xticks(np.arange(len(CANONICAL_9_CLASSES)))
 ax0.set_xticklabels([f"{c}\\n(n={support_dict[c]})" for c in CANONICAL_9_CLASSES], rotation=35, ha='right', fontsize=8.5)
 ax0.set_yticks(np.arange(len(VARIANTS)))
 ax0.set_yticklabels([v[1] for v in VARIANTS], fontsize=9)
 ax0.set_title('F1-Score por Clase Canónica (8 Variantes A5)')
+hm_mid = (hm_vmin + hm_vmax) / 2.0 + 0.05
 for i in range(mat_f1.shape[0]):
     for j in range(mat_f1.shape[1]):
         val = mat_f1[i, j]
         ax0.text(j, i, f'{val:.2f}', ha='center', va='center', fontsize=8,
-                 color='white' if val > 0.57 else 'black', fontweight='bold')
+                 color='white' if val > hm_mid else 'black', fontweight='bold')
 fig.colorbar(im, ax=ax0, fraction=0.03, pad=0.02, label='F1-Score')
 
 ax1 = fig.add_subplot(gs[0, 1])
@@ -468,7 +475,9 @@ for idx, row in df_summary.iterrows():
 ax1.set_yticks(y_pos)
 ax1.set_yticklabels([])
 ax1.invert_yaxis()
-ax1.set_xlim(0.32, 0.56)
+min_bar = float(df_summary[['Macro-F1', 'Weighted-F1', 'Accuracy']].min().min())
+max_bar = float(df_summary[['Macro-F1', 'Weighted-F1', 'Accuracy']].max().max())
+ax1.set_xlim(max(0.0, min_bar - 0.06), min(1.0, max_bar + 0.085))
 ax1.set_xlabel('Puntaje')
 ax1.set_title('Desempeño Global (Test N = 2,798)')
 ax1.grid(axis='x', linestyle='--', alpha=0.35)
@@ -519,7 +528,7 @@ df_sec = pd.DataFrame(sec_perf)
 piv_sec = df_sec.pivot(index='Macro-Sección', columns='Variante', values='Accuracy')
 display(piv_sec[[v[1] for v in VARIANTS]].style.format('{:.4f}').background_gradient(cmap='Blues', axis=None))
 
-# Top pares de confusión en los dos mejores representantes por familia (GPT-4.1-mini 0s-B vs Gemini-3.8-Flash 9s-A)
+# Top pares de confusión en los dos mejores representantes por familia (selección dinámica)
 def top_confusions(vid, top_k=10):
     cm = np.array(runs[vid]['a6']['confusion_matrix'], dtype=int)
     pairs = []
@@ -530,18 +539,23 @@ def top_confusions(vid, top_k=10):
     pairs.sort(key=lambda x: x[2], reverse=True)
     return pd.DataFrame(pairs[:top_k], columns=['Real', 'Predicho', 'Errores', '% Fila Real'])
 
-print('\\nTop 10 confusiones en Gemini-3.8-Flash · 9-Shot · Config A (mejor global, Macro-F1=0.4811):')
-display(top_confusions('gemini_fs_a'))
-print('\\nTop 10 confusiones en GPT-4.1-mini · 0-Shot · Config B (mejor OpenAI, Macro-F1=0.4407):')
-display(top_confusions('gpt41_zs_b'))
+best_gpt_row = df_summary[df_summary['Modelo'] == 'gpt-4.1-mini'].sort_values('Macro-F1', ascending=False).iloc[0]
+best_gem_row = df_summary[df_summary['Modelo'] == 'gemini-3.8-flash'].sort_values('Macro-F1', ascending=False).iloc[0]
 
-# Figura 3: Matrices de confusión de los mejores exponentes + Accuracy por macro-sección citante
-fig, axes = plt.subplots(1, 3, figsize=(18.5, 5.6))
+print(f"\\nTop 10 confusiones en {best_gem_row['Variante']} (mejor Gemini, Macro-F1={best_gem_row['Macro-F1']:.4f}):")
+display(top_confusions(best_gem_row['vid']))
+print(f"\\nTop 10 confusiones en {best_gpt_row['Variante']} (mejor OpenAI, Macro-F1={best_gpt_row['Macro-F1']:.4f}):")
+display(top_confusions(best_gpt_row['vid']))
 
-for ax, vid, title_cm in [
-    (axes[0], 'gpt41_zs_b',  'GPT-4.1-mini · 0-Shot · B (F1=0.441)'),
-    (axes[1], 'gemini_fs_a', 'Gemini-3.8-Flash · 9-Shot · A (F1=0.481)'),
+# Figura 3: Matrices de confusión de los mejores exponentes + Accuracy por macro-sección citante (8 variantes)
+fig, axes = plt.subplots(1, 3, figsize=(19.0, 5.8))
+
+for ax, brow in [
+    (axes[0], best_gpt_row),
+    (axes[1], best_gem_row),
 ]:
+    vid = brow['vid']
+    title_cm = f"{brow['Variante']} (F1={brow['Macro-F1']:.3f})"
     cm = np.array(runs[vid]['a6']['confusion_matrix'], dtype=float)
     cm_norm = cm / np.maximum(cm.sum(axis=1, keepdims=True), 1.0)
     im = ax.imshow(cm_norm, cmap='Blues', vmin=0.0, vmax=0.85)
@@ -562,22 +576,20 @@ ax2 = axes[2]
 sec_order = ['Related Work', 'Intro / Prelim', 'Experiments / Eval', 'Method / Setup', 'Otras secciones', 'Conclusion / Future', 'Sin sección (null)']
 sec_order = [s for s in sec_order if s in set(df_sec['ms_raw'])]
 x_s = np.arange(len(sec_order))
-for idx, (vid, short_lbl) in enumerate([
-    ('gpt41_zs_a',  'GPT 0s A'),
-    ('gpt41_zs_b',  'GPT 0s B'),
-    ('gemini_zs_b', 'Gem 0s B'),
-    ('gemini_fs_a', 'Gem 9s A'),
-    ('gemini_fs_b', 'Gem 9s B'),
-]):
+for vid, _, _, _, mod_n, sh, cfg, _ in VARIANTS:
     vals = [df_sec[(df_sec['vid'] == vid) & (df_sec['ms_raw'] == s)]['Accuracy'].iloc[0] for s in sec_order]
-    ax2.plot(x_s, vals, marker='o', linewidth=1.8, label=short_lbl, color=COLORS[vid])
+    short_lbl = f"{'GPT' if 'gpt' in mod_n else 'Gem'} {sh}s {cfg}"
+    ls_style = '-' if sh == 0 else '--'
+    mk_style = 'o' if sh == 0 else 's'
+    ax2.plot(x_s, vals, marker=mk_style, linestyle=ls_style, linewidth=1.7, markersize=4.5, label=short_lbl, color=COLORS[vid])
 ax2.set_xticks(x_s)
 ax2.set_xticklabels([f"{s}\\n(n={sec_counts[s]})" for s in sec_order], rotation=30, ha='right', fontsize=8)
 ax2.set_ylabel('Accuracy por Macro-Sección')
-ax2.set_title('Desempeño según Sección del Artículo Citante')
-ax2.set_ylim(0.27, 0.67)
+ax2.set_title('Desempeño según Sección del Artículo Citante (8 Variantes)')
+sec_min, sec_max = float(df_sec['Accuracy'].min()), float(df_sec['Accuracy'].max())
+ax2.set_ylim(max(0.0, sec_min - 0.05), min(1.0, sec_max + 0.10))
 ax2.grid(linestyle='--', alpha=0.35)
-ax2.legend(fontsize=8, frameon=True, loc='upper right')
+ax2.legend(fontsize=7.2, ncol=2, frameon=True, loc='upper right')
 
 fig.tight_layout()
 fig.savefig(FIG_DIR / 'fig03_confusiones_criticas_y_seccion_citante.png', bbox_inches='tight')
@@ -690,7 +702,10 @@ ax.axhline(7.5, color='#ccc', linestyle=':', linewidth=1.2)
 ax.set_yticks(y_idx)
 ax.set_yticklabels(df_sig_all['Contraste'], fontsize=9)
 ax.invert_yaxis()
-ax.set_xlim(-0.040, 0.118)
+sig_min_x = float(df_sig_all[['IC95_low', 'Δ F1 (B - A)']].min().min())
+sig_max_x = float(df_sig_all[['IC95_high', 'Δ F1 (B - A)']].max().max())
+sig_span = max(0.05, sig_max_x - sig_min_x)
+ax.set_xlim(sig_min_x - sig_span * 0.08, sig_max_x + sig_span * 0.45)
 ax.set_xlabel('Δ Macro-F1 (Comparado − Base) con IC 95% Paired Bootstrap (B = 10,000)')
 ax.set_title('Significancia Estadística Pareada en Diseño 2×2×2 (Diamante = Sig. Holm-Bonferroni α=0.05; X = No Sig.)')
 ax.grid(axis='x', linestyle='--', alpha=0.35)
@@ -871,7 +886,9 @@ for idx, r in df_calib.iterrows():
     ax_bs.text(idx + w/2, r['Sobreconfianza (Conf-Acc)'] + 0.015, f"{r['Sobreconfianza (Conf-Acc)']:+.3f}", ha='center', va='bottom', fontsize=7.5, rotation=90)
 ax_bs.set_xticks(x_v)
 ax_bs.set_xticklabels([f"{r['Modelo'].split('-')[0].upper()}\\n{r['Shots']}s-{r['Config']}" for _, r in df_calib.iterrows()], fontsize=8.5)
-ax_bs.set_ylim(0, max(df_calib['Brier Multiclase']) * 1.25)
+bs_min_y = min(0.0, float(df_calib['Sobreconfianza (Conf-Acc)'].min()) - 0.05)
+bs_max_y = max(float(df_calib['Brier Multiclase'].max()), float(df_calib['Sobreconfianza (Conf-Acc)'].max())) * 1.25
+ax_bs.set_ylim(bs_min_y, bs_max_y)
 ax_bs.set_ylabel('Puntaje')
 ax_bs.set_title('Brier Score Multiclase y Brecha de Sobreconfianza')
 ax_bs.grid(axis='y', linestyle='--', alpha=0.35)
@@ -916,7 +933,9 @@ for idx in x_v:
     ax.text(idx, max(ok_means[idx], err_means[idx]) + 0.015, f'Δ={diff:+.3f}', ha='center', fontsize=8, fontweight='bold')
 ax.set_xticks(x_v)
 ax.set_xticklabels([f"{v[4].split('-')[0].upper()}\\n{v[5]}s-{v[6]}" for v in VARIANTS], fontsize=8.3)
-ax.set_ylim(0.55, 0.96)
+conf_min = min(ok_means + err_means)
+conf_max = max(ok_means + err_means)
+ax.set_ylim(max(0.0, conf_min - 0.06), min(1.02, conf_max + 0.06))
 ax.set_ylabel('Confianza Media')
 ax.set_title('Discriminación de Confianza: Aciertos vs. Errores')
 ax.grid(axis='y', linestyle='--', alpha=0.35)
@@ -1275,7 +1294,8 @@ ax1.set_xticks(xp)
 ax1.set_xticklabels([f'{lbl}\\n(n={n})' for (lbl, _, _), n in zip(sub_pairs, ns_p)], fontsize=8.3)
 ax1.set_ylabel('Accuracy (%)', color='#2b5c8f')
 ax1_r.set_ylabel('Latencia Mediana p50 (s)', color='#e6550d')
-ax1.set_ylim(25, 62); ax1_r.set_ylim(0, 6.2)
+ax1.set_ylim(max(0.0, min(accs_p) - 8.0), min(100.0, max(accs_p) + 10.0))
+ax1_r.set_ylim(0.0, max(lats_p) * 1.28)
 ax1.set_title('Desempeño vs. Costo Temporal de thoughts > 0')
 ax1_r.spines['top'].set_visible(False)
 
@@ -1453,17 +1473,18 @@ plt.show()
     # Sección 10: Eje 6 - Extensiones y Frontera Económica
     # ------------------------------------------------------------------
     cells.append(_md("""
-## 10. Eje 6 (Extensiones Contextualizadas): Sensibilidad por Consenso de Jueces A2 y Proyección a Escala ($N = 10{,}000$)
+## 10. Eje 6 (Extensiones Contextualizadas): Sensibilidad por Origen A1/A2, Alineación con Panel A2 y Proyección a Escala ($N = 10{,}000$)
 
 Conectando A5 con los antecedentes del proyecto (`ADR-13`, `ARQ-08` y `ARQ-09`):
-1. Estratificamos el acierto de las 8 variantes según el nivel de consenso previo registrado por el Panel de 3 Jueces LLM de A2 (`llm_panel` unánime $1.0$, `llm_panel` mayoría $0.67$, y `needs_review` rescatado desde reglas/NLI), cuantificando cuánto del techo de ~0.50 responde a ambigüedad epistémica del propio corpus de prueba.
-2. Proyectamos costo USD y tiempo de inferencia secuencial a escala operativa de **$10{,}000$ citas** en una frontera de Pareto limpia y sin solapamientos.
+1. Estratificamos el acierto de las 8 variantes sobre el conjunto **Gold revisado manualmente (`label_source="human_review"`)** según su origen y consenso previo A1/A2 (`prior_label_source` + `panel_agreement`: `Human Gold MultiCite`, `Panel Unánime 3/3`, `Panel Mayoría 2/3` y `Needs Review` rescatado tras desacuerdo A2).
+2. Evaluamos de forma complementaria el desempeño frente al **acuerdo vs. discrepancia del Panel de Jueces A2 con la etiqueta humana** (`panel_label == y_true` vs. `panel_label != y_true`).
+3. Proyectamos costo USD y tiempo de inferencia secuencial a escala operativa de **$10{,}000$ citas** con cálculo dinámico de la **frontera de Pareto no dominada**.
 """))
 
     cells.append(_code("""
-# 1. Sensibilidad por estrato de consenso previo A2 / origen en test.jsonl
+# 1. Sensibilidad por estrato de origen / consenso previo A2 en test.jsonl (evaluado contra Gold humano)
 def agreement_stratum(row):
-    ls = row['label_source']
+    ls = row['prior_label_source'] if (row['label_source'] == 'human_review' and pd.notna(row['prior_label_source'])) else row['label_source']
     pa = row['panel_agreement']
     if ls == 'human_gold':
         return 'Human Gold (MultiCite)'
@@ -1482,14 +1503,16 @@ strata_order = [
 gold_df['stratum'] = gold_df.apply(agreement_stratum, axis=1)
 df_all['stratum'] = df_all['test_idx'].map(gold_df['stratum'])
 stratum_counts = gold_df['stratum'].value_counts()
-print('Estratos de origen / consenso A2 en test.jsonl (N=2,798):')
+print('Estratos de origen / consenso previo A2 en test.jsonl (N=2,798):')
 for k in strata_order:
-    v = int(stratum_counts[k])
+    v = int(stratum_counts.get(k, 0))
     print(f' • {k:<28}: n={v:,} ({v/N_TEST*100:.2f}%)')
 
 strat_rows = []
 for sname in strata_order:
-    n_s = int(stratum_counts[sname])
+    n_s = int(stratum_counts.get(sname, 0))
+    if n_s == 0:
+        continue
     for vid, label, *_ in VARIANTS:
         sub = df_all[(df_all['vid'] == vid) & (df_all['stratum'] == sname)]
         strat_rows.append({
@@ -1501,10 +1524,45 @@ for sname in strata_order:
             'Macro-F1': f1_score(sub['y_true_idx'], sub['y_pred_idx'], labels=list(range(9)), average='macro', zero_division=0),
         })
 df_strat = pd.DataFrame(strat_rows)
-print('\\nAccuracy por estrato:')
-display(df_strat.pivot(index='Estrato', columns='Variante', values='Accuracy').reindex([f"{s} (n={int(stratum_counts[s])})" for s in strata_order])[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
-print('\\nMacro-F1 por estrato:')
-display(df_strat.pivot(index='Estrato', columns='Variante', values='Macro-F1').reindex([f"{s} (n={int(stratum_counts[s])})" for s in strata_order])[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
+idx_order_op1 = [f"{s} (n={int(stratum_counts[s])})" for s in strata_order if int(stratum_counts.get(s, 0)) > 0]
+print('\\nAccuracy por estrato (Opción 1: origen / consenso previo A2):')
+display(df_strat.pivot(index='Estrato', columns='Variante', values='Accuracy').reindex(idx_order_op1)[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
+print('\\nMacro-F1 por estrato (Opción 1: origen / consenso previo A2):')
+display(df_strat.pivot(index='Estrato', columns='Variante', values='Macro-F1').reindex(idx_order_op1)[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
+
+# 1b. Tabla complementaria (Opción 2): Desempeño A5 según acierto/fallo del Panel A2 frente al Gold humano
+gold_df['panel_match_stratum'] = np.where(
+    gold_df['panel_label'] == gold_df['y_true'],
+    'Panel A2 acertó vs. Humano',
+    'Panel A2 falló vs. Humano',
+)
+df_all['panel_match_stratum'] = df_all['test_idx'].map(gold_df['panel_match_stratum'])
+pm_counts = gold_df['panel_match_stratum'].value_counts()
+pm_order = ['Panel A2 acertó vs. Humano', 'Panel A2 falló vs. Humano']
+print('\\nConcordancia directa del Panel de Jueces A2 vs. Revisión Humana (N=2,798):')
+for k in pm_order:
+    v = int(pm_counts.get(k, 0))
+    print(f' • {k:<28}: n={v:,} ({v/N_TEST*100:.2f}%)')
+
+pm_rows = []
+for pname in pm_order:
+    n_p = int(pm_counts.get(pname, 0))
+    if n_p == 0:
+        continue
+    for vid, label, *_ in VARIANTS:
+        sub = df_all[(df_all['vid'] == vid) & (df_all['panel_match_stratum'] == pname)]
+        pm_rows.append({
+            'Concordancia A2 vs. Humano': f'{pname} (n={n_p})',
+            'Variante': label,
+            'Accuracy': sub['is_correct'].mean(),
+            'Macro-F1': f1_score(sub['y_true_idx'], sub['y_pred_idx'], labels=list(range(9)), average='macro', zero_division=0),
+        })
+df_pm = pd.DataFrame(pm_rows)
+idx_order_op2 = [f"{p} (n={int(pm_counts[p])})" for p in pm_order if int(pm_counts.get(p, 0)) > 0]
+print('\\nAccuracy por concordancia Panel A2 vs. Humano (Opción 2):')
+display(df_pm.pivot(index='Concordancia A2 vs. Humano', columns='Variante', values='Accuracy').reindex(idx_order_op2)[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
+print('\\nMacro-F1 por concordancia Panel A2 vs. Humano (Opción 2):')
+display(df_pm.pivot(index='Concordancia A2 vs. Humano', columns='Variante', values='Macro-F1').reindex(idx_order_op2)[[v[1] for v in VARIANTS]].style.format('{:.4f}'))
 
 # 2. Tabla de proyección a escala (10,000 citas)
 base_cost_10k = df_summary.loc[df_summary['vid'] == 'gpt41_zs_a', 'Costo Neto ($)'].iloc[0] / N_TEST * 10000.0
@@ -1522,6 +1580,7 @@ for _, r in df_summary.iterrows():
     else:
         c_per_pt = np.nan
     scale_rows.append({
+        'vid': r['vid'],
         'Variante': r['Variante'],
         'Macro-F1': r['Macro-F1'],
         'ECE': df_calib.loc[df_calib['vid'] == r['vid'], 'ECE'].iloc[0],
@@ -1531,29 +1590,29 @@ for _, r in df_summary.iterrows():
         'Costo USD / +0.01 F1 vs base GPT-0s-A': c_per_pt,
     })
 df_scale = pd.DataFrame(scale_rows)
-display(df_scale.style.format({
+display(df_scale.drop(columns=['vid']).style.format({
     'Macro-F1': '{:.4f}', 'ECE': '{:.4f}',
     'Costo Neto / 10k ($)': '${:.2f}', 'Costo Bruto / 10k ($)': '${:.2f}',
     'Tiempo Sec. 10k (h)': '{:.2f} h', 'Costo USD / +0.01 F1 vs base GPT-0s-A': '${:.2f}',
 }, na_rep='— (Δ ≤ 0)'))
 
-# Figura 11: Frontera de Pareto A5 sin solapamiento + Estratificación por consenso A2
-fig, axes = plt.subplots(1, 2, figsize=(16.0, 6.0))
+# Figura 11: Frontera de Pareto A5 dinámica + Estratificación por consenso A2 (8 variantes)
+fig, axes = plt.subplots(1, 2, figsize=(16.5, 6.2))
 
 # Panel A: Pareto Costo USD / 10k citas vs Macro-F1
 ax0 = axes[0]
 offsets = {
-    'gpt41_zs_a':  (-10, -22),
-    'gpt41_zs_b':  (8, 8),
-    'gpt41_fs_a':  (8, -16),
-    'gpt41_fs_b':  (8, -6),
-    'gemini_zs_a': (-20, -24),
-    'gemini_zs_b': (8, 8),
-    'gemini_fs_a': (-65, 8),
-    'gemini_fs_b': (-75, -20),
+    'gpt41_zs_a':  (-12, -26),
+    'gpt41_zs_b':  (-10, 14),
+    'gpt41_fs_a':  (10, -20),
+    'gpt41_fs_b':  (10, 6),
+    'gemini_zs_a': (-68, -24),
+    'gemini_zs_b': (10, 14),
+    'gemini_fs_a': (-38, -28),
+    'gemini_fs_b': (-45, 14),
 }
 for _, r in df_scale.iterrows():
-    vid = df_summary.loc[df_summary['Variante'] == r['Variante'], 'vid'].iloc[0]
+    vid = r['vid']
     mod = df_summary.loc[df_summary['vid'] == vid, 'Modelo'].iloc[0]
     sh = df_summary.loc[df_summary['vid'] == vid, 'Shots'].iloc[0]
     cfg = df_summary.loc[df_summary['vid'] == vid, 'Config'].iloc[0]
@@ -1561,48 +1620,59 @@ for _, r in df_scale.iterrows():
     ax0.scatter(r['Costo Neto / 10k ($)'], r['Macro-F1'], s=150, marker=marker,
                 color=COLORS[vid], edgecolors='black', linewidth=1.2, zorder=4)
     lbl_pt = f"{'GPT' if 'gpt' in vid else 'Gem'} {sh}s-{cfg}\\n(${r['Costo Neto / 10k ($)']:.2f}, {r['Macro-F1']:.3f})"
-    dx, dy = offsets[vid]
+    dx, dy = offsets.get(vid, (8, 8))
     ax0.annotate(lbl_pt, xy=(r['Costo Neto / 10k ($)'], r['Macro-F1']), xytext=(dx, dy),
                  textcoords='offset points', fontsize=8.0, fontweight='bold',
-                 arrowprops=dict(arrowstyle='-', color='#888', lw=0.7) if abs(dx) > 20 or abs(dy) > 15 else None)
+                 arrowprops=dict(arrowstyle='-', color='#888', lw=0.7) if abs(dx) > 18 or abs(dy) > 15 else None)
 
-# Unir puntos de la frontera de Pareto no dominada (GPT 0s-A -> GPT 0s-B -> Gem 0s-B -> Gem 9s-A)
-pareto_vids = ['gpt41_zs_a', 'gpt41_zs_b', 'gemini_zs_b', 'gemini_fs_a']
-p_coords = []
-for pv in pareto_vids:
-    lbl_pv = runs[pv]['label']
-    rr = df_scale[df_scale['Variante'] == lbl_pv].iloc[0]
-    p_coords.append((rr['Costo Neto / 10k ($)'], rr['Macro-F1']))
-ax0.plot([p[0] for p in p_coords], [p[1] for p in p_coords], linestyle='--', color='#444', linewidth=1.3, label='Frontera Pareto A5', zorder=2)
+# Cálculo dinámico de la frontera de Pareto no dominada (menor costo, mayor Macro-F1)
+pareto_sorted = df_scale.sort_values(['Costo Neto / 10k ($)', 'Macro-F1'], ascending=[True, False])
+pareto_coords = []
+best_pareto_f1 = -1.0
+for _, rr in pareto_sorted.iterrows():
+    if rr['Macro-F1'] > best_pareto_f1:
+        pareto_coords.append((rr['Costo Neto / 10k ($)'], rr['Macro-F1'], rr['vid']))
+        best_pareto_f1 = rr['Macro-F1']
+ax0.plot([p[0] for p in pareto_coords], [p[1] for p in pareto_coords],
+         linestyle='--', color='#444', linewidth=1.4, label='Frontera Pareto A5', zorder=2)
 
 ax0.set_xscale('log')
-ax0.set_xlim(4.2, 78)
-ax0.set_ylim(0.398, 0.502)
+min_cost_x = float(df_scale['Costo Neto / 10k ($)'].min())
+max_cost_x = float(df_scale['Costo Neto / 10k ($)'].max())
+min_f1_y = float(df_scale['Macro-F1'].min())
+max_f1_y = float(df_scale['Macro-F1'].max())
+ax0.set_xlim(min_cost_x * 0.68, max_cost_x * 1.45)
+ax0.set_ylim(max(0.0, min_f1_y - 0.032), min(1.0, max_f1_y + 0.036))
 ax0.set_xlabel('Costo Neto Proyectado (USD por 10,000 citas, escala log)')
 ax0.set_ylabel('Macro-F1 (9 Clases Canónicas)')
 ax0.set_title('Frontera de Pareto A5: Costo a Escala vs. Macro-F1')
 ax0.grid(True, which='both', linestyle='--', alpha=0.35)
 ax0.legend(loc='lower right', fontsize=8.5, frameon=True)
 
-# Panel B: Sensibilidad de Accuracy según Estrato Epistémico (Human Gold & Jueces A2)
+# Panel B: Sensibilidad de Accuracy según Estrato de Origen / Consenso Previo A2 (8 variantes)
 ax1 = axes[1]
-xs = np.arange(len(strata_order))
-for vid in ['gpt41_zs_a', 'gpt41_zs_b', 'gpt41_fs_b', 'gemini_zs_b', 'gemini_fs_a', 'gemini_fs_b']:
-    vals = [df_strat[(df_strat['vid'] == vid) & (df_strat['stratum'] == st)]['Accuracy'].iloc[0] * 100.0 for st in strata_order]
-    ax1.plot(xs, vals, marker='o', linewidth=2.0, color=COLORS[vid], label=runs[vid]['label'])
+active_strata = [s for s in strata_order if int(stratum_counts.get(s, 0)) > 0]
+xs = np.arange(len(active_strata))
+all_strat_vals = []
+for vid, _, _, _, mod_n, sh, cfg, _ in VARIANTS:
+    vals = [df_strat[(df_strat['vid'] == vid) & (df_strat['stratum'] == st)]['Accuracy'].iloc[0] * 100.0 for st in active_strata]
+    all_strat_vals.extend(vals)
+    short_lbl = f"{'GPT' if 'gpt' in mod_n else 'Gem'} {sh}s-{cfg}"
+    ax1.plot(xs, vals, marker='o' if sh == 0 else 's', linestyle='-' if sh == 0 else '--',
+             linewidth=1.8, markersize=5.0, color=COLORS[vid], label=short_lbl)
 ax1.set_xticks(xs)
 short_x_lbls = {
-    'Human Gold (MultiCite)': f"Human Gold\\nMultiCite (n={stratum_counts['Human Gold (MultiCite)']:,})",
-    'Panel Unánime (3/3)': f"Panel Unánime 3/3\\n(n={stratum_counts['Panel Unánime (3/3)']:,})",
-    'Panel Mayoría (2/3)': f"Panel Mayoría 2/3\\n(n={stratum_counts['Panel Mayoría (2/3)']:,})",
-    'Needs Review (desacuerdo)': f"Needs Review\\n(n={stratum_counts['Needs Review (desacuerdo)']:,})",
+    'Human Gold (MultiCite)': f"Human Gold\\nMultiCite (n={int(stratum_counts.get('Human Gold (MultiCite)', 0)):,})",
+    'Panel Unánime (3/3)': f"Panel Unánime 3/3\\n(n={int(stratum_counts.get('Panel Unánime (3/3)', 0)):,})",
+    'Panel Mayoría (2/3)': f"Panel Mayoría 2/3\\n(n={int(stratum_counts.get('Panel Mayoría (2/3)', 0)):,})",
+    'Needs Review (desacuerdo)': f"Needs Review\\n(n={int(stratum_counts.get('Needs Review (desacuerdo)', 0)):,})",
 }
-ax1.set_xticklabels([short_x_lbls[st] for st in strata_order], fontsize=8.4)
+ax1.set_xticklabels([short_x_lbls[st] for st in active_strata], fontsize=8.4)
 ax1.set_ylabel('Accuracy (%)')
-ax1.set_ylim(20, 82)
-ax1.set_title('Techo Epistémico: Desempeño según Estrato de Etiquetado')
+ax1.set_ylim(max(0.0, min(all_strat_vals) - 6.0), min(100.0, max(all_strat_vals) + 11.0))
+ax1.set_title('Desempeño sobre Gold Humano según Estrato Previo A1/A2 (8 Variantes)')
 ax1.grid(linestyle='--', alpha=0.35)
-ax1.legend(loc='upper right', fontsize=7.8, frameon=True)
+ax1.legend(loc='upper right', fontsize=7.6, ncol=2, frameon=True)
 
 fig.tight_layout()
 fig.savefig(FIG_DIR / 'fig11_frontera_pareto_y_sensibilidad_panel.png', bbox_inches='tight')
