@@ -154,7 +154,7 @@ flowchart TB
         direction LR
         Q["<b>Consulta Aislada</b><br/>T_query = x_ctx (m=3)<br/>(Sin sección citante)"]
         C["<b>Fragmentos del Citado</b><br/>Omega(P_cited)<br/>(W_max ≤ 110 palabras)"]
-        SB1["<b>Codificador SciBERT (110M)</b><br/>Mean Pooling Enmascarado<br/>+ Normalización L2 en S^767"]
+        SB1["<b>Codificador SciBERT (110M)</b><br/>Mean Pooling Enmascarado<br/>+ Normalización L2 (u in R^768)"]
         SIM["<b>Similitud Coseno</b><br/>s = q * C^T<br/>(Media Top-1 = 0,8943)"]
         TOP3["<b>Top-3 Fragmentos Recuperados</b><br/>{(c_1, h_1), (c_2, h_2), (c_3, h_3)}<br/>con Encabezados Autorales"]
         Q --> SB1
@@ -162,21 +162,21 @@ flowchart TB
         SB1 --> SIM --> TOP3
     end
 
-    subgraph Stage2["Etapa 2: Empaquetado con Presupuesto Equitativo (L_max = 512) y Clasificación en Delta^8"]
+    subgraph Stage2["Etapa 2: Empaquetado con Presupuesto Equitativo (L_max = 512) e Inferencia Probabilística"]
         direction LR
         subgraph Packing["Secuencia Empaquetada [CLS] Segmento 1 [SEP] Segmento 2 [SEP]"]
             direction LR
             T_CLS["<code>[CLS]</code>"]
             T_S1["<b>Segmento 1 (Citante):</b><br/>Contexto x_ctx (m=3, &lt;cite&gt;, [OTHERCIT])<br/>(h_citing excluida por defecto; L_citing tokens protegidos)"]
             T_SEP1["<code>[SEP]</code>"]
-            T_S2["<b>Segmento 2 (Evidencia del Citado, B_rem = 512 - L_citing - 3):</b><br/>• <b>Config A:</b> Título t_cited + Resumen abs_cited<br/>• <b>Config B:</b> Top-3 (h_r : f_r) con cuota equitativa Q_chunk tokens/chunk"]
+            T_S2["<b>Segmento 2 (Evidencia del Citado, B_rem = 512 - L_citing - 3):</b><br/>• <b>Config A:</b> Título t_cited + Resumen abs_cited<br/>• <b>Config B:</b> Top-3 (h_r : c_r) con cuota equitativa Q_chunk tokens/chunk"]
             T_SEP2["<code>[SEP]</code>"]
             T_CLS --- T_S1 --- T_SEP1 --- T_S2 --- T_SEP2
         end
 
         A4["<b>Rama A4 (Supervisada Local):</b><br/>SciBERT Fine-Tuned / LLM + LoRA<br/>Probabilidad Paramétrica Softmax(z)"]
         A5["<b>Rama A5 (LLMs Frontera API 0s / 9s):</b><br/>GPT-4.1-mini vs. Gemini-3.8-Flash<br/>Decodificación JSON + Proyección L1"]
-        OUT["<b>Símplex Delta^8</b><br/>p in [0,1]^9, sum p_k = 1<br/>y_hat = argmax_c p_c"]
+        OUT["<b>Distribución Prob. p</b><br/>p in [0,1]^9, sum p_k = 1<br/>y_hat = argmax_c p_c"]
 
         T_SEP2 --> A4 --> OUT
         T_SEP2 --> A5 --> OUT
@@ -200,7 +200,7 @@ flowchart TB
    - `[SEP]` (`40 px x 36 px`, azul claro `#BAE6FD`).
    - `Evidencia del Citado (Config A ó Config B con cuota Q_chunk)` (`260 px x 36 px`, verde suave `#DCFCE7`), agrupada debajo con una segunda llave horizontal rotulada `Segmento 2: Evidencia del Artículo Citado (Presupuesto ≤ 512 tokens)`.
    - `[SEP]` (`40 px x 36 px`, azul claro `#BAE6FD`).
-3. **Bifurcación Hacia el Símplex $\Delta^8$:** Desde el segundo `[SEP]`, bifurcar hacia la rama supervisada A4 (`SciBERT / LoRA -> Softmax`) y la rama generativa A5 (`GPT-4.1-mini / Gemini-3.8-Flash -> Esquema JSON + Proyección L1`), convergiendo en el nodo romboidal/redondeado `Símplex Delta^8`.
+3. **Bifurcación Hacia la Distribución Probabilística $\mathbf{p}$:** Desde el segundo `[SEP]`, bifurcar hacia la rama supervisada A4 (`SciBERT / LoRA -> Softmax`) y la rama generativa A5 (`GPT-4.1-mini / Gemini-3.8-Flash -> Esquema JSON + Proyección L1`), convergiendo en el nodo redondeado `Distribución Prob. p`.
 
 ---
 
