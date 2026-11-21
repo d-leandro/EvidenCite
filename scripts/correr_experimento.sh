@@ -103,8 +103,8 @@ ENTORNO=("${COMUNES[@]}" "${VARIABLES[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "N
 ENV=(); for par in "${ENTORNO[@]}"; do ENV+=(--env "$par"); done
 echo "Corrida $NOMBRE · $FAMILIA · sesión $SESION ($GPU)"
 
+trap 'colab stop -s "$SESION" >/dev/null; rm -rf "$TMP"' EXIT    # se apaga al terminar, aunque algo falle
 colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" || exit 1
-trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT    # se apaga al terminar, aunque algo falle
 subir_a_sesion "$SESION" "$TMP" || exit 1
 colab exec -s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT" "${ENV[@]}" 2>&1 | tee "$REGISTRO"
 if [[ "$(destino_resultados "$REGISTRO")" == local ]] && ! solo_mlflow; then

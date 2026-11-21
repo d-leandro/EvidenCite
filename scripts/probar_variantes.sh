@@ -113,7 +113,7 @@ SESION="${SESION:-variantes}"
 TIMEOUT="${TIMEOUT:-14400}"   # segundos máximos por corrida; si se pasa, la corrida se pierde
 preparar_datos_colab || exit 1
 TMP="$(mktemp -d)"
-trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT   # libera la GPU al terminar, también con Ctrl+C
+trap 'colab stop -s "$SESION" >/dev/null; rm -rf "$TMP"' EXIT   # libera la GPU al terminar, también con Ctrl+C
 empaquetar_codigo "$TMP/evidencite.zip" || exit 1
 COMUNES=(FAMILIA=lora PRECISION=auto AGRUPAR_LONGITUD=1 SALTAR_EXISTENTES=1 "MLFLOW_EXPERIMENTO=$EXPERIMENTO")
 [[ -n "${HF_TOKEN:-}" ]] && COMUNES+=("HF_TOKEN=$HF_TOKEN")      # la CLI lo guarda en su historial
@@ -122,7 +122,7 @@ preparar_sesion() {
   colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" &&
   subir_a_sesion "$SESION" "$TMP"
 }
-preparar_sesion || { echo "No se pudo preparar la sesión de Colab '$SESION'"; exit 1; }
+preparar_sesion || { echo "No se pudo preparar la sesión '$SESION' (${PROVEEDOR:-colab})"; exit 1; }
 
 for semilla in "${SEMILLAS[@]}"; do
 for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante in "${VARIANTES[@]}"; do for lr in "${LRS[@]}"; do
