@@ -20,11 +20,13 @@
 #        VARIANTES="lora dora" LRS="5e-5 1e-4" CONFIGS="A B" scripts/probar_variantes.sh G4 EPOCAS=4 SCHEDULER=cosine
 #        MODELOS="Qwen/Qwen3-4B-Base" SESION=s4b scripts/probar_variantes.sh G4  # otra sesión en paralelo
 #        scripts/probar_variantes.sh local                                    # las 10 variantes con el humo
-#        SEMILLAS="1234 5678" MODELOS="Qwen/Qwen3-4B-Base" scripts/probar_variantes.sh G4   # repeticiones con otras semillas
+#        REPETICIONES=3 MODELOS="Qwen/Qwen3-4B-Base" scripts/probar_variantes.sh G4         # tres corridas, cada una con su semilla al azar
+#        SEMILLAS="1234 5678" MODELOS="Qwen/Qwen3-4B-Base" scripts/probar_variantes.sh G4   # repeticiones con semillas fijas
 # Listas (separadas por espacios): VARIANTES, LRS, CONFIGS, MODELOS y SEMILLAS. Cada CLAVE=valor llega a todas las
-# corridas. Sin SEMILLAS se usa SEMILLA (42 por defecto). Toda semilla distinta de 42 va al final del nombre de la corrida
-# (…_lr1e-4_s1234), así que convive con las de 42 en el mismo experimento; cada semilla termina todos los modelos antes
-# de empezar la siguiente.
+# corridas. Sin SEMILLAS ni SEMILLA no se pasa semilla: el entrenamiento sortea una en cada corrida y la registra.
+# REPETICIONES (1 por defecto) corre cada combinación ese número de veces; de la segunda en adelante el nombre de la
+# corrida termina en _r2, _r3… Con semillas fijas, toda semilla distinta de 42 va al final del nombre (…_lr1e-4_s1234).
+# Cada semilla o repetición termina todos los modelos antes de empezar la siguiente.
 # Datos: como en correr_experimento.sh. En Colab, DATOS_TAG y GDRIVE_SA_JSON (obligatorios), DATOS_DVC e ID_CARPETA;
 # en local, DATASET o la carpeta DATOS_DVC del repo.
 set -uo pipefail
@@ -42,23 +44,34 @@ else
   read -ra VARIANTES <<< "${VARIANTES:-lora lora_plus eva dora}"     # LoRA como control + LoRA+, EVA y DoRA
   read -ra LRS <<< "${LRS:-1e-4}"; read -ra CONFIGS <<< "${CONFIGS:-B}"; read -ra MODELOS <<< "${MODELOS:-Qwen/Qwen3-8B-Base}"
 fi
-read -ra SEMILLAS <<< "${SEMILLAS:-$(valor SEMILLA 42)}"
+if [[ -n "${SEMILLAS:-}$(valor SEMILLA)" ]]; then read -ra SEMILLAS <<< "${SEMILLAS:-$(valor SEMILLA)}"
+else SEMILLAS=(); for ((i = 1; i <= $(valor REPETICIONES 1); i++)); do SEMILLAS+=("r$i"); done; fi   # r<n>: al azar
 SIN_SEMILLA=(); for par in "${VARIABLES[@]}"; do [[ "$par" == SEMILLA=* ]] || SIN_SEMILLA+=("$par"); done   # la pone cada corrida
-# Nombre de la corrida en MLflow. La semilla 42 no se nombra, para que las corridas que ya existen sigan contando.
-nombre_corrida() {   # $1 modelo · $2 variante · $3 configuración · $4 tasa · $5 semilla
-  local n="${1##*/}_${2}_${3}_lr${4}"; [[ "$5" != 42 ]] && n+="_s$5"; echo "$n"
+# Nombre de la corrida en MLflow. La semilla 42 no se nombra, para que las corridas que ya existen sigan contando;
+# tampoco la primera repetición al azar.
+nombre_corrida() {   # $1 modelo · $2 variante · $3 configuración · $4 tasa · $5 semilla o repetición (r<n>)
+  local n="${1##*/}_${2}_${3}_lr${4}"; case "$5" in 42|r1) ;; r*) n+="_$5" ;; *) n+="_s$5" ;; esac
+  # LLM_MODO=generativo: otro nombre, o SALTAR_EXISTENTES saltaría la corrida porque ya está la del clasificador
+  [[ "$(valor LLM_MODO clasificador)" == generativo ]] && n+="_gen"
+  echo "$n"
 }
+semilla_env() { [[ "$1" == r* ]] || echo "SEMILLA=$1"; }   # una repetición al azar no pasa SEMILLA
 EXPERIMENTO="$(valor MLFLOW_EXPERIMENTO variantes_lora)"
 FALLIDAS=()
 if [[ -n "$(ip_mlflow)" ]]; then echo "MLflow: experimento $EXPERIMENTO · servidor $(ip_mlflow)"
+elif [[ "${SOLO_MLFLOW:-0}" == 1 ]]; then echo "SOLO_MLFLOW=1 necesita MLFLOW_IP o mlflow_ip.txt"; exit 1
 else echo "Sin MLFLOW_IP ni mlflow_ip.txt: las corridas guardarán en local"; fi
+# SOLO_MLFLOW=1: nada se baja a esta máquina. Una corrida que no llegó completa a MLflow cuenta como fallida.
+solo_mlflow() { [[ "${SOLO_MLFLOW:-0}" == 1 ]]; }
 
 # Después de cada corrida: con MLflow no queda nada; si quedó en local o falló, el registro va a registros/.
 cerrar_corrida() {   # $1 nombre · $2 registro temporal
   case "$(destino_resultados "$2")" in
     mlflow) rm -f "$2"; echo "   listo en MLflow" ;;
     ya)     rm -f "$2"; echo "   ya estaba terminada en MLflow: la salto" ;;
-    local)  mkdir -p registros && mv "$2" "registros/$1.log"; echo "   en local: resultados/$1.zip" ;;
+    local)  mkdir -p registros && mv "$2" "registros/$1.log"
+            if solo_mlflow; then FALLIDAS+=("$1"); echo "   NO LLEGÓ COMPLETA A MLFLOW (SOLO_MLFLOW=1: no se baja)"
+            else echo "   en local: resultados/$1.zip"; fi ;;
     *)      mkdir -p registros && mv "$2" "registros/$1.log"; FALLIDAS+=("$1"); echo "   FALLÓ: revisa registros/$1.log" ;;
   esac
 }
@@ -83,10 +96,10 @@ if [[ "$GPU" == local ]]; then
     [[ -n "$(ip_mlflow)" ]] && previas+=(MLFLOW_IP="$(ip_mlflow)")
     registro="$(mktemp)"
     ( cd "$REPO" &&
-      env "${previas[@]}" "${SIN_SEMILLA[@]}" SEMILLA="$semilla" MODELO="$modelo" LORA_TIPO="$variante" \
+      env "${previas[@]}" "${SIN_SEMILLA[@]}" $(semilla_env "$semilla") MODELO="$modelo" LORA_TIPO="$variante" \
         CONFIGURACION="$config" LR="$lr" NOMBRE_CORRIDA="$nombre" "$PY" -m src.modeling ) > "$registro" 2>&1
     tr '\r' '\n' < "$registro" | grep -a "macro-F1 (9)\|^AVISO\|MLflowNoEncontrado" | sed 's/^ */   /' | cut -c1-140
-    if [[ "$(destino_resultados "$registro")" == local ]]; then
+    if [[ "$(destino_resultados "$registro")" == local ]] && ! solo_mlflow; then
       mkdir -p resultados && cp "$SALIDAS/$nombre.zip" "resultados/$nombre.zip"
     fi
     cerrar_corrida "$nombre" "$registro"
@@ -100,7 +113,7 @@ SESION="${SESION:-variantes}"
 TIMEOUT="${TIMEOUT:-14400}"   # segundos máximos por corrida; si se pasa, la corrida se pierde
 preparar_datos_colab || exit 1
 TMP="$(mktemp -d)"
-trap 'colab stop -s "$SESION" >/dev/null 2>&1; rm -rf "$TMP"' EXIT   # libera la GPU al terminar, también con Ctrl+C
+trap 'colab stop -s "$SESION" >/dev/null; rm -rf "$TMP"' EXIT   # libera la GPU al terminar, también con Ctrl+C
 empaquetar_codigo "$TMP/evidencite.zip" || exit 1
 COMUNES=(FAMILIA=lora PRECISION=auto AGRUPAR_LONGITUD=1 SALTAR_EXISTENTES=1 "MLFLOW_EXPERIMENTO=$EXPERIMENTO")
 [[ -n "${HF_TOKEN:-}" ]] && COMUNES+=("HF_TOKEN=$HF_TOKEN")      # la CLI lo guarda en su historial
@@ -109,7 +122,7 @@ preparar_sesion() {
   colab new $(opciones_sesion "$GPU") -s "$SESION" --gpu "$GPU" &&
   subir_a_sesion "$SESION" "$TMP"
 }
-preparar_sesion || { echo "No se pudo preparar la sesión de Colab '$SESION'"; exit 1; }
+preparar_sesion || { echo "No se pudo preparar la sesión '$SESION' (${PROVEEDOR:-colab})"; exit 1; }
 
 for semilla in "${SEMILLAS[@]}"; do
 for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante in "${VARIANTES[@]}"; do for lr in "${LRS[@]}"; do
@@ -117,7 +130,7 @@ for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante
   [[ -f "resultados/$nombre.zip" ]] && { echo "== $nombre: ya está en resultados/, la salto"; continue; }
   echo "== $nombre · sesión $SESION · $(date '+%Y-%m-%d %H:%M')"
   colab restart-kernel -s "$SESION" || true      # libera la memoria de la corrida anterior
-  entorno=("${COMUNES[@]}" "${SIN_SEMILLA[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" "SEMILLA=$semilla" "MODELO=$modelo"
+  entorno=("${COMUNES[@]}" "${SIN_SEMILLA[@]}" "${DATOS_COLAB[@]}" "${TRAZAS[@]}" $(semilla_env "$semilla") "MODELO=$modelo"
            "LORA_TIPO=$variante" "CONFIGURACION=$config" "LR=$lr" "NOMBRE_CORRIDA=$nombre")
   [[ -n "$(ip_mlflow)" ]] && entorno+=("MLFLOW_IP=$(ip_mlflow)")
   args=(-s "$SESION" -f "$REPO/scripts/lanzar_colab.py" --timeout "$TIMEOUT")
@@ -130,7 +143,7 @@ for modelo in "${MODELOS[@]}"; do for config in "${CONFIGS[@]}"; do for variante
     colab stop -s "$SESION" >/dev/null 2>&1
     preparar_sesion && colab exec "${args[@]}" 2>&1 | tee "$registro"
   fi
-  if [[ "$(destino_resultados "$registro")" == local ]]; then
+  if [[ "$(destino_resultados "$registro")" == local ]] && ! solo_mlflow; then
     # Sin MLflow, la corrida quedó en la sesión: se baja a .part y se renombra al final (un zip a medias no cuenta).
     mkdir -p resultados
     if ! { colab download -s "$SESION" "/content/salidas/$nombre.zip" "resultados/$nombre.zip.part" &&

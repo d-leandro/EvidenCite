@@ -97,11 +97,13 @@ class InputRepresentationConfig(BaseModel):
         default=True,
         description="Si True en Config B, antepone '{section_heading}: ' a cada chunk citado.",
     )
-    max_seq_length: int = Field(
-        default=512,
+    max_seq_length: Optional[int] = Field(
+        default=None,
         ge=32,
-        le=8192,
-        description="Presupuesto máximo de tokens para la secuencia de entrada (ADR-04: 512).",
+        description=(
+            "Presupuesto máximo de tokens de la secuencia de entrada. None (por defecto): el contexto máximo del "
+            "modelo, que se resuelve al cargarlo (heads.longitud_maxima_del_modelo) y queda en config.json y MLflow."
+        ),
     )
     enforce_per_chunk_budget: bool = Field(
         default=True,
@@ -121,6 +123,7 @@ class InputRepresentationConfig(BaseModel):
         default=False,
         description="Si True, elimina las etiquetas '<cite>' y '</cite>' conservando el texto interno.",
     )
+    explicit_segments: bool = Field(default=False, description="Rotula el segmento citado en vez de dejar la unión al tokenizador.")
 
 
 class TfidfModelConfig(BaseModel):
@@ -233,9 +236,25 @@ class LoraModelConfig(TrainerOptimizationConfig):
         default="HuggingFaceTB/SmolLM2-135M",
         description="Modelo base de pesos abiertos para clasificación de secuencias con LoRA.",
     )
-    task_type: Literal["SEQ_CLS"] = Field(
+    task_type: Literal["SEQ_CLS" , "CAUSAL_LM"] = Field(
         default="SEQ_CLS",
-        description="Tipo de tarea PEFT (fijado a SEQ_CLS con cabeza lineal sobre las 9 clases).",
+        description="Tipo de tarea PEFT, se elige con LLM_MODO. SEQ_CLS (clasificador): cabeza lineal sobre las 9 clases, "
+            "entrega probabilidades. CAUSAL_LM (generativo): sin cabeza nueva; el modelo escribe la etiqueta como "
+            "respuesta al mismo prompt que reciben los LLM por API (src/modeling/lora/generativo.py).",
+    )
+    prompt_mode: Literal["generic", "section_conditioned"] = Field(
+        default="generic",
+        description=(
+            "Solo CAUSAL_LM: variante del prompt de A5. Debe ser la de llm_api.prompt_mode en la corrida por API con "
+            "que se compara (generic en los YAML de configs/)."
+        ),
+    )
+    use_chat_template: bool = Field(
+        default=True,
+        description=(
+            "Solo CAUSAL_LM: arma el prompt con la plantilla de chat del tokenizador si la trae; si no, en texto "
+            "plano con los rótulos [User]/[Assistant]."
+        ),
     )
     fp8_base: bool = Field(
         default=False,
@@ -359,7 +378,14 @@ class ExperimentConfig(BaseModel):
         ...,
         description="Familia del modelo evaluado en el Eje 2.",
     )
-    seed: int = Field(default=42, ge=0)
+    seed: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Semilla del experimento. None (por defecto): el entrenamiento sortea una en cada corrida "
+            "(train.run_training_experiment) y la deja en config.json y MLflow."
+        ),
+    )
     device: Literal["auto", "cuda", "mps", "cpu"] = Field(default="auto")
     paths: PathsConfig = Field(default_factory=PathsConfig)
     input_representation: InputRepresentationConfig = Field(

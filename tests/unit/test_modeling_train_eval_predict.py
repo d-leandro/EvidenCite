@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import List
 
+import pytest
+
 from peft import LoraConfig, TaskType, get_peft_model
 import torch
 from transformers import BertConfig, BertForSequenceClassification
@@ -948,3 +950,88 @@ def test_llm_api_inference_experiment_name_precedence() -> None:
 
 
 
+
+
+def test_nombre_modelo_valido_para_mlflow() -> None:
+    """El modelo registrado no puede llevar / : . % " ': con el punto de «granite-4.2…» MLflow lo rechazaba."""
+    from src.modeling.registro_mlflow import nombre_modelo_valido
+
+    assert nombre_modelo_valido("granite-4.2-3b_lora_A_lr1e-4") == "granite-4-2-3b_lora_A_lr1e-4"
+    assert nombre_modelo_valido("Qwen3.5-4B_lora_B_lr2.5e-5_r2") == "Qwen3-5-4B_lora_B_lr2-5e-5_r2"
+    assert nombre_modelo_valido("Phi-4-mini-instruct_lora_A_lr1e-4") == "Phi-4-mini-instruct_lora_A_lr1e-4"
+    assert not set("/:.%\"'") & set(nombre_modelo_valido("a/b:c.d%e\"f'g"))
+    assert nombre_modelo_valido("") == "modelo"
+
+
+def test_longitud_maxima_del_modelo() -> None:
+    """Sin max_seq_length se usa el menor límite que declaren la config de texto del modelo y su tokenizador."""
+    from transformers import RobertaConfig, RobertaForSequenceClassification
+
+    from src.modeling.heads import longitud_maxima_del_modelo
+
+    bert = BertForSequenceClassification(
+        BertConfig(vocab_size=64, hidden_size=16, num_hidden_layers=1, num_attention_heads=2, intermediate_size=32,
+                   max_position_embeddings=128)
+    )
+    assert longitud_maxima_del_modelo(bert, DummyWordTokenizer()) == 128  # el tokenizador no declara límite
+    assert longitud_maxima_del_modelo(bert, SimpleNamespace(model_max_length=64)) == 64
+    assert longitud_maxima_del_modelo(bert, SimpleNamespace(model_max_length=int(1e30))) == 128  # «sin límite»
+    # RoBERTa reserva pad_token_id + 1 posiciones: de 130 declaradas quedan 128 utilizables
+    roberta = RobertaForSequenceClassification(
+        RobertaConfig(vocab_size=64, hidden_size=16, num_hidden_layers=1, num_attention_heads=2,
+                      intermediate_size=32, max_position_embeddings=130, pad_token_id=1)
+    )
+    assert longitud_maxima_del_modelo(roberta, None) == 128
+    assert longitud_maxima_del_modelo(torch.nn.Linear(2, 2), None) is None  # sin config: no se recorta
+
+
+def test_max_seq_length_sin_fijar_usa_el_contexto_del_modelo(tmp_path: Path) -> None:
+    """Sin max_seq_length, el entrenamiento recorta al contexto máximo del modelo y lo deja en config.json."""
+    import json
+
+    from src.modeling.registro_mlflow import parametros_experimento
+
+    instances = [make_synthetic_instance(idx=i + 1, label=CANONICAL_9_CLASSES[i % 3]) for i in range(12)]
+    model = BertForSequenceClassification(
+        BertConfig(vocab_size=256, hidden_size=32, num_hidden_layers=1, num_attention_heads=2, intermediate_size=64,
+                   max_position_embeddings=40, num_labels=len(CANONICAL_9_CLASSES), id2label=ID_TO_LABEL,
+                   label2id=LABEL_TO_ID)
+    )
+    cfg = ExperimentConfig(
+        experiment_name="test_sin_longitud",
+        model_family="encoder",
+        device="cpu",
+        paths=PathsConfig(output_dir=tmp_path),
+        input_representation=InputRepresentationConfig(configuration="B"),
+        encoder=EncoderModelConfig(pretrained_model_name_or_path="dummy-local", num_train_epochs=1,
+                                   per_device_train_batch_size=4, per_device_eval_batch_size=4),
+    )
+    assert cfg.input_representation.max_seq_length is None
+    assert "max_seq_length" not in parametros_experimento(cfg)  # se registra cuando se resuelve, no como «None»
+
+    run_training_experiment(config=cfg, train_instances=instances[:8], dev_instances=instances[8:10],
+                            test_instances=instances[10:], tokenizer=DummyWordTokenizer(), model=model,
+                            enable_mlflow=False)
+    guardada = json.loads((tmp_path / "test_sin_longitud" / "config.json").read_text(encoding="utf-8"))
+    assert guardada["input_representation"]["max_seq_length"] == 40
+    assert cfg.input_representation.max_seq_length is None  # la configuración de quien llama no se toca
+
+
+def test_semilla_sorteada_o_fijada(tmp_path: Path) -> None:
+    """Sin seed cada corrida sortea una distinta; con seed se usa esa. En ambos casos queda en config.json."""
+    import json
+
+    instances = [make_synthetic_instance(idx=i + 1, label=CANONICAL_9_CLASSES[i % 3]) for i in range(12)]
+
+    def semilla_usada(nombre: str, seed: int | None) -> int:
+        cfg = ExperimentConfig(experiment_name=nombre, model_family="tfidf", seed=seed, device="cpu",
+                               paths=PathsConfig(output_dir=tmp_path),
+                               tfidf=TfidfModelConfig(ngram_min=1, ngram_max=2, min_df=1, max_df=1.0))
+        run_training_experiment(config=cfg, train_instances=instances[:8], dev_instances=instances[8:10],
+                                test_instances=instances[10:], enable_mlflow=False)
+        assert cfg.seed == seed  # la configuración de quien llama no se toca
+        return json.loads((tmp_path / nombre / "config.json").read_text(encoding="utf-8"))["seed"]
+
+    assert semilla_usada("fija", 7) == 7
+    sorteadas = {semilla_usada(f"azar{i}", None) for i in range(3)}
+    assert len(sorteadas) == 3 and all(0 <= s < 2**32 for s in sorteadas)

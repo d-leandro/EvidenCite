@@ -149,6 +149,15 @@ def test_data_pipeline_configs_inherit_base(tmp_path: Path) -> None:
     assert pipe_override.seed == 888
 
 
+
+def test_max_seq_length_y_seed_son_opcionales() -> None:
+    """Sin max_seq_length ni seed quedan en None: train.py usa el contexto máximo del modelo y sortea la semilla."""
+    assert ExperimentConfig(experiment_name="x", model_family="tfidf").seed is None
+    assert InputRepresentationConfig().max_seq_length is None
+    assert InputRepresentationConfig(max_seq_length=131072).max_seq_length == 131072
+    with pytest.raises(ValidationError):
+        InputRepresentationConfig(max_seq_length=8)
+
 def test_a5_declarative_configs_override_mlflow_experiment_name() -> None:
     """Verifica que los YAMLs operativos A5 definan EvidenCite_A5_LLM_API sin alterar base.yaml."""
     base_cfg = load_base_config(Path("configs/base.yaml"))

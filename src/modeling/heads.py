@@ -48,6 +48,34 @@ def ensure_tokenizer_padding(
 
 
 
+def longitud_maxima_del_modelo(model: torch.nn.Module, tokenizer: Optional[PreTrainedTokenizerBase]) -> Optional[int]:
+    """Máximo de tokens que admite el modelo, para cuando no se fija max_seq_length (MAX_LONGITUD).
+
+    Es el menor de los límites que el modelo declara, sea cual sea su familia:
+    - max_position_embeddings (o n_positions) de su config de texto: en los multimodales (Qwen3.5, Gemma 4) no es la
+      raíz. En los modelos con posiciones desplazadas por el relleno (RoBERTa) se descuenta ese desplazamiento.
+    - model_max_length del tokenizador, si lo declara: transformers pone un número enorme (1e30) cuando no.
+    Devuelve None si el modelo no declara ninguno: la entrada queda sin recortar.
+    """
+    limites: list[int] = []
+    config = getattr(model, "config", None)
+    if config is not None and hasattr(config, "get_text_config"):
+        config = config.get_text_config()
+    for campo in ("max_position_embeddings", "n_positions"):
+        valor = getattr(config, campo, None)
+        if isinstance(valor, int) and valor > 0:
+            for nombre, modulo in model.named_modules():
+                if nombre.endswith("position_embeddings") and getattr(modulo, "padding_idx", None) is not None:
+                    valor -= modulo.padding_idx + 1
+                    break
+            limites.append(valor)
+            break
+    del_tokenizador = getattr(tokenizer, "model_max_length", None)
+    if isinstance(del_tokenizador, int) and 0 < del_tokenizador < 10**9:
+        limites.append(del_tokenizador)
+    return min(limites) if limites else None
+
+
 def build_sequence_classifier(
     config: ExperimentConfig,
     dtype: Optional[torch.dtype] = None,

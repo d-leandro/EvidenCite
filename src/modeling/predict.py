@@ -531,6 +531,12 @@ class TransformerPredictor(BasePredictor):
         device: str = "auto",
         model_name: str = "transformer_classifier",
     ) -> None:
+        if rep_config.max_seq_length is None:  # sin límite fijado: el contexto máximo del modelo, como en train.py
+            from src.modeling.heads import longitud_maxima_del_modelo
+
+            rep_config = rep_config.model_copy(
+                update={"max_seq_length": longitud_maxima_del_modelo(model, tokenizer)}
+            )
         super().__init__(rep_config)
         self.model = model
         self.tokenizer = tokenizer
@@ -559,6 +565,12 @@ class TransformerPredictor(BasePredictor):
             from src.modeling.lora.modelo import registrar_cabeza
 
             peft_cfg = PeftConfig.from_pretrained(path_str)
+            if peft_cfg.task_type == "CAUSAL_LM":
+                # Cargarlo como clasificador daría una cabeza al azar sin avisar
+                raise ValueError(
+                    f"{model_dir} es un adaptador generativo (LLM_MODO=generativo): TransformerPredictor solo carga "
+                    "clasificadores (SEQ_CLS). Para generar con él, ver src/modeling/lora/generativo.py"
+                )
             base_name = str(peft_cfg.base_model_name_or_path)
             hf_config = AutoConfig.from_pretrained(
                 base_name,
