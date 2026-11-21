@@ -458,15 +458,16 @@ def plot_fig08(df_summary, df_all) -> None:
     ax0.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
     ax0.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=10.2)
 
-    # Panel B: Barras anidadas Costo Bruto (exterior) vs. Neto (interior)
+    # Panel B: Barras agrupadas lado a lado Costo Bruto vs. Neto
     ax1 = axes[1]
+    w_b = 0.36
     ax1.bar(
-        x_v, df_summary["Costo Bruto ($)"], width=0.68,
+        x_v - w_b / 2, df_summary["Costo Bruto ($)"], width=w_b,
         color="#E2E8F0", edgecolor="#64748B", linewidth=1.0,
-        label="Bruto (sin caché)", zorder=2,
+        label="Bruto (sin caché)", zorder=3,
     )
     ax1.bar(
-        x_v, df_summary["Costo Neto ($)"], width=0.40,
+        x_v + w_b / 2, df_summary["Costo Neto ($)"], width=w_b,
         color="#1F6AA5", edgecolor="#1A202C", linewidth=0.7,
         label="Neto (con caché)", zorder=3,
     )
@@ -478,35 +479,25 @@ def plot_fig08(df_summary, df_all) -> None:
         if gross_v - net_v >= 1.5:
             sav_pct = (1.0 - net_v / gross_v) * 100.0
             ax1.text(
-                idx, gross_v + 0.42, f"-{int(round(sav_pct))}%",
-                ha="center", va="bottom", fontsize=10.2, fontweight="bold", color="#0F766E",
+                idx - w_b / 2, gross_v + 0.42, f"-{int(round(sav_pct))}%",
+                ha="center", va="bottom", fontsize=9.8, fontweight="bold", color="#0F766E",
             )
-            if gross_v - net_v >= 2.8:
-                # Espacio holgado dentro de la barra bruta sobre la barra neta
-                ax1.text(
-                    idx, net_v + 0.40, f"${fmt_es(net_v, 1)}",
-                    ha="center", va="bottom", fontsize=9.8, fontweight="bold", color="#1E3A5F",
-                    bbox=dict(facecolor="white", alpha=0.92, edgecolor="none", pad=0.7),
-                    zorder=5,
-                )
-            else:
-                # Gem 9s-B: pastilla blanca con texto azul oscuro igual a $2,3 y $3,2, centrada dentro de la barra neta
-                ax1.text(
-                    idx, net_v - 1.6, f"${fmt_es(net_v, 1)}",
-                    ha="center", va="top", fontsize=9.6, fontweight="bold", color="#1E3A5F",
-                    bbox=dict(facecolor="white", alpha=0.94, edgecolor="none", pad=0.9),
-                    zorder=5,
-                )
+            ax1.text(
+                idx + 0.02, net_v + 0.38, f"${fmt_es(net_v, 1)}",
+                ha="left", va="bottom", fontsize=8.8, fontweight="bold", color="#1E3A5F",
+                zorder=5,
+            )
         else:
             ax1.text(
                 idx, max(gross_v, net_v) + 0.42, f"${fmt_es(net_v, 1)}",
-                ha="center", va="bottom", fontsize=10.0, fontweight="bold", color="#1E3A5F",
+                ha="center", va="bottom", fontsize=9.8, fontweight="bold", color="#1E3A5F",
             )
 
     ax1.set_xticks(x_v)
     ax1.set_xticklabels(x_lbls, fontsize=10.5)
+    ax1.set_xlim(-0.6, 7.85)
     ax1.set_ylabel("Costo corrida (USD, N = 2.798)")
-    ax1.set_title("(b) Costo bruto vs. neto (ahorro caché)", pad=10)
+    ax1.set_title("(b) Costo bruto vs. neto (etiqueta = neto)", pad=10)
     ax1.set_ylim(0, 21.5)
     ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda y, _: fmt_es(y, 1)))
     ax1.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
