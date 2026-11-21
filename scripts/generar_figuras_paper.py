@@ -211,7 +211,9 @@ def load_data():
 
 
 def plot_fig02(runs, df_summary) -> None:
-    """Fig. 5 del manuscrito: Heatmap F1 por clase + Barras globales."""
+    """Fig. 5 del manuscrito: Heatmap F1 por clase + Dot/Lollipop global (Opción 5-2)."""
+    from matplotlib.lines import Line2D
+
     support_dict = runs["gpt41_zs_a"]["a6"]["per_class_support"]
     cls_order = sorted(CANONICAL_9_CLASSES, key=lambda c: support_dict[c], reverse=True)
     mat_f1 = np.array(
@@ -219,8 +221,8 @@ def plot_fig02(runs, df_summary) -> None:
         dtype=float,
     )
 
-    fig = plt.figure(figsize=(13.2, 4.8))
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.58, 1.0], wspace=0.22)
+    fig = plt.figure(figsize=(13.4, 4.85))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.52, 1.05], wspace=0.20)
 
     # Panel A: Heatmap F1 por clase
     ax0 = fig.add_subplot(gs[0, 0])
@@ -241,7 +243,7 @@ def plot_fig02(runs, df_summary) -> None:
             ax0.text(
                 j, i, fmt_es(val, 2),
                 ha="center", va="center", fontsize=11.0,
-                color="white" if val > 0.57 else "#111111",
+                color="white" if val > 0.60 else "#111111",
                 fontweight="bold",
             )
     cbar = fig.colorbar(im, ax=ax0, fraction=0.032, pad=0.025)
@@ -249,174 +251,268 @@ def plot_fig02(runs, df_summary) -> None:
     cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 1)))
     cbar.ax.tick_params(labelsize=11.0)
 
-    # Panel B: Barras horizontales globales
+    # Panel B: Dot / Lollipop plot conectado horizontal (mismo eje Y que el heatmap)
     ax1 = fig.add_subplot(gs[0, 1])
     y_pos = np.arange(len(VARIANTS))
-    h = 0.27
-    ax1.barh(y_pos - h, df_summary["Macro-F1"],    height=h, color="#2B5C8F", label="Macro-F1")
-    ax1.barh(y_pos,     df_summary["Weighted-F1"], height=h, color="#3B9C6C", label="Weighted-F1")
-    ax1.barh(y_pos + h, df_summary["Accuracy"],    height=h, color="#D97706", label="Accuracy")
-    ax1.axhline(3.5, color="#CCCCCC", linestyle="--", linewidth=1.0)
+
+    # Banda suave resaltando el óptimo global (Gem 0s-B, fila 5)
+    ax1.axhspan(4.56, 5.44, color="#FEF2F2", alpha=0.95, zorder=0)
+    ax1.axhline(3.5, color="#CBD5E1", linestyle="--", linewidth=1.1, zorder=1)
+
+    c_macro = "#1F6AA5"
+    c_acc   = "#D97706"
+    c_wf1   = "#0D9488"
 
     for idx, row in df_summary.iterrows():
-        fw = "bold" if row["vid"] == "gemini_zs_b" else "normal"
-        ax1.text(row["Macro-F1"] + 0.007, idx - h, fmt_es(row["Macro-F1"], 3), va="center", fontsize=11.0, fontweight=fw, color="#1A365D")
-        ax1.text(row["Weighted-F1"] + 0.007, idx + 0.04, fmt_es(row["Weighted-F1"], 3), va="center", fontsize=11.0, fontweight=fw, color="#1E4D36")
+        m_f1 = row["Macro-F1"]
+        acc  = row["Accuracy"]
+        w_f1 = row["Weighted-F1"]
+        is_opt = row["vid"] == "gemini_zs_b"
+        fw = "bold" if is_opt else "normal"
+
+        # Riel conector horizontal entre mínimo y máximo de las 3 métricas
+        ax1.plot(
+            [min(m_f1, acc, w_f1), max(m_f1, acc, w_f1)], [idx, idx],
+            color="#94A3B8" if not is_opt else "#475569",
+            linewidth=2.0 if not is_opt else 2.5, zorder=2,
+        )
+        # Marcadores diferenciados
+        ax1.scatter(m_f1, idx, s=88 if is_opt else 72, marker="o", color=c_macro, edgecolors="#1A202C", linewidth=0.9, zorder=4)
+        ax1.scatter(acc,  idx, s=84 if is_opt else 68, marker="^", color=c_acc,   edgecolors="#1A202C", linewidth=0.9, zorder=5)
+        ax1.scatter(w_f1, idx, s=80 if is_opt else 64, marker="s", color=c_wf1,   edgecolors="#1A202C", linewidth=0.9, zorder=4)
+
+        # Etiquetas limpias a izquierda (Macro-F1) y derecha (Weighted-F1)
+        ax1.text(m_f1 - 0.013, idx, fmt_es(m_f1, 3), va="center", ha="right", fontsize=10.5, fontweight=fw, color="#1E3A5F")
+        ax1.text(w_f1 + 0.013, idx, fmt_es(w_f1, 3), va="center", ha="left",  fontsize=10.5, fontweight=fw, color="#0F5149")
 
     ax1.set_yticks(y_pos)
     ax1.set_yticklabels([])
+    ax1.set_ylim(-0.5, len(VARIANTS) - 0.5)
     ax1.invert_yaxis()
-    ax1.set_xlim(0.35, 0.78)
+    ax1.set_xlim(0.32, 0.785)
+    ax1.set_xticks([0.35, 0.45, 0.55, 0.65, 0.75])
     ax1.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 2)))
     ax1.set_xlabel("Puntaje")
     ax1.set_title("(b) Desempeño global (N = 2.798)", pad=10)
-    ax1.grid(axis="x", linestyle="--", alpha=0.35)
-    ax1.legend(loc="upper center", bbox_to_anchor=(0.48, -0.17), ncol=3, frameon=True, framealpha=0.95, fontsize=11.0, columnspacing=0.9, handletextpad=0.4)
+    ax1.grid(axis="x", linestyle="--", alpha=0.35, zorder=0)
+
+    leg_b = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=c_macro, markeredgecolor="#1A202C", markersize=7.2, label="Macro-F1"),
+        Line2D([0], [0], marker="^", color="none", markerfacecolor=c_acc,   markeredgecolor="#1A202C", markersize=7.2, label="Accuracy"),
+        Line2D([0], [0], marker="s", color="none", markerfacecolor=c_wf1,   markeredgecolor="#1A202C", markersize=6.8, label="Weighted-F1"),
+    ]
+    ax1.legend(
+        handles=leg_b, loc="upper center", bbox_to_anchor=(0.49, -0.17),
+        ncol=3, frameon=True, framealpha=0.95, fontsize=10.5,
+        columnspacing=0.9, handletextpad=0.35,
+    )
 
     fig.savefig(OUT_DIR / "fig02_desempeno_global_y_por_clase.png", bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_fig03(gold_df, runs, df_all) -> None:
-    """Fig. 6 del manuscrito: Matrices de confusión 0s-B (% fila) + Exactitud por macro-sección."""
-    fig = plt.figure(figsize=(15.6, 5.1))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.18, 1.32], wspace=0.48)
+    """Fig. 6 del manuscrito: Matrices diferenciadas por modelo (Blues vs Reds, %) + Dumbbell A->B (Opción 6-1)."""
+    from matplotlib.lines import Line2D
+
+    fig = plt.figure(figsize=(16.0, 5.15))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.12, 1.12, 1.32], wspace=0.42)
 
     short_9 = ["Bkg", "Gap", "Bas", "Cmp", "App", "Imp", "Evi", "Org", "F.R."]
+    color_gpt = "#1F6AA5"
+    color_gem = "#C53030"
 
-    for col_idx, (vid, title_txt) in enumerate([
-        ("gpt41_zs_b",  "(a) GPT-4.1-mini 0s-B (% fila)"),
-        ("gemini_zs_b", "(b) Gemini-3.8-Flash 0s-B (% fila)"),
+    for col_idx, (vid, title_txt, cmap_name, title_color) in enumerate([
+        ("gpt41_zs_b",  "(a) GPT-4.1-mini 0s-B (% fila)",   "Blues", "#1A4D7A"),
+        ("gemini_zs_b", "(b) Gemini-3.8-Flash 0s-B (% fila)", "Reds",  "#9B2226"),
     ]):
         ax = fig.add_subplot(gs[0, col_idx])
         cm = np.array(runs[vid]["a6"]["confusion_matrix"], dtype=float)
-        cm_norm = cm / np.maximum(cm.sum(axis=1, keepdims=True), 1.0)
-        im = ax.imshow(cm_norm, cmap="Blues", vmin=0.0, vmax=0.95)
-        ax.set_title(title_txt, pad=10)
+        cm_pct = (cm / np.maximum(cm.sum(axis=1, keepdims=True), 1.0)) * 100.0
+        im = ax.imshow(cm_pct, cmap=cmap_name, vmin=0.0, vmax=100.0)
+        ax.set_title(title_txt, pad=10, color=title_color)
         ax.set_xticks(range(9))
         ax.set_yticks(range(9))
-        ax.set_xticklabels(short_9, rotation=38, ha="right", rotation_mode="anchor", fontsize=11.0)
-        ax.set_yticklabels(short_9, fontsize=11.0)
+        ax.set_xticklabels(short_9, rotation=38, ha="right", rotation_mode="anchor", fontsize=10.5)
+        ax.set_yticklabels(short_9, fontsize=10.5)
         ax.set_xlabel("Predicción")
         if col_idx == 0:
             ax.set_ylabel("Etiqueta real")
         for i in range(9):
             for j in range(9):
-                val = cm_norm[i, j]
-                if val >= 0.08 or i == j:
-                    txt = f"{int(round(val * 100))}"
+                val = cm_pct[i, j]
+                if val >= 8.0 or i == j:
+                    txt = f"{int(round(val))}"
                     ax.text(
                         j, i, txt,
-                        ha="center", va="center", fontsize=11.0,
+                        ha="center", va="center", fontsize=10.5,
                         fontweight="bold" if i == j else "normal",
-                        color="white" if val > 0.48 else "#111111",
+                        color="white" if val > 52.0 else "#111111",
                     )
+        cbar = fig.colorbar(im, ax=ax, fraction=0.044, pad=0.03)
+        cbar.set_ticks([0, 25, 50, 75, 100])
+        cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x)}%"))
+        cbar.ax.tick_params(labelsize=9.8)
         if col_idx == 1:
-            cbar = fig.colorbar(im, ax=ax, fraction=0.044, pad=0.035)
-            cbar.set_label("Proporción", fontsize=11.0)
-            cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 1)))
-            cbar.ax.tick_params(labelsize=11.0)
+            cbar.set_label("% fila", fontsize=10.5)
 
-    # Panel C: Exactitud por macro-sección citante (0-Shot)
+    # Panel C: Gráfico Dumbbell pareado (Config A -> Config B) por macro-sección citante
     ax2 = fig.add_subplot(gs[0, 2])
     sec_counts = gold_df["macro_section"].value_counts()
     sec_order = ["Related Work", "Intro / Prelim", "Experiments", "Method / Setup", "Otras", "Conclusion", "Sin sección"]
     sec_order = [s for s in sec_order if s in sec_counts.index]
     x_s = np.arange(len(sec_order))
 
-    focus_styles = [
-        ("gemini_zs_b", "Gem 0s-B", "-",  "D", 2.4, 6.2),
-        ("gemini_zs_a", "Gem 0s-A", "--", "o", 2.0, 5.5),
-        ("gpt41_zs_b",  "GPT 0s-B", "-",  "s", 2.4, 5.8),
-        ("gpt41_zs_a",  "GPT 0s-A", "--", "^", 2.0, 5.5),
-    ]
-    for vid, lbl, ls, mk, lw, ms in focus_styles:
-        vals = [
+    def sec_acc(vid: str) -> list[float]:
+        return [
             df_all[(df_all["vid"] == vid) & (df_all["macro_section"] == s)]["is_correct"].mean() * 100.0
             for s in sec_order
         ]
-        ax2.plot(x_s, vals, marker=mk, linestyle=ls, linewidth=lw, markersize=ms, color=COLORS[vid], label=lbl)
 
-    rw_b = df_all[(df_all["vid"] == "gpt41_zs_b") & (df_all["macro_section"] == "Related Work")]["is_correct"].mean() * 100.0
+    gpt_a = sec_acc("gpt41_zs_a")
+    gpt_b = sec_acc("gpt41_zs_b")
+    gem_a = sec_acc("gemini_zs_a")
+    gem_b = sec_acc("gemini_zs_b")
+
+    offset = 0.14
+    for i in range(len(sec_order)):
+        # Guía vertical suave por categoría
+        ax2.axvline(i, color="#E2E8F0", linewidth=0.9, zorder=0)
+
+        # Dumbbell GPT (izquierda, azul)
+        xg = i - offset
+        ax2.plot([xg, xg], [gpt_a[i], gpt_b[i]], color=color_gpt, linewidth=2.2, zorder=2)
+        ax2.scatter(xg, gpt_a[i], s=76, marker="o", facecolors="white", edgecolors=color_gpt, linewidth=1.9, zorder=4)
+        ax2.scatter(xg, gpt_b[i], s=84, marker="o", facecolors=color_gpt, edgecolors="#1A202C", linewidth=1.0, zorder=5)
+
+        # Dumbbell Gemini (derecha, rojo)
+        xm = i + offset
+        ax2.plot([xm, xm], [gem_a[i], gem_b[i]], color=color_gem, linewidth=2.2, zorder=2)
+        ax2.scatter(xm, gem_a[i], s=76, marker="o", facecolors="white", edgecolors=color_gem, linewidth=1.9, zorder=4)
+        ax2.scatter(xm, gem_b[i], s=84, marker="o", facecolors=color_gem, edgecolors="#1A202C", linewidth=1.0, zorder=5)
+
+    # Anotación destacada del salto +10,3 pp en Related Work para GPT
     ax2.annotate(
         "+10,3 pp",
-        xy=(0, rw_b), xytext=(0.40, 61.5),
-        fontsize=11.0, fontweight="bold", color="#0D9488",
-        arrowprops=dict(arrowstyle="->", color="#0D9488", lw=1.5),
+        xy=(-offset, gpt_b[0] + 0.8),
+        xytext=(0.42, 60.5),
+        fontsize=10.6, fontweight="bold", color=color_gpt,
+        arrowprops=dict(arrowstyle="->", color=color_gpt, lw=1.4),
+        zorder=6,
     )
 
     ax2.set_xticks(x_s)
     ax2.set_xticklabels(
         [f"{s} ({fmt_int_es(sec_counts[s])})" for s in sec_order],
-        rotation=32, ha="right", rotation_mode="anchor", fontsize=11.0,
+        rotation=32, ha="right", rotation_mode="anchor", fontsize=10.5,
     )
+    ax2.set_xlim(-0.55, len(sec_order) - 0.45)
     ax2.set_ylabel("Accuracy (%)")
     ax2.set_ylim(26, 84)
-    ax2.set_title("(c) Exactitud por macro-sección (0-Shot)", pad=10)
-    ax2.grid(linestyle="--", alpha=0.35)
-    ax2.legend(loc="lower center", ncol=2, frameon=True, framealpha=0.95, fontsize=11.0)
+    ax2.set_title("(c) Exactitud A $\\rightarrow$ B por macro-sección (0-Shot)", pad=10)
+    ax2.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
+
+    leg_c = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.2, label="GPT-4.1-mini"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.2, label="Gemini-3.8-Flash"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.2, label="Config B (local)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="white",   markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.2, label="Config A (global)"),
+    ]
+    ax2.legend(
+        handles=leg_c, loc="lower center", ncol=2,
+        frameon=True, framealpha=0.95, fontsize=9.5,
+        handletextpad=0.35, columnspacing=0.9, borderpad=0.4,
+    )
 
     fig.savefig(OUT_DIR / "fig03_confusiones_criticas_y_seccion_citante.png", bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_fig08(df_summary, df_all) -> None:
-    """Fig. 7 del manuscrito: Tokens + Costo Bruto/Neto + Latencia Hit vs Miss."""
-    fig, axes = plt.subplots(1, 3, figsize=(15.4, 4.7))
+    """Fig. 7 del manuscrito: Tokens + Costo anidado Bruto/Neto + Latencia Hit vs Miss (Opción 7-1)."""
+    fig, axes = plt.subplots(1, 3, figsize=(15.6, 4.75))
     x_v = np.arange(len(VARIANTS))
     x_lbls = [f"{'GPT' if 'gpt' in v[0] else 'Gem'}\n{v[5]}s-{v[6]}" for v in VARIANTS]
 
-    # Panel A: Millones de tokens
+    # Panel A: Millones de tokens (paleta sobria daltónico-segura + separador GPT | Gemini)
     ax0 = axes[0]
     uncached_m = [df_all[df_all["vid"] == v[0]]["uncached_input_tokens"].sum() / 1e6 for v in VARIANTS]
     cached_m   = [df_all[df_all["vid"] == v[0]]["cached_input_tokens"].sum() / 1e6 for v in VARIANTS]
     out_th_m   = [(df_all[df_all["vid"] == v[0]]["output_tokens"].sum() + df_all[df_all["vid"] == v[0]]["thoughts_tokens"].sum()) / 1e6 for v in VARIANTS]
     pct_cache  = [df_all[df_all["vid"] == v[0]]["cached_input_tokens"].sum() / df_all[df_all["vid"] == v[0]]["input_tokens"].sum() * 100.0 for v in VARIANTS]
 
-    ax0.bar(x_v, uncached_m, color="#D97706", label="Entrada sin caché")
-    ax0.bar(x_v, cached_m, bottom=uncached_m, color="#0D9488", label="Entrada cacheada")
-    ax0.bar(x_v, out_th_m, bottom=np.array(uncached_m) + np.array(cached_m), color="#6B46C1", label="Salida + pensam.")
+    ax0.bar(x_v, uncached_m, width=0.66, color="#5B7C99", label="Entrada sin caché", zorder=3)
+    ax0.bar(x_v, cached_m, width=0.66, bottom=uncached_m, color="#0D9488", label="Entrada cacheada", zorder=3)
+    ax0.bar(x_v, out_th_m, width=0.66, bottom=np.array(uncached_m) + np.array(cached_m), color="#E07A5F", label="Salida + pensam.", zorder=3)
+    ax0.axvline(3.5, color="#CBD5E1", linestyle="--", linewidth=1.1, zorder=1)
+
     for i, pct in enumerate(pct_cache):
         tot = uncached_m[i] + cached_m[i] + out_th_m[i]
         if pct >= 4.0:
-            ax0.text(i, tot + 0.55, f"{fmt_es(pct, 0)}%", ha="center", va="bottom", fontsize=11.0, fontweight="bold", color="#0F766E")
+            ax0.text(i, tot + 0.55, f"{fmt_es(pct, 0)}%", ha="center", va="bottom", fontsize=10.5, fontweight="bold", color="#0F766E")
     ax0.set_xticks(x_v)
-    ax0.set_xticklabels(x_lbls, fontsize=11.0)
+    ax0.set_xticklabels(x_lbls, fontsize=10.5)
     ax0.set_ylabel("Millones de tokens")
     ax0.set_title("(a) Tokens y tasa de caché", pad=10)
     ax0.set_ylim(0, 31.0)
-    ax0.grid(axis="y", linestyle="--", alpha=0.35)
-    ax0.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=11.0)
+    ax0.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
+    ax0.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=10.2)
 
-    # Panel B: Costo Bruto vs Neto USD
+    # Panel B: Barras anidadas Costo Bruto (exterior) vs. Neto (interior)
     ax1 = axes[1]
-    w = 0.38
-    ax1.bar(x_v - w / 2, df_summary["Costo Bruto ($)"], width=w, color="#BFDBFE", edgecolor="#1D4ED8", linewidth=0.9, label="Bruto (sin caché)")
-    ax1.bar(x_v + w / 2, df_summary["Costo Neto ($)"],  width=w, color="#1D4ED8", label="Neto (con caché)")
+    ax1.bar(
+        x_v, df_summary["Costo Bruto ($)"], width=0.68,
+        color="#E2E8F0", edgecolor="#64748B", linewidth=1.0,
+        label="Bruto (sin caché)", zorder=2,
+    )
+    ax1.bar(
+        x_v, df_summary["Costo Neto ($)"], width=0.40,
+        color="#1F6AA5", edgecolor="#1A202C", linewidth=0.7,
+        label="Neto (con caché)", zorder=3,
+    )
+    ax1.axvline(3.5, color="#CBD5E1", linestyle="--", linewidth=1.1, zorder=1)
+
     for idx, r in df_summary.iterrows():
         gross_v = r["Costo Bruto ($)"]
         net_v = r["Costo Neto ($)"]
         if gross_v - net_v >= 1.5:
-            # Barras con ahorro grande: colocar neto sobre barra azul oscura y % ahorro sobre la barra bruta
             sav_pct = (1.0 - net_v / gross_v) * 100.0
             ax1.text(
-                idx + w / 2 + 0.10, net_v + 0.35, f"${fmt_es(net_v, 1)}",
-                ha="center", va="bottom", fontsize=10.0, fontweight="bold", color="#1E3A8A",
-                bbox=dict(facecolor="white", alpha=0.90, edgecolor="none", pad=0.6),
+                idx, gross_v + 0.42, f"-{int(round(sav_pct))}%",
+                ha="center", va="bottom", fontsize=10.2, fontweight="bold", color="#0F766E",
             )
-            ax1.text(idx - w / 2, gross_v + 0.35, f"-{int(round(sav_pct))}%", ha="center", va="bottom", fontsize=10.0, fontweight="bold", color="#0F766E")
+            if gross_v - net_v >= 2.8:
+                # Espacio holgado dentro de la barra bruta sobre la barra neta
+                ax1.text(
+                    idx, net_v + 0.40, f"${fmt_es(net_v, 1)}",
+                    ha="center", va="bottom", fontsize=9.8, fontweight="bold", color="#1E3A5F",
+                    bbox=dict(facecolor="white", alpha=0.92, edgecolor="none", pad=0.7),
+                    zorder=5,
+                )
+            else:
+                # Gem 9s-B: pastilla blanca con texto azul oscuro igual a $2,3 y $3,2, centrada dentro de la barra neta
+                ax1.text(
+                    idx, net_v - 1.6, f"${fmt_es(net_v, 1)}",
+                    ha="center", va="top", fontsize=9.6, fontweight="bold", color="#1E3A5F",
+                    bbox=dict(facecolor="white", alpha=0.94, edgecolor="none", pad=0.9),
+                    zorder=5,
+                )
         else:
-            ax1.text(idx, max(gross_v, net_v) + 0.42, f"${fmt_es(net_v, 1)}", ha="center", va="bottom", fontsize=10.5, fontweight="bold", color="#1E3A8A")
+            ax1.text(
+                idx, max(gross_v, net_v) + 0.42, f"${fmt_es(net_v, 1)}",
+                ha="center", va="bottom", fontsize=10.0, fontweight="bold", color="#1E3A5F",
+            )
+
     ax1.set_xticks(x_v)
-    ax1.set_xticklabels(x_lbls, fontsize=11.0)
+    ax1.set_xticklabels(x_lbls, fontsize=10.5)
     ax1.set_ylabel("Costo corrida (USD, N = 2.798)")
-    ax1.set_title("(b) Costo bruto vs. neto (etiqueta = neto)", pad=10)
+    ax1.set_title("(b) Costo bruto vs. neto (ahorro caché)", pad=10)
     ax1.set_ylim(0, 21.5)
     ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda y, _: fmt_es(y, 1)))
-    ax1.grid(axis="y", linestyle="--", alpha=0.35)
-    ax1.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=11.0)
+    ax1.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
+    ax1.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=10.2)
 
-    # Panel C: Latencia p50 Cache Miss vs Cache Hit (9-Shot)
+    # Panel C: Latencia p50 Cache Miss vs Cache Hit (paleta daltónico-segura gris/teal)
     ax2 = axes[2]
     fs_vids = ["gpt41_fs_a", "gpt41_fs_b", "gemini_fs_a", "gemini_fs_b"]
     pos = np.arange(len(fs_vids))
@@ -425,19 +521,24 @@ def plot_fig08(df_summary, df_all) -> None:
         sub = df_all[df_all["vid"] == v]
         hit_meds.append(sub[sub["cached_input_tokens"] > 0]["latency_ms"].median() / 1000.0)
         miss_meds.append(sub[sub["cached_input_tokens"] == 0]["latency_ms"].median() / 1000.0)
-    ax2.bar(pos - w / 2, miss_meds, width=w, color="#DC2626", alpha=0.85, label="Cache Miss (p50)")
-    ax2.bar(pos + w / 2, hit_meds,  width=w, color="#16A34A", alpha=0.88, label="Cache Hit (p50)")
+
+    w_c = 0.34
+    ax2.bar(pos - w_c / 2 - 0.02, miss_meds, width=w_c, color="#64748B", edgecolor="#334155", linewidth=0.7, label="Cache Miss (p50)", zorder=3)
+    ax2.bar(pos + w_c / 2 + 0.02, hit_meds,  width=w_c, color="#0D9488", edgecolor="#0F766E", linewidth=0.7, label="Cache Hit (p50)",  zorder=3)
+    ax2.axvline(1.5, color="#CBD5E1", linestyle="--", linewidth=1.1, zorder=1)
+
     for i in pos:
-        ax2.text(i - w / 2 - 0.03, miss_meds[i] + 0.07, f"{fmt_es(miss_meds[i], 2)} s", ha="center", va="bottom", fontsize=10.5)
-        ax2.text(i + w / 2 + 0.05, hit_meds[i] + 0.07,  f"{fmt_es(hit_meds[i], 2)} s",  ha="center", va="bottom", fontsize=10.5)
+        ax2.text(i - w_c / 2 - 0.06, miss_meds[i] + 0.07, f"{fmt_es(miss_meds[i], 2)} s", ha="center", va="bottom", fontsize=9.8, color="#334155")
+        ax2.text(i + w_c / 2 + 0.06, hit_meds[i] + 0.07,  f"{fmt_es(hit_meds[i], 2)} s",  ha="center", va="bottom", fontsize=9.8, fontweight="bold", color="#0F766E")
+
     ax2.set_xticks(pos)
-    ax2.set_xticklabels(["GPT\n9s-A", "GPT\n9s-B", "Gem\n9s-A", "Gem\n9s-B"], fontsize=11.0)
+    ax2.set_xticklabels(["GPT\n9s-A", "GPT\n9s-B", "Gem\n9s-A", "Gem\n9s-B"], fontsize=10.5)
     ax2.set_ylabel("Latencia mediana p50 (s)")
     ax2.set_title("(c) Latencia con caché (9-Shot)", pad=10)
     ax2.set_ylim(0, 3.35)
     ax2.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 1)))
-    ax2.grid(axis="y", linestyle="--", alpha=0.35)
-    ax2.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=11.0)
+    ax2.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
+    ax2.legend(loc="upper left", frameon=True, framealpha=0.95, fontsize=10.2)
 
     fig.tight_layout(w_pad=2.0)
     fig.savefig(OUT_DIR / "fig08_tokens_cache_eficiencia_y_costos.png", bbox_inches="tight")
@@ -554,7 +655,7 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
         handletextpad=0.4, columnspacing=0.9, borderpad=0.45,
     )
 
-    # Panel B: Sensibilidad sobre Gold Humano por estrato previo A1/A2
+    # Panel B: Sensibilidad sobre Gold Humano por estrato previo A1/A2 (Opción 8b-1: paleta unificada)
     ax1 = axes[1]
     strata_order = [
         "Human Gold\n(MultiCite)",
@@ -565,36 +666,53 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     st_counts = gold_df["stratum"].value_counts()
     xs = np.arange(len(strata_order))
 
+    color_gem_soft = "#D96B6B"
+    color_gpt_soft = "#6B9AC4"
+
+    # (vid, label, color, linestyle, marker, lw, ms, hollow)
     plot_specs = [
-        ("gemini_zs_b", "Gem 0s-B", "-",  "D", 2.5, 6.5),
-        ("gemini_zs_a", "Gem 0s-A", ":",  "o", 1.9, 5.0),
-        ("gemini_fs_b", "Gem 9s-B", "--", "s", 1.9, 5.0),
-        ("gpt41_zs_b",  "GPT 0s-B", "-",  "s", 2.3, 6.0),
-        ("gpt41_zs_a",  "GPT 0s-A", ":",  "^", 1.9, 5.0),
-        ("gpt41_fs_b",  "GPT 9s-B", "--", "v", 1.9, 5.0),
+        ("gemini_zs_b", "Gem 0s-B", color_gem,      "-",  "o", 2.5, 6.8, False),
+        ("gpt41_zs_b",  "GPT 0s-B", color_gpt,      "-",  "o", 2.5, 6.8, False),
+        ("gemini_zs_a", "Gem 0s-A", color_gem,      ":",  "o", 1.9, 6.2, True),
+        ("gpt41_zs_a",  "GPT 0s-A", color_gpt,      ":",  "o", 1.9, 6.2, True),
+        ("gemini_fs_b", "Gem 9s-B", color_gem_soft, "--", "s", 1.7, 5.6, True),
+        ("gpt41_fs_b",  "GPT 9s-B", color_gpt_soft, "--", "s", 1.7, 5.6, True),
     ]
-    for vid, lbl, ls, mk, lw, ms in plot_specs:
+    for vid, lbl, col, ls, mk, lw, ms, hollow in plot_specs:
         vals = [
             df_all[(df_all["vid"] == vid) & (df_all["stratum"] == st)]["is_correct"].mean() * 100.0
             for st in strata_order
         ]
-        ax1.plot(xs, vals, marker=mk, linestyle=ls, linewidth=lw, markersize=ms, color=COLORS[vid], label=lbl)
+        ax1.plot(
+            xs, vals,
+            marker=mk, linestyle=ls, linewidth=lw, markersize=ms,
+            color=col,
+            markerfacecolor="white" if hollow else col,
+            markeredgecolor=col if hollow else "#1A202C",
+            markeredgewidth=1.7 if hollow else 0.9,
+            label=lbl,
+            zorder=4 if not hollow else 3,
+        )
 
     nr_gem = df_all[(df_all["vid"] == "gemini_zs_b") & (df_all["stratum"] == "Needs Review\n(Desacuerdo)")]["is_correct"].mean() * 100.0
     ax1.annotate(
         f"{fmt_es(nr_gem, 1)}%",
-        xy=(3, nr_gem), xytext=(2.48, nr_gem + 4.5),
-        fontsize=11.0, fontweight="bold", color="#C53030",
-        arrowprops=dict(arrowstyle="->", color="#C53030", lw=1.4),
+        xy=(3, nr_gem + 0.5), xytext=(2.48, nr_gem + 4.8),
+        fontsize=10.8, fontweight="bold", color=color_gem,
+        arrowprops=dict(arrowstyle="->", color=color_gem, lw=1.4),
     )
 
     ax1.set_xticks(xs)
-    ax1.set_xticklabels([f"{st}\n(n={fmt_int_es(st_counts[st])})" for st in strata_order], fontsize=11.0)
+    ax1.set_xticklabels([f"{st}\n(n={fmt_int_es(st_counts[st])})" for st in strata_order], fontsize=10.5)
     ax1.set_ylabel("Accuracy sobre Gold A3 (%)")
-    ax1.set_ylim(38, 80)
+    ax1.set_ylim(37, 80)
     ax1.set_title("(b) Exactitud por estrato previo A1/A2", pad=10)
-    ax1.grid(linestyle="--", alpha=0.35)
-    ax1.legend(loc="lower left", ncol=3, frameon=True, framealpha=0.95, fontsize=11.0)
+    ax1.grid(linestyle="--", alpha=0.32, zorder=0)
+    ax1.legend(
+        loc="lower left", ncol=3,
+        frameon=True, framealpha=0.95, fontsize=9.8,
+        columnspacing=0.9, handletextpad=0.4, borderpad=0.45,
+    )
 
     fig.tight_layout(w_pad=2.0)
     fig.savefig(OUT_DIR / "fig11_frontera_pareto_y_sensibilidad_panel.png", bbox_inches="tight")
