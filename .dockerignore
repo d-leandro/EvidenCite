@@ -11,3 +11,6 @@ tests/
 docs/
 documentacion/
 *.ipynb
+
+# Local Terraform cache
+**/.terraform/

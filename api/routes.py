@@ -17,6 +17,55 @@ def get_labels():
 
 @router.post("/predict")
 def predict(request: PredictionRequest):
+    if request.model_id in ("tfidf-a", "tfidf-b"):
+        from api.tfidf_runtime import tfidf_available, predict_tfidf
+
+        if not tfidf_available():
+            raise HTTPException(
+                status_code=503,
+                detail="TF-IDF runtime is unavailable.",
+            )
+
+        try:
+            return predict_tfidf(request.model_id, request)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=str(exc),
+            ) from exc
+        except (RuntimeError, OSError) as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"TF-IDF inference failed: {exc}",
+            ) from exc
+
+    if request.model_id == "scibert-a":
+        from api.real_models import scibert_available, predict_scibert
+        if not scibert_available("scibert-a"):
+            raise HTTPException(
+                status_code=503,
+                detail="SciBERT A artifacts are unavailable.",
+            )
+        try:
+            return predict_scibert("scibert-a", request)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if request.model_id == "scibert-b":
+        from api.real_models import (
+            scibert_b_available,
+            predict_scibert_b,
+        )
+        if not scibert_b_available():
+            raise HTTPException(
+                status_code=503,
+                detail="SciBERT B artifacts are unavailable.",
+            )
+        try:
+            return predict_scibert_b(request)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     if request.model_id == "demo-workflow":
         enabled = os.getenv("ENABLE_DEMO_MODEL", "").lower() in ("true", "1", "yes")
         if not enabled:

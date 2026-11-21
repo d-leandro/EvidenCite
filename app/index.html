@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
@@ -7,7 +7,7 @@
 
     <title>EvidenCite</title>
 
-    <link rel="stylesheet" href="/static/styles.css?v=7">
+    <link rel="stylesheet" href="/static/styles.css?v=18">
 </head>
 
 <body>
@@ -24,23 +24,59 @@
 
             <div>
                 <h1>EvidenCite</h1>
-                <p>Semantic Citation Function Classifier</p>
+                <p>Clasificador de funciones de citas científicas</p>
             </div>
 
         </div>
 
         <div class="model-status">
             <span class="status-dot"></span>
-            Model:
+            Modelo:
             <select id="model-selector">
-                <option>Loading models...</option>
+                <option>Cargando modelos...</option>
             </select>
         </div>
 
     </header>
 
 
-    <nav class="tabs">
+
+<section id="configuration-switch" class="configuration-switch"
+         aria-label="Configuración del análisis">
+    <div class="configuration-switch-header">
+        <span class="configuration-eyebrow">MODO DE ANÁLISIS</span>
+        <span id="configuration-indicator">CONFIGURACIÓN A</span>
+    </div>
+
+    <div class="configuration-options" role="group"
+         aria-label="Seleccionar configuración">
+        <button type="button" class="configuration-option active"
+                data-config-choice="A" aria-pressed="true">
+            <span class="configuration-symbol">A</span>
+            <span>
+                <strong>Configuración A</strong>
+                <small>Título y resumen</small>
+            </span>
+        </button>
+
+        <button type="button" class="configuration-option"
+                data-config-choice="B" aria-pressed="false">
+            <span class="configuration-symbol">B</span>
+            <span>
+                <strong>Configuración B</strong>
+                <small>Fragmentos de evidencia</small>
+            </span>
+        </button>
+    </div>
+
+    <p id="configuration-description" class="configuration-description"
+       aria-live="polite">
+        Necesitas el contexto de la cita, la cita objetivo,
+        el título y el resumen del artículo citado.
+    </p>
+</section>
+
+<nav class="tabs">
 
         <button
             class="tab active"
@@ -66,7 +102,7 @@
             <div class="input-panel panel">
 
                 <div class="panel-title cyan">
-                    ENTRADA DE DATOS [INPUT]
+                    ENTRADA DE DATOS
                 </div>
 
                 <div class="input-header">
@@ -74,12 +110,12 @@
                     <div>
                         <h2>Ingrese el contexto de la cita en inglés</h2>
                         <p>
-                            Paste the academic citation context to classify.
+                            Escribe o pega el contexto académico que deseas clasificar.
                         </p>
                     </div>
 
                     <span class="input-format">
-                        Format: Raw Text
+                        Formato: texto
                     </span>
 
                 </div>
@@ -93,11 +129,11 @@
                         minlength="20"
                         maxlength="5000"
                         required
-                        placeholder="Paste the citation context here..."
+                        placeholder="Escribe o pega aquí el contexto de la cita..."
                     ></textarea>
 
                     <label for="target-citation">
-                        Target citation
+                        Cita objetivo
                     </label>
                     <input
                         id="target-citation"
@@ -109,8 +145,44 @@
 
 
 
+
+<div id="config-a-fields" class="panel hidden"
+     style="margin: 20px 0; padding: 20px;">
+    <h3>CONFIGURACIÓN A : TÍTULO Y RESUMEN</h3>
+    <p class="paper-help">
+        Completa estos campos, busca el artículo citado
+        o extrae la información de un PDF.
+    </p>
+
+    <label for="cited-title">TÍTULO DEL ARTÍCULO CITADO</label>
+    <input id="cited-title" type="text"
+           placeholder="Escribe el título del artículo citado">
+
+    <label for="cited-abstract"
+           style="display:block; margin-top:16px;">
+        RESUMEN DEL ARTÍCULO CITADO
+    </label>
+    <textarea id="cited-abstract" rows="5"
+              style="min-height:130px;"
+              placeholder="Escribe o pega el resumen del artículo citado"></textarea>
+</div>
+
 <section class="paper-lookup">
-    <label for="paper-query">CITED PAPER — TITLE OR ARXIV ID</label>
+    <label for="paper-query">ARTÍCULO CITADO: TÍTULO O ID DE ARXIV
+
+<span class="paper-help-icon" tabindex="0"
+      aria-label="Información sobre la búsqueda por título"
+      aria-describedby="paper-title-tooltip">
+    i
+    <span id="paper-title-tooltip" class="paper-help-tooltip"
+          role="tooltip">
+        Escribe el título completo del artículo, tal como aparece
+        publicado. Las mayúsculas y minúsculas no importan.
+        Un título incompleto podría no encontrar resultados.
+        También puedes utilizar el identificador de arXiv.
+    </span>
+</span>
+</label>
 
     <div class="paper-search-row">
         <input
@@ -119,17 +191,17 @@
             placeholder="Attention Is All You Need / 1706.03762"
         >
         <button id="paper-search-button" type="button">
-            SEARCH
+            BUSCAR
         </button>
     </div>
 
     <p class="paper-help">
-        Optional. Search and confirm the paper to provide evidence for Configuration A.
+        Busca y confirma el artículo para obtener sus datos.
     </p>
 
     <div id="paper-result" class="paper-result hidden"></div>
 <div class="pdf-upload-panel">
-    <label for="pdf-file">OR UPLOAD THE CITED PAPER</label>
+    <label for="pdf-file">O SUBE EL PDF DEL ARTÍCULO</label>
 
     <div class="pdf-upload-row">
         <input
@@ -138,23 +210,23 @@
             accept=".pdf,application/pdf"
         >
         <button id="pdf-upload-button" type="button">
-            PROCESS PDF
+            PROCESAR PDF
         </button>
     </div>
 
     <p class="paper-help">
-        Maximum 20 MB. First-time PDF extraction may take a few minutes.
+        Tamaño máximo: 20 MB. La primera extracción puede tardar unos minutos.
     </p>
 
     <label class="pdf-match-warning">
     <input id="pdf-match-confirmation" type="checkbox">
     <span>
-        I confirm this PDF corresponds to the target citation.
-        EvidenCite does not automatically verify this relationship.
+        Confirmo que este PDF corresponde a la cita objetivo.
+        EvidenCite no verifica automáticamente esta correspondencia.
     </span>
 </label>
 
-<div id="pdf-upload-result"></div>
+<div id="pdf-upload-result" role="status" aria-live="polite"></div>
 </div>
 
 </section>
@@ -186,8 +258,8 @@
 
 
             <aside class="taxonomy-panel panel">
-    <div class="panel-title cyan">CITATION FUNCTIONS</div>
-    <div id="taxonomy-list">Loading categories...</div>
+    <div class="panel-title cyan">FUNCIONES DE LAS CITAS</div>
+    <div id="taxonomy-list">Cargando categorías...</div>
 </aside>
 
         </section>
@@ -199,7 +271,7 @@
         >
 
             <div class="panel-title green">
-                RESULTADOS DE LA CLASIFICACIÓN [OUTPUT]
+                RESULTADOS DE LA CLASIFICACIÓN
             </div>
 
 
@@ -212,7 +284,7 @@
                     </span>
 
                     <p class="field-description">
-                        Identified primary function of this citation reference.
+                        Función principal identificada para esta cita.
                     </p>
 
                 </div>
@@ -237,7 +309,7 @@
                     </span>
 
                     <p class="field-description">
-                        Probability score for the predicted intent.
+                        Probabilidad asociada con la intención predicha.
                     </p>
 
                 </div>
@@ -281,7 +353,9 @@
 </div>
 
 
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=14"></script>
 
+<script src="/static/readiness.js?v=1"></script>
+<script src="/static/source-method.js?v=1"></script>
 </body>
 </html>

@@ -75,3 +75,39 @@ def retrieve_pdf_evidence(
         "cited_chunk_sections": result.cited_chunk_sections or [],
         "count": len(chunks),
     }
+
+
+
+@router.post("/metadata/pdf")
+def extract_pdf_metadata(file: UploadFile = File(...)):
+    """Extract title and abstract for Configuration A, without chunk retrieval."""
+
+    try:
+        contents = file.file.read(MAX_PDF_BYTES + 1)
+    finally:
+        file.file.close()
+
+    if len(contents) > MAX_PDF_BYTES:
+        raise HTTPException(413, "PDF exceeds 20 MB limit.")
+
+    if not contents.startswith(b"%PDF-"):
+        raise HTTPException(422, "A valid PDF file is required.")
+
+    with TemporaryDirectory(prefix="evidencite-metadata-") as directory:
+        pdf_path = Path(directory) / f"{sha256(contents).hexdigest()[:16]}.pdf"
+        pdf_path.write_bytes(contents)
+
+        paper = get_pdf_parser().parse_pdf_to_structured_paper(pdf_path)
+
+    if paper is None:
+        raise HTTPException(
+            422,
+            "Unable to extract metadata from this PDF.",
+        )
+
+    return {
+        "source": "uploaded_pdf",
+        "cited_title": paper.title or "",
+        "cited_abstract": paper.abstract or "",
+        "requires_review": True,
+    }
