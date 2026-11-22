@@ -15,6 +15,7 @@
 
 \renewcommand{\IEEEkeywordsname}{Palabras clave}
 \addto\captionsspanish{\renewcommand{\appendixname}{Anexo}}
+\renewcommand{\IEEEbibitemsep}{0.5pt plus 0.5pt}
 \newcommand{\pct}{\mbox{\symbol{37}}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcolumntype{C}{>{\centering\arraybackslash}X}
@@ -87,7 +88,7 @@ Desde la dicotomía conceptual-operacional de Moravcsik y Murugesan~\cite{moravc
 
 Dos trabajos mostraron los límites de esos esquemas reducidos. Lauscher et al.~\cite{lauscher2022multicite} crearon \textit{MultiCite} ($12.653$ contextos en $1.193$ artículos de S2ORC~\cite{lo2020s2orc}, 7 clases, acuerdo humano $0,70$), evidenciando alta co-ocurrencia pragmática entre funciones cercanas (máxima información mutua entre extensión y contraste). En su Tabla 3 sobre exactitud débil y estricta (\textit{Weak/Strict Accuracy}), aunque una oración ($s=1$: $0,74/0,62$) supera ligeramente a tres oraciones en el global ($s=3$: $0,72/0,60$), la ventana $s=3$ eleva sustancialmente la exactitud estricta en citas multi-oración (de $0,28$ a $0,39$ para citas de tamaño 2) sin la degradación observada con $s \ge 5$.
 
-En paralelo, la meta-síntesis de Lyu et al.~\cite{lyu2021classification} sobre 38 estudios (1965--2018) consolidó diez motivaciones científicas. Excluyendo \textit{Assessment} por corresponder a polaridad evaluativa ortogonal, EvidenCite adopta las nueve funciones retóricas observables en texto: Background, Gap, Basis, Comparison, Application, Improvement, Evidence, Originator y Further Reading~\cite{lyu2021classification,zhang2025deep}.
+En paralelo, la meta-síntesis de Lyu et al.~\cite{lyu2021classification} sobre 38 estudios (1965--2018) consolidó diez motivaciones científicas; excluyendo \textit{Assessment} (polaridad evaluativa ortogonal), EvidenCite adopta sus nueve funciones retóricas observables en texto~\cite{lyu2021classification,zhang2025deep}, detalladas en la Sección III-A.
 
 \subsection{Recuperación Local y Representación Densa de Artículos}
 
@@ -122,7 +123,7 @@ CitePrompt~\cite{lahiri2023citeprompt} & Prompt-tuning & ACL / SciCite & 6 / 3 &
 CiteFusion~\cite{paolini2025citefusion} & Parejas OVA + SHAP & ACL / SciCite & 6 / 3 & 1 oración + sec. citante & Ninguna ($\varnothing$) & Encuadre ambiguo en Intro/RW; sin texto citado. \\
 Fogelson et al.~\cite{fogelson2025llms} & Llama/Mistral/GPT & $1,27\text{M}$ (300) & 3 & Ventana $m=3$ & Ninguna ($\varnothing$) & Esquema grueso (3 cl.), baja concordancia y sesgos. \\
 \midrule
-\textbf{EvidenCite (Este trabajo)} & \textbf{SciBERT Top-3 + TF-IDF / SciBERT / LLMs+LoRA (A4) y LLMs API (A5)} & \textbf{$18.658$ pares ($2.798$ Gold)} & \textbf{9} & \textbf{$m=3$, \texttt{<cite>}, \texttt{[OTHERCIT]} ($h_{\text{citing}}$ solo en análisis)} & \textbf{Paridad 1:1 Config. A vs. Config. B (Top-3 + sec. citada)} & \textbf{Taxonomía fina de 9 clases probabilística, evidencia local recuperada, Gold humano, calibración y eficiencia costo-desempeño.} \\
+\textbf{EvidenCite (Este trabajo)} & \textbf{SciBERT Top-3 + A4 (LoRA) / A5 (API)} & \textbf{$18.658$ pares ($2.798$ Gold)} & \textbf{9} & \textbf{$m=3$, \texttt{<cite>}, \texttt{[OTHERCIT]}} & \textbf{Paridad 1:1 Config. A vs. B (Top-3 + sec.)} & \textbf{9 clases probabilísticas, evidencia local, Gold humano, calibración y costo-desempeño.} \\
 \bottomrule
 \end{tabularx}
 \end{table*}
@@ -304,23 +305,7 @@ h'(p_t), & \text{si } h'(p_t) \neq \varnothing, \\
 \end{cases}
 \end{equation*}
 
-En la Capa 3a, cada sección se segmenta en oraciones protegiendo abreviaturas científicas y fórmulas. Para cada oración citante $s_i$ extraemos una ventana de $m=3$ oraciones centrada en la cita (oración anterior, citante y posterior); cuando la cita aparece al inicio de una sección se toman las dos oraciones posteriores y, cuando aparece al final, las dos anteriores~\cite{lauscher2022multicite}. La cita objetivo se delimita mediante \texttt{<cite>}...\texttt{</cite>} y toda co-cita secundaria se sustituye por \texttt{[OTHERCIT]} para impedir fugas de atribución entre referencias adyacentes~\cite{lyu2021classification}. Las ventanas resultantes promedian $83,94$ palabras ($\min = 8$, $\max = 542$) y se serializan bajo un contrato JSON invariante que encapsula Config A, Config B y el linaje multi-etapa (Figura~\ref{fig:json_contrato}).
-
-\begin{figure}[!t]
-\centering
-\begin{tikzpicture}
-\node[draw=black!60, fill=gray!5, rounded corners=2pt, inner sep=3.5pt, text width=0.95\columnwidth, align=flush left, font=\ttfamily\tiny] {
-\{"instance\_id": "inst\_04783", "label": "Basis",\\
-\ "annotation\_metadata": \{"source\_dataset": "unarxive\_mined", "label\_source": "human\_review", "is\_gold": true, "panel\_agreement": 0.67, "panel\_label": "Basis", "prior\_label\_source": "llm\_panel", "split": "test"\},\\
-\ "citing\_paper": \{"id": "2212.08018", "rhetorical\_section": "High-level overview"\},\\
-\ "citation\_context": "The procedure builds upon the recent work by Hopkins, Kamath and Majid <cite>Samuel B Hopkins, Gautam Kamath, and Mahbod Majid, 2022</cite> on pure DP mean estimation...",\\
-\ "cited\_paper": \{"id": "2111.12981", "title": "Efficient mean estimation with pure differential privacy via a sum-of-squares exponential mechanism", "abstract": "We give the first polynomial-time algorithm...",\\
-\ \ "retrieved\_chunks": [\{"chunk\_id": "2111.12981\_s4\_c1", "section\_heading": "2.2.1 Private mean estimation...", "text": "A merit of our approach is that it allows powerful techniques from robust statistics...", "similarity\_score": 0.8936, "rank": 1\}]\}\}
-};
-\end{tikzpicture}
-\caption{Contrato JSON invariante real de la instancia \texttt{inst\_04783} en Capa 5 ($\mathcal{D}_{\text{test}}$), encapsulando Config A, Config B y linaje multi-etapa. Elaboración propia.}
-\label{fig:json_contrato}
-\end{figure}
+En la Capa 3a, cada sección se segmenta en oraciones protegiendo abreviaturas científicas y fórmulas. Para cada oración citante $s_i$ extraemos una ventana de $m=3$ oraciones centrada en la cita (oración anterior, citante y posterior); cuando la cita aparece al inicio de una sección se toman las dos oraciones posteriores y, cuando aparece al final, las dos anteriores~\cite{lauscher2022multicite}. La cita objetivo se delimita mediante \texttt{<cite>}...\texttt{</cite>} y toda co-cita secundaria se sustituye por \texttt{[OTHERCIT]} para impedir fugas de atribución entre referencias adyacentes~\cite{lyu2021classification}. Las ventanas resultantes promedian $83,94$ palabras ($\min = 8$, $\max = 542$) y se serializan bajo un contrato JSON invariante que encapsula Config A, Config B y el linaje multi-etapa (Figura~\ref{fig:json_contrato}, Anexo~\ref{sec:anexo_figuras}).
 
 \subsection{Segmentación Granular, Recuperación Top-3 y Partición Anti-Fuga (A1)}
 
@@ -338,15 +323,15 @@ En memoria retenemos los $K=3$ fragmentos de mayor similitud coseno $s_{k,j} = \
 \resizebox{0.96\textwidth}{!}{%
 \begin{tikzpicture}[
     font=\sffamily\scriptsize,
-    module/.style={draw=black!70, rounded corners=2.5pt, minimum height=9.6mm, inner ysep=6pt, inner xsep=4.5pt, align=center, font=\sffamily\scriptsize},
-    tokblock/.style={draw=black!65, minimum height=8.6mm, inner ysep=5pt, inner xsep=3.5pt, align=center, font=\sffamily\scriptsize},
+    module/.style={draw=black!70, rounded corners=2.5pt, minimum height=8.4mm, inner ysep=4.5pt, inner xsep=4.5pt, align=center, font=\sffamily\scriptsize},
+    tokblock/.style={draw=black!65, minimum height=7.8mm, inner ysep=4pt, inner xsep=3.5pt, align=center, font=\sffamily\scriptsize},
     arrow/.style={-{Latex[length=2.1mm, width=1.4mm]}, semithick, black!80}
 ]
 % === ETAPA 1 ===
-\node[font=\sffamily\bfseries\scriptsize, anchor=west, text=teal!75!black] (t1) at (0, 1.48) {Etapa 1: Recuperación Densa Intra-Documento con SciBERT (Consulta Aislada de Encabezados)};
+\node[font=\sffamily\bfseries\scriptsize, anchor=west, text=teal!75!black] (t1) at (0, 1.24) {Etapa 1: Recuperación Densa Intra-Documento con SciBERT (Consulta Aislada de Encabezados)};
 
-\node[module, fill=blue!10, text width=2.8cm] (qtxt) at (1.5, 0.56) {Consulta $T_{\text{query}} = x_{\text{ctx}}$};
-\node[module, fill=teal!10, text width=2.8cm] (ctxt) at (1.5, -0.56) {Chunks $\Omega(\mathcal{P}_{\text{cited}})$ ($\le 110$ pal.)};
+\node[module, fill=blue!10, text width=2.8cm] (qtxt) at (1.5, 0.48) {Consulta $T_{\text{query}} = x_{\text{ctx}}$};
+\node[module, fill=teal!10, text width=2.8cm] (ctxt) at (1.5, -0.48) {Chunks $\Omega(\mathcal{P}_{\text{cited}})$ ($\le 110$ pal.)};
 \node[module, fill=red!12, text width=2.45cm, right=0.85cm of $(qtxt.east)!0.5!(ctxt.east)$] (sb1) {\textbf{SciBERT} (110M)\\[1pt]\textit{Mean Pool} $+\,L_2$};
 \node[module, fill=yellow!18, text width=2.35cm, right=0.85cm of sb1] (cos) {Coseno\\[1pt]$s_j = \langle \mathbf{u}_q, \mathbf{u}_{c_j} \rangle$};
 \node[module, fill=green!12, text width=2.85cm, right=0.85cm of cos] (top3) {\textbf{Top-3 Chunks} $\mathcal{C}_{\text{top3}}$\\[1pt]$+\,$Secciones $\tilde{h}_{\pi_r}$};
@@ -357,22 +342,22 @@ En memoria retenemos los $K=3$ fragmentos de mayor similitud coseno $s_{k,j} = \
 \draw[arrow] (cos.east) -- (top3.west);
 
 % === ETAPA 2 ===
-\node[font=\sffamily\bfseries\scriptsize, anchor=west, text=blue!75!black] (t2) at (0, -1.58) {Etapa 2: Empaquetado ($h_{\text{citing}}$ excluida por defecto) e Inferencia Probabilística (A4 / A5)};
+\node[font=\sffamily\bfseries\scriptsize, anchor=west, text=blue!75!black] (t2) at (0, -1.26) {Etapa 2: Empaquetado ($h_{\text{citing}}$ excluida por defecto) e Inferencia Probabilística (A4 / A5)};
 
-\node[tokblock, fill=yellow!25] (cls) at (0.55, -2.82) {\texttt{[CLS]}};
+\node[tokblock, fill=yellow!25] (cls) at (0.55, -2.26) {\texttt{[CLS]}};
 \node[tokblock, fill=violet!14, text width=3.1cm, right=0.08cm of cls] (ctxA) {Contexto $x_{\text{ctx}}$ ($m=3$, \texttt{<cite>})};
 \node[tokblock, fill=cyan!20, right=0.08cm of ctxA] (sep1) {\texttt{[SEP]}};
 \node[tokblock, fill=green!14, text width=5.25cm, right=0.08cm of sep1] (evB) {\textbf{Config A:} $t_{\text{cited}} + \text{abs}_{\text{cited}}$\\[1pt]\textbf{Config B:} $\bigoplus_{r=1}^3 (\tilde{h}_{\pi_r}\!:\,c_{\pi_r})$};
 \node[tokblock, fill=cyan!20, right=0.08cm of evB] (sep2) {\texttt{[SEP]}};
 
-\draw[decorate, decoration={brace, mirror, raise=3pt}, semithick] (cls.south west) -- (ctxA.south east) node[midway, below=5pt, font=\sffamily\tiny] {Segmento 1: Citante ($L_{\text{citing}}$ tokens)};
-\draw[decorate, decoration={brace, mirror, raise=3pt}, semithick] (evB.south west) -- (sep2.south east) node[midway, below=5pt, font=\sffamily\tiny] {Segmento 2: Evidencia citada ($512 - L_{\text{citing}} - 3$ tokens; cuota $Q_{\text{chunk}}$)};
+\draw[decorate, decoration={brace, mirror, raise=2.5pt}, semithick] (cls.south west) -- (ctxA.south east) node[midway, below=4.5pt, font=\sffamily\tiny] {Segmento 1: Citante ($L_{\text{citing}}$ tokens)};
+\draw[decorate, decoration={brace, mirror, raise=2.5pt}, semithick] (evB.south west) -- (sep2.south east) node[midway, below=4.5pt, font=\sffamily\tiny] {Segmento 2: Evidencia citada ($512 - L_{\text{citing}} - 3$ tokens; cuota $Q_{\text{chunk}}$)};
 
 % Conexion limpia de Top-3 hacia Evidencia Config B sin cruzar el titulo t2
-\draw[arrow, dashed, teal!75!black] (top3.south) |- ([yshift=0.50cm, xshift=1.55cm]evB.north) -- ([xshift=1.55cm]evB.north);
+\draw[arrow, dashed, teal!75!black] (top3.south) |- ([yshift=0.38cm, xshift=1.55cm]evB.north) -- ([xshift=1.55cm]evB.north);
 
-\node[module, fill=red!14, text width=3.05cm, right=0.85cm of sep2, yshift=0.62cm] (a4mod) {\textbf{A4:} SciBERT /\\[1pt]LoRA $\to \text{Softmax}$};
-\node[module, fill=orange!15, text width=3.05cm, right=0.85cm of sep2, yshift=-0.62cm] (a5mod) {\textbf{A5:} JSON\\[1pt]$+\,$Proyección $L_1$};
+\node[module, fill=red!14, text width=3.05cm, right=0.85cm of sep2, yshift=0.52cm] (a4mod) {\textbf{A4:} SciBERT /\\[1pt]LoRA $\to \text{Softmax}$};
+\node[module, fill=orange!15, text width=3.05cm, right=0.85cm of sep2, yshift=-0.52cm] (a5mod) {\textbf{A5:} JSON\\[1pt]$+\,$Proyección $L_1$};
 \node[module, fill=yellow!20, text width=1.65cm, right=0.75cm of $(a4mod.east)!0.5!(a5mod.east)$] (out) {\textbf{Prob. $\mathbf{p}$}\\[1pt]$\hat{y} \in \mathcal{Y}_9$};
 
 \draw[arrow] (sep2.east) -- ++(0.35,0) |- (a4mod.west);
@@ -428,9 +413,9 @@ La Actividad A4 entrena tres familias de clasificadores sobre $\mathcal{D}_{\tex
     \item \textbf{LLMs de pesos abiertos con LoRA}~\cite{hu2022lora}\textbf{:} el modelo base permanece congelado y solo se entrenan adaptadores de bajo rango y una cabeza lineal de nueve salidas sobre el último token de la secuencia.
 \end{enumerate}
 
-\textbf{Protocolo común.} Para que las diferencias entre corridas sean atribuibles al modelo, los LLMs comparten una misma receta: adaptadores de rango $r=16$ ($\alpha=32$, \textit{dropout} $0,05$) en todas las capas lineales ($0,6\pct{}\text{--}1,7\pct{}$ de parámetros entrenables); AdamW con $\eta = 10^{-4}$, lote efectivo de $32$ y calentamiento del $5\pct{}$, sin decaimiento de pesos ni ponderación por clase; precisión mixta bf16, compilación por bloques y aritmética FP8 en las capas congeladas cuando el hardware la admite. El punto de control se elige por \textit{early stopping} sobre el Macro-F1 de $\mathcal{D}_{\text{dev}}$ (dos evaluaciones por época, paciencia de cinco). La entrada no utiliza plantillas de instrucción: contexto citante y evidencia citada se tokenizan como par y, dado que los tokenizadores de los decodificadores no insertan separador entre ambos segmentos (a diferencia del \texttt{[SEP]} de SciBERT), en los modelos definitivos la evidencia se introduce con el rótulo textual \texttt{Cited paper:}. Cada corrida se registró en MLflow, con los datos versionados en DVC, y se ejecutó en GPU bajo demanda usando plataformas como google colab o runpod el cual ofrece GPUs mas potentes como B200 el cual reduce drasticamente los tiempos de entrenamiento.
+\textbf{Protocolo común.} Para aislar el efecto del modelo, los LLMs comparten una receta uniforme: adaptadores LoRA de rango $r=16$ ($\alpha=32$, \textit{dropout} $0,05$) en todas las capas lineales ($0,6\pct{}\text{--}1,7\pct{}$ de parámetros entrenables); AdamW ($\eta = 10^{-4}$, lote efectivo $32$, calentamiento $5\pct{}$, sin \textit{weight decay} ni ponderación por clase); precisión mixta bf16, compilación por bloques y FP8 en capas congeladas cuando el hardware lo admite. El punto de control se elige por \textit{early stopping} sobre el Macro-F1 de $\mathcal{D}_{\text{dev}}$ (dos evaluaciones por época, paciencia de cinco). Sin plantillas de instrucción, contexto citante y evidencia citada se tokenizan como par introduciendo el rótulo \texttt{Cited paper:} en los modelos definitivos. Todas las corridas se registraron en MLflow (datos versionados con DVC) sobre GPUs bajo demanda (Google Colab y RunPod B200).
 
-\textbf{Selección por embudo.} El modelo definitivo no se fijó a priori, sino mediante experimentación sucesiva sobre $92$ corridas. La \textit{Ronda 1} (R1; $19$ corridas) comparó, con una semilla y cuatro épocas, diez modelos de siete familias ---incluidos modelos multimodales como Gemma 4--- sobre una iteración previa del etiquetado; de ella se derivaron tres criterios de inclusión: solo texto, arquitectura densa y capas homogéneas. La \textit{Ronda 2} (R2; $58$ corridas) evaluó, con la misma receta, diez modelos de 2B a 4B en Config A y B con tres semillas (la 42 y dos sorteadas antes de observar resultados), en diseño pareado, para separar el efecto del modelo del ruido de inicialización y de orden de los datos~\cite{dodge2020fine}. Ambas rondas truncan la entrada a $512$ tokens. Entre los candidatos resultantes se decidió por costo y condiciones de acceso; la familia elegida se escaló a 8B y se entrenó con decaimiento coseno hasta diez épocas, sin truncar la entrada. Junto con SciBERT y TF-IDF conforma los modelos definitivos ($11$ corridas), evaluados frente al test automático y frente al Gold. En paralelo, sobre un mismo modelo (Qwen3-0.6B; $4$ corridas) se contrastaron dos modos de salida: el \textit{clasificador} descrito y uno \textit{generativo}, en el que el adaptador se entrena como modelo causal sobre el \textit{prompt} 0-Shot de A5 (Sección~\ref{sec:metodo_a5}) para que escriba la etiqueta, con pérdida solo sobre los tokens de respuesta y decodificación voraz.
+\textbf{Selección por embudo.} El modelo definitivo surgió de $92$ corridas sucesivas. La \textit{Ronda 1} (R1; $19$ corridas, una semilla, cuatro épocas) comparó diez modelos de siete familias ---incluidos multimodales como Gemma 4--- sobre una iteración previa del etiquetado, fijando tres criterios de inclusión: solo texto, arquitectura densa y capas homogéneas. La \textit{Ronda 2} (R2; $58$ corridas) evaluó diez modelos de 2B a 4B en Config A y B con tres semillas pareadas para separar el efecto del modelo del ruido de inicialización~\cite{dodge2020fine}. Ambas rondas truncan a $512$ tokens. Seleccionada la familia por costo y acceso abierto, se escaló a 8B con decaimiento coseno hasta diez épocas sin truncar; junto con SciBERT y TF-IDF conforma los modelos definitivos ($11$ corridas), evaluados frente al test automático y al Gold. En paralelo, con Qwen3-0.6B ($4$ corridas) se contrastó el modo \textit{clasificador} frente al \textit{generativo} (modelo causal sobre el \textit{prompt} 0-Shot de A5, pérdida solo en respuesta y decodificación voraz).
 
 \subsection{Evaluación Factorial de LLMs Comerciales vía API (A5)}
 \label{sec:metodo_a5}
@@ -445,33 +430,7 @@ s_k / \sum_{j=1}^{9} s_j, & \text{si } \sum_{j=1}^{9} s_j > 0, \\[3pt]
 1 / 9, & \text{si } \sum_{j=1}^{9} s_j = 0 \text{ (respaldo)}.
 \end{cases}
 \end{equation}
-A diferencia del Softmax paramétrico de A4, el vector $\mathbf{p}$ obtenido mediante la Ec.~\eqref{eq:proyeccion_l1_simplex} representa \textbf{confianza verbalizada estructurada}. Para evitar copia rígida de plantillas en 9-Shot, sintetizamos deterministamente la distribución de cada ejemplar mediante una matriz de vecindad retórica en $\Delta^8$ (Tabla~\ref{tab:vecindad_retorica}) inspirada en la Ec.~\eqref{eq:prop_colocalizacion}: muestreamos la probabilidad dominante $g \in [L_{c^*};\; U_{c^*}]$ (en centésimas) y repartimos la masa restante $R = 1 - g$ entre vecinos primarios ($58\pct{}\text{--}70\pct{}$), secundarios ($20\pct{}\text{--}28\pct{}$) y cola ortogonal con semilla SHA-256 determinista.
-
-\begin{table}[!t]
-\centering
-\caption{Matriz de Vecindad Retórica en $\Delta^8$ para Síntesis Determinista de Distribuciones en Demostraciones 9-Shot}
-\label{tab:vecindad_retorica}
-\scriptsize
-\setlength{\tabcolsep}{2.5pt}
-\renewcommand{\arraystretch}{1.05}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{l c l l}
-\toprule
-\textbf{Clase Real ($c^*$)} & \textbf{Banda $[L_{c^*};\; U_{c^*}]$} & \textbf{Vecinos Primarios $\mathcal{N}_1$} & \textbf{Vecinos Secundarios $\mathcal{N}_2$} \\
-\midrule
-Background & $[0,62;\; 0,78]$ & Further Reading, Gap & Originator, Evidence \\
-Gap & $[0,60;\; 0,76]$ & Background, Comparison & Evidence, Improvement \\
-Basis & $[0,56;\; 0,72]$ & Improvement, Application & Background, Originator \\
-Comparison & $[0,58;\; 0,75]$ & Improvement, Evidence & Gap, Background \\
-Application & $[0,60;\; 0,76]$ & Basis, Improvement & Evidence, Comparison \\
-Improvement & $[0,56;\; 0,72]$ & Basis, Comparison & Application, Evidence \\
-Evidence & $[0,64;\; 0,80]$ & Comparison, Background & Basis, Gap \\
-Originator & $[0,64;\; 0,80]$ & Background, Basis & Application, Evidence \\
-Further Reading & $[0,68;\; 0,84]$ & Background, Evidence & Application, Basis \\
-\bottomrule
-\end{tabular}%
-}
-\end{table}
+A diferencia del Softmax paramétrico de A4, el vector $\mathbf{p}$ obtenido mediante la Ec.~\eqref{eq:proyeccion_l1_simplex} representa \textbf{confianza verbalizada estructurada}. Para evitar copia rígida de plantillas en 9-Shot, sintetizamos deterministamente la distribución de cada ejemplar mediante una matriz de vecindad retórica en $\Delta^8$ (Tabla~\ref{tab:vecindad_retorica}, Anexo~\ref{sec:anexo_figuras}) inspirada en la Ec.~\eqref{eq:prop_colocalizacion}: muestreamos la probabilidad dominante $g \in [L_{c^*};\; U_{c^*}]$ (en centésimas) y repartimos la masa restante $R = 1 - g$ entre vecinos primarios ($58\pct{}\text{--}70\pct{}$), secundarios ($20\pct{}\text{--}28\pct{}$) y cola ortogonal con semilla SHA-256 determinista.
 
 Para la contabilidad económica de A7, registramos por llamada los tokens de entrada ($I_i$), caché leído ($C_i$), salida ($O_i$) y pensamiento ($T_i$). Con ello comparamos el costo bruto sin descuento ($K_{\text{gross}}$, a tarifa plena $\pi_{\text{in}}$) frente al costo neto real bajo \textit{Prompt Caching}:
 \begin{equation*}
@@ -480,7 +439,7 @@ K_{\text{net}} = \frac{1}{10^6} \sum_{i=1}^{N} \left[ (I_i - C_i)\pi_{\text{in}}
 
 \subsection{Arquitectura de Despliegue Cloud y Demostrador (A8)}
 
-La Actividad A8 despliega la inferencia en tiempo real en cuatro etapas secuenciales. Primero, normaliza el contexto citante insertando \texttt{<cite>} y \texttt{[OTHERCIT]}. Segundo, ejecuta resolución jerárquica en cuatro niveles (caché RAM por SHA-256, almacén local, APIs de arXiv/ar5iv/Semantic Scholar y extracción estructural en memoria de PDFs en $\sim 3\text{--}5\text{ s}$). Tercero, segmenta cada sección en bloques de hasta $110$ palabras y recupera los Top-3 pasajes en vivo mediante la Ec.~\eqref{eq:mean_pooling_l2}. Cuarto, un despacho polimórfico unifica clasificadores locales y APIs comerciales detrás de un backend FastAPI y cliente web Nginx en \textbf{AWS ECS Fargate}, expuestos tras un \textit{Application Load Balancer} (ALB) aprovisionado con Terraform ($2\text{ vCPU}/8\text{ GB RAM}$ para API y $0,25\text{ vCPU}/512\text{ MB}$ para la interfaz). La incorporación en producción de los pesos supervisados de A4 y su telemetría de servicio en vivo permanece como \texttt{[PENDIENTE\_A8]}.
+La Actividad A8 despliega la inferencia en tiempo real en cuatro etapas: (1) normalización del contexto citante (\texttt{<cite>}, \texttt{[OTHERCIT]}); (2) resolución jerárquica del artículo citado (caché RAM SHA-256, almacén local, APIs de arXiv/ar5iv/Semantic Scholar y conversión estructural de PDF en $\sim 3\text{--}5\text{ s}$); (3) segmentación en bloques ($\le 110$ palabras) y recuperación Top-3 en vivo vía Ec.~\eqref{eq:mean_pooling_l2}; y (4) despacho polimórfico que unifica modelos locales y APIs sobre FastAPI y Nginx en \textbf{AWS ECS Fargate} tras un ALB aprovisionado con Terraform. La integración en producción de los pesos de A4 y su telemetría en vivo queda como \texttt{[PENDIENTE\_A8]}.
 
 \section{Resultados Experimentales}
 
@@ -494,7 +453,7 @@ El pipeline A1 consolidó $18.658$ instancias con paridad estricta 1:1 y fuga nu
 \label{tab:distribucion_etapas_a1_a2_a3}
 \scriptsize
 \setlength{\tabcolsep}{4.0pt}
-\renewcommand{\arraystretch}{1.05}
+\renewcommand{\arraystretch}{0.98}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l r r r r r r r r r}
 \toprule
@@ -529,13 +488,13 @@ La curaduría humana integral de $\mathcal{D}_{\text{test}}$ en A3 modificó $1.
 
 \subsubsection{Rondas de Selección}
 
-En R1 (Figura~\ref{fig:a4_seleccion_y_techo}a, Anexo~\ref{sec:anexo_figuras}) los modelos quedaron en una banda estrecha de Macro-F1 ($0,80\text{--}0,83$), con intervalos de confianza del $95\pct{}$ de $\pm 0,014$ solapados casi por completo (valores no comparables con los de R2: aquella iteración del etiquetado incluía $h_{\text{citing}}$ en el panel y en la entrada). Gemma 4 y Hunyuan ocuparon las últimas posiciones en validación y en prueba, y Gemma 4 fue además el más costoso: su variante E4B requirió $73\text{--}94$ GB y $50\text{--}57$ min por corrida, frente a $39$ GB y $22\text{--}28$ min de Llama-3.2-3B en la misma GPU, por un diseño multimodal (torres de visión y audio, \textit{embeddings} por capa y bloques heterogéneos) que no aporta a una tarea de solo texto; en su variante de mezcla de expertos (26B-A4B), LoRA alcanzó apenas el $0,12\pct{}$ de los parámetros. Ambas familias se descartaron.
+En R1 (Figura~\ref{fig:a4_seleccion_y_techo}a, Anexo~\ref{sec:anexo_figuras}) los modelos quedaron en una banda estrecha de Macro-F1 ($0,80\text{--}0,83$, $\text{IC}_{95\pct{}} \pm 0,014$, no comparable con R2 porque aquella iteración incluía $h_{\text{citing}}$). Gemma 4 y Hunyuan ocuparon las últimas posiciones y Gemma 4 fue el más costoso: E4B requirió $73\text{--}94$ GB y $50\text{--}57$ min por corrida (frente a $39$ GB y $22\text{--}28$ min de Llama-3.2-3B) debido a su arquitectura multimodal, y en su variante MoE (26B-A4B) LoRA cubrió solo el $0,12\pct{}$ de los parámetros; ambas familias se descartaron.
 
-En R2 (Figura~\ref{fig:a4_seleccion_y_techo}b) las $58$ corridas se concentran entre $0,721$ y $0,756$. El factor modelo es significativo (ANOVA de una vía, $p<0,001$) solo por los tres modelos inferiores: entre los siete primeros no hay diferencia detectable ($p=0,45$), y la semilla desplaza por sí sola cada corrida en $\pm 0,006$ (desviación estándar entre semillas). Ni el tamaño (Spearman $|\rho|<0,2$), ni la generación, ni la arquitectura predicen el desempeño, y la Config B no se distingue de la Config A ($+0,0035$; $p=0,07$; $28$ pares). Entre las familias candidatas (Llama, Qwen3.5 y Granite) la decisión no pudo ser predictiva. Llama-3.2-3B, el más rápido ($22\text{--}28$ min y $39$ GB por corrida), se descartó porque su distribución es de acceso restringido, sujeta a registro y aprobación del proveedor. Qwen3.5, con la mejor media de validación en su variante de 4B, se descartó por costo: sus bloques híbridos se ejecutan sin núcleos optimizados y la variante de 2B requirió $37\text{--}48$ min y $55\text{--}58$ GB en la misma GPU. Se eligió Granite ($24\text{--}32$ min y $49$ GB): denso, de solo texto, de acceso abierto y la única familia cuyo siguiente tamaño pertenece a la misma generación (Granite-4.2-8B).
+En R2 (Figura~\ref{fig:a4_seleccion_y_techo}b) las $58$ corridas se concentran en $0,721\text{--}0,756$. El factor modelo es significativo (ANOVA, $p<0,001$) solo por los tres modelos inferiores; entre los siete primeros no hay diferencia detectable ($p=0,45$, desviación entre semillas $\pm 0,006$). Ni el tamaño (Spearman $|\rho|<0,2$), ni la generación, ni la arquitectura predicen el desempeño, y Config B no se distingue de Config A ($+0,0035$; $p=0,07$; $28$ pares). Entre los candidatos (Llama, Qwen3.5 y Granite), Llama-3.2-3B ($22\text{--}28$ min, $39$ GB) se descartó por acceso restringido y Qwen3.5 por costo (bloques híbridos sin núcleos optimizados: $37\text{--}48$ min y $55\text{--}58$ GB en 2B). Se eligió Granite ($24\text{--}32$ min, $49$ GB): denso, de solo texto, abierto y escalable en la misma generación (Granite-4.2-8B).
 
 \subsubsection{Modo Generativo frente a Clasificador}
 
-Con Qwen3-0.6B ambos modos resultan indistinguibles: $0,746$ frente a $0,737$ en Config A y $0,737$ frente a $0,742$ en Config B sobre el test automático (clasificador y generativo, respectivamente), y $0,456$ frente a $0,434$ y $0,442$ frente a $0,436$ sobre el Gold; con una corrida por variante, ninguna diferencia supera la amplitud de los intervalos de confianza ($\pm 0,02$). Es el resultado esperable: en ambos modos el modelo base permanece congelado y los mismos adaptadores de bajo rango reciben la misma supervisión; solo cambia la lectura de la salida. El modo generativo, en cambio, multiplicó la latencia por $2,9\text{--}4,2$ ($7,9\text{--}9,2$ ms frente a $1,9\text{--}3,2$ ms por instancia) y elevó el pico de memoria de entrenamiento (de $6$ a $85$ GB en Config A y de $32$ a $34$ GB en Config B) para la configuración B se tuvo que usar \textit{gradient checkpointing}~\cite{Chen2016} dado que ni siquiera en una B200(180GBVram) se podia entrenar. Por ello se adoptó la cabeza de clasificación, sin \textit{prompts}.
+Con Qwen3-0.6B ambos modos son indistinguibles: $0,746$ vs. $0,737$ (Config A) y $0,737$ vs. $0,742$ (Config B) sobre el test automático, y $0,456$ vs. $0,434$ y $0,442$ vs. $0,436$ sobre el Gold (clasificador vs. generativo; diferencias dentro de $\pm 0,02$), pues la base congelada y los adaptadores reciben la misma supervisión. En cambio, el modo generativo multiplicó la latencia $2,9\text{--}4,2\times$ ($7,9\text{--}9,2$ vs. $1,9\text{--}3,2$ ms/instancia) y disparó la memoria ($6 \to 85$ GB en Config A; en Config B exigió \textit{gradient checkpointing}~\cite{Chen2016} para caber en una B200 de $180$ GB VRAM, resultando $32 \to 34$ GB). Por ello se adoptó la cabeza de clasificación, sin \textit{prompts}.
 
 \subsubsection{Techo Común frente a las Etiquetas Automáticas}
 
@@ -564,7 +523,7 @@ La Tabla~\ref{tab:maestra_resultados} concentra las métricas predictivas, de ca
 \label{tab:maestra_resultados}
 \scriptsize
 \setlength{\tabcolsep}{2.8pt}
-\renewcommand{\arraystretch}{1.05}
+\renewcommand{\arraystretch}{0.98}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l l c c c c c c c c c}
 \toprule
@@ -640,7 +599,7 @@ Las matrices de confusión normalizadas de A5 (Figura~\ref{fig:matrices_confusio
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=\columnwidth]{reports/figures/paper/fig03c_exactitud_por_macro_seccion.png}
+\includegraphics[width=0.95\columnwidth]{reports/figures/paper/fig03c_exactitud_por_macro_seccion.png}
 \caption{Exactitud pareada Config A $\to$ Config B (0-Shot) estratificada por macro-sección citante sobre el Gold humano ($N = 2.798$). Elaboración propia.}
 \label{fig:exactitud_macro_seccion}
 \end{figure}
@@ -660,7 +619,7 @@ Evaluamos los $M=12$ contrastes ortogonales con \textit{Paired Bootstrap} bilate
 \label{tab:significancia_pareada}
 \scriptsize
 \setlength{\tabcolsep}{3.0pt}
-\renewcommand{\arraystretch}{1.05}
+\renewcommand{\arraystretch}{0.98}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l l c c c c c c c c c}
 \toprule
@@ -691,7 +650,7 @@ En calibración probabilística~\cite{guo2017calibration,brier1950verification} 
 
 \subsubsection{Integridad de Esquema y Dinámica del Pensamiento Latente}
 
-De las $22.384$ inferencias ejecutadas, $22.382$ respetaron estrictamente el contrato JSON ($99,991\pct{}$ de validez). Los únicos dos fallos sucedieron en Gemini Config A sobre citas de Further Reading (instancias \#17318 en 0-Shot y \#17446 en 9-Shot), excediendo en exactamente un token las modas estructurales de salida ($125$ vs. $124$ y $77$ vs. $76$) con efecto métrico despreciable ($\Delta\text{Macro-F1} \le 0,0003$).
+De las $22.384$ inferencias ejecutadas, $22.382$ respetaron estrictamente el esquema JSON ($99,991\pct{}$ de validez); los únicos dos fallos (Gemini Config A en Further Reading, truncados por un token) tuvieron efecto despreciable ($\Delta\text{Macro-F1} \le 0,0003$).
 
 GPT-4.1-mini genera un JSON compacto de $66,1$ tokens ($p_{50} \approx 0,92\text{--}1,05\text{ s}$), mientras Gemini serializa salidas multilínea de $112\text{--}119$ tokens ($p_{50} \approx 2,29\text{--}2,48\text{ s}$). Un hallazgo clave surge en el canal de pensamiento latente de Gemini (nivel bajo): pasar de Config A a Config B en 0-Shot redujo en \textbf{$19,4\pct{}$ las llamadas con pensamiento activo} ($1.214 \to 978$, de $43,39\pct{}$ a $34,95\pct{}$) y en \textbf{$17,7\pct{}$ los tokens totales de pensamiento} ($206.706 \to 170.096$). En 9-Shot, el efecto ancla suprimió el pensamiento latente en $99,5\pct{}$ de las llamadas.
 
@@ -719,11 +678,9 @@ La contabilidad anterior solo incluye el costo marginal de las APIs. Los modelos
 
 \subsection{Alcance Real de la Evidencia Local y Triangulación Retórica}
 
-En respuesta a \textbf{PI1}, los resultados muestran que el aporte de la evidencia local (Configuración B) es heterogéneo y depende del régimen de entrenamiento y de la capacidad del modelo. Aunque la familia del modelo domina la brecha global ($+0,1331$ a $+0,1828$ Macro-F1 de Gemini sobre GPT-4.1-mini), incorporar pasajes locales con encabezados autorales ofrece mejoras mecánicamente coherentes con \textit{CiteFusion}~\cite{paolini2025citefusion}, \textit{SciRepEval}~\cite{singh2023scirepeval} y Gu et al.~\cite{gu2022local}.
+En respuesta a \textbf{PI1}, el aporte de la evidencia local (Configuración B) depende del régimen y la capacidad del modelo. Aunque la familia domina la brecha global ($+0,1331$ a $+0,1828$ Macro-F1 de Gemini sobre GPT-4.1-mini), incorporar pasajes locales con encabezados autorales ofrece mejoras coherentes con \textit{CiteFusion}~\cite{paolini2025citefusion}, \textit{SciRepEval}~\cite{singh2023scirepeval} y Gu et al.~\cite{gu2022local}: en GPT-4.1-mini eleva significativamente la exactitud global ($+2,86\text{ pp}$ en 0-Shot) y en \textit{Related Work} ($+10,28\text{ pp}$), mientras en Gemini 0-Shot reduce en $19,4\pct{}$ las activaciones de pensamiento latente ($17,7\pct{}$ menos tokens), indicando menor incertidumbre inferencial. En cambio, en A4 la Config B no aporta (Sección~\ref{sec:resultados_a4}) porque ninguna etapa del etiquetado automático leyó el artículo citado. Queda pendiente aislar en ablación el efecto de los pasajes frente a sus encabezados $\tilde{h}_{\pi_r}$.
 
-En GPT-4.1-mini (más vulnerable a la ambigüedad de secciones panorámicas), la Config B produce mejoras significativas en exactitud global ($+2,86\text{ pp}$ en 0-Shot) y un salto de $+10,28\text{ pp}$ en \textit{Related Work}. En Gemini 0-Shot, la mejora puntual en Macro-F1 ($+0,0096$) no alcanza significancia estadística, pero la Config B reduce en $19,4\pct{}$ las llamadas que requieren razonamiento latente ($17,7\pct{}$ menos tokens de pensamiento), señalando menor incertidumbre inferencial al leer el pasaje citado específico. Como limitación de diseño, la Config B evalúa en conjunto los Top-3 pasajes y sus encabezados $\tilde{h}_{\pi_r}$, sin una ablación aislada de pasajes sin encabezados que cuantifique por separado cada subcomponente. En los clasificadores supervisados de A4, en cambio, la Config B no aporta (Sección~\ref{sec:resultados_a4}), lo cual es coherente con que ninguna etapa del etiquetado automático leyera el artículo citado.
-
-De forma complementaria, las matrices de confusión (Figura~\ref{fig:matrices_confusion_a5}, Anexo~\ref{sec:anexo_figuras}) confirman la proximidad retórica entre Basis, Improvement, Comparison y Application~\cite{lauscher2022multicite}. Mientras GPT tiende a sobre-clasificar citas como metodológicas~\cite{fogelson2025llms} con sobreconfianza severa ($\text{ECE} > 0,30$), Gemini conserva calibración sólida ($\text{ECE}=0,1158$) y duplica el F1 en Basis.
+Las matrices de confusión (Figura~\ref{fig:matrices_confusion_a5}, Anexo~\ref{sec:anexo_figuras}) confirman la proximidad retórica entre Basis, Improvement, Comparison y Application~\cite{lauscher2022multicite}: GPT sobre-clasifica citas metodológicas~\cite{fogelson2025llms} con alta sobreconfianza ($\text{ECE} > 0,30$), mientras Gemini mantiene calibración sólida ($\text{ECE}=0,1158$) y duplica el F1 en Basis.
 
 \subsection{Valor de la Curaduría Humana A3 y Eficiencia Operativa}
 
@@ -763,29 +720,65 @@ Completando la respuesta a \textbf{PI2}, el ajuste supervisado de EvidenCite equ
 
 Interpretamos el error como la suma de dos componentes. El ruido \textit{inconsistente} (contextos similares que reciben etiquetas distintas según las haya fijado el panel, el NLI o una regla) no es aprendible y acota el desempeño en $\approx 0,74$ frente a las propias etiquetas automáticas. El sesgo \textit{sistemático} del etiquetador (por ejemplo, citas marcadas como Gap que los revisores leen como Background) sí se aprende, y explica la caída a $0,43\text{--}0,46$ frente al Gold. Ninguno se corrige con más capacidad, más épocas ni un ajuste \textit{post-hoc} de probabilidades previas, porque entre ambos conjuntos de prueba no cambió la proporción de textos sino la etiqueta de los mismos textos ($54,32\pct{}$); a ello se suma que las cuotas de minado fijan en $\mathcal{D}_{\text{train}}$ un $12,8\pct{}$ de Background frente al $42,9\pct{}$ del Gold.
 
-En consecuencia, la única referencia válida de la tarea es la curaduría manual de A3, y el modelo que mejor concuerda con ella es uno que no intervino en el etiquetado automático: Gemini-3.8-Flash en 0-Shot ($68\pct{}$ de exactitud frente al $45\pct{}\text{--}51\pct{}$ de SciBERT y los LLMs con LoRA). En las citas que los revisores corrigieron, Gemini coincide con la etiqueta humana en el $54\pct{}$ de los casos, frente al $13,5\pct{}\text{--}16,6\pct{}$ de los modelos supervisados.
-
-Entre las limitaciones restantes destacan cinco aspectos. Primero, la paridad 1:1 exige disponibilidad del texto completo citado en arXiv. Segundo, persiste un techo físico en clases minoritarias como Basis e Improvement. Tercero, falta una ablación separada de fragmentos sin encabezados citados. Cuarto, el ahorro de \textit{Prompt Caching} depende de umbrales mínimos de prefijo que varían entre proveedores. Quinto, los modelos de A4 se seleccionaron con etiquetas automáticas, los definitivos cuentan con una o dos corridas por configuración y su calibración queda sin medir.
+En consecuencia, la única referencia válida de la tarea es la curaduría manual A3, y el modelo que mejor concuerda con ella es Gemini-3.8-Flash en 0-Shot ($68\pct{}$ de exactitud frente al $45\pct{}\text{--}51\pct{}$ de A4; $54\pct{}$ vs. $13,5\pct{}\text{--}16,6\pct{}$ sobre citas corregidas). Entre las limitaciones destacan cinco aspectos: la exigencia de texto completo en arXiv para paridad 1:1, el techo físico en Basis e Improvement, la falta de ablación separada de encabezados citados, la dependencia del umbral de prefijo para \textit{Prompt Caching}, y que en A4 la selección usó etiquetas automáticas con una o dos corridas finales y sin medición de calibración.
 
 \section{Conclusiones y Trabajo Futuro}
 
-Presentamos \textbf{EvidenCite}, un marco integrado para recuperación densa intra-documento de evidencia citada y clasificación probabilística de funciones citacionales sobre las nueve categorías no evaluativas de Lyu et al.~\cite{lyu2021classification}. Mediante un pipeline desacoplado en cinco capas construimos $18.658$ pares 1:1 sin fuga documental y un benchmark de prueba de $2.798$ citas revisado manualmente al $100\pct{}$.
+Presentamos \textbf{EvidenCite}, un marco de recuperación densa intra-documento y clasificación probabilística en las nueve funciones retóricas no evaluativas de Lyu et al.~\cite{lyu2021classification}, respaldado por $18.658$ pares 1:1 sin fuga documental y un conjunto de prueba de $2.798$ citas revisado manualmente al $100\pct{}$.
 
-La evaluación factorial sobre $22.384$ inferencias confirma que la arquitectura del modelo explica la mayor parte de la mejora global, con Gemini-3.8-Flash 0-Shot Config B dominando la frontera de Pareto ($\text{Macro-F1}=0,5996$, $\text{ECE}=0,1158$, $\$17,68/10\text{k}$ citas). Al mismo tiempo, la evidencia local recuperada aporta mejoras significativas de exactitud en GPT-4.1-mini (especialmente en \textit{Related Work}, $+10,28\text{ pp}$) y reduce la activación de pensamiento latente en Gemini, mientras la curaduría humana A3 desenmascara una falsa paridad inducida por el ruido del panel 7B--8B.
+Sobre $22.384$ inferencias vía API, Gemini-3.8-Flash 0-Shot Config B domina la frontera de Pareto ($\text{Macro-F1}=0,5996$, $\text{ECE}=0,1158$, $\$17,68/10\text{k}$ citas). La evidencia local aporta ganancias significativas en GPT-4.1-mini ($+10,28\text{ pp}$ en \textit{Related Work}) y reduce el pensamiento latente en Gemini, mientras la revisión manual A3 desenmascara la falsa paridad inducida por el panel 7B--8B. En paralelo, las $92$ corridas supervisadas de A4 muestran que SciBERT y LLMs abiertos (0,6B--8B con LoRA) convergen a un techo común ($\approx 0,74$ en test automático; $0,43\text{--}0,46$ en Gold) al destilar el ruido del etiquetado débil: ni capacidad, arquitectura ni evidencia local superan la calidad de la supervisión.
 
-Las $92$ corridas supervisadas de A4 aportan una conclusión complementaria: SciBERT y LLMs abiertos de 0,6B a 8B con LoRA convergen a un mismo techo ($\approx 0,74$ Macro-F1 frente a las etiquetas automáticas; $0,43\text{--}0,46$ frente al Gold) porque su entrenamiento es, por diseño, una destilación del etiquetado débil de las Capas 4--5: reproducen la lectura ---y el ruido--- de reglas, NLI y jueces de 7B--8B, y ni la capacidad, ni la arquitectura, ni la evidencia local los llevan más allá. La única referencia válida es la curaduría manual.
+Como trabajo futuro se proyectan cuatro líneas: (1) repetir la destilación reetiquetando $\mathcal{D}_{\text{train}}$ y $\mathcal{D}_{\text{dev}}$ con un maestro de frontera validado y calibrado sobre una fracción del Gold (reservando una partición por citante para evaluación); (2) completar el costo total de A4 frente a las APIs e integrar sus pesos al demostrador A8; (3) validar el razonamiento mínimo en Gemini y la ablación aislada de pasajes sin encabezados; y (4) construir bancos \textit{Few-Shot} curados exclusivamente con instancias Gold humanas.
 
-Como trabajo futuro se proyectan cuatro líneas. Primero, repetir la destilación con un maestro validado: usar el Gold como fuente de verdad para seleccionar y calibrar un modelo de frontera (o un panel de ellos) en lugar de los jueces de 7B--8B, reservando una partición del Gold por artículo citante para la evaluación final; reetiquetar con él $\mathcal{D}_{\text{train}}$ y $\mathcal{D}_{\text{dev}}$, y reentrenar los modelos compactos con el protocolo de A4, cuyo techo pasaría a ser la calidad de ese maestro. Segundo, completar el análisis de costo total de A4 frente a las APIs según el volumen procesado e integrar sus pesos al demostrador de A8. Tercero, validar empíricamente la configuración mínima de razonamiento latente y la ablación aislada de pasajes sin encabezados. Finalmente, construir bancos \textit{Few-Shot} curados exclusivamente con instancias Gold humanas.
-
-\IEEEtriggeratref{18}
+\IEEEtriggeratref{23}
 \bibliographystyle{IEEEtran}
 \bibliography{referencias}
 
 \clearpage
 \onecolumn
 \appendices
-\section{Figuras Complementarias}
+\section{Material Complementario: Figuras y Tablas}
 \label{sec:anexo_figuras}
+
+\begin{figure*}[!ht]
+\centering
+\begin{tikzpicture}
+\node[draw=black!60, fill=gray!5, rounded corners=2pt, inner sep=4.5pt, text width=0.92\textwidth, align=flush left, font=\ttfamily\scriptsize] {
+\{"instance\_id": "inst\_04783", "label": "Basis",\\
+\ "annotation\_metadata": \{"source\_dataset": "unarxive\_mined", "label\_source": "human\_review", "is\_gold": true, "panel\_agreement": 0.67, "panel\_label": "Basis", "prior\_label\_source": "llm\_panel", "split": "test"\},\\
+\ "citing\_paper": \{"id": "2212.08018", "rhetorical\_section": "High-level overview"\},\\
+\ "citation\_context": "The procedure builds upon the recent work by Hopkins, Kamath and Majid <cite>Samuel B Hopkins, Gautam Kamath, and Mahbod Majid, 2022</cite> on pure DP mean estimation...",\\
+\ "cited\_paper": \{"id": "2111.12981", "title": "Efficient mean estimation with pure differential privacy via a sum-of-squares exponential mechanism", "abstract": "We give the first polynomial-time algorithm...",\\
+\ \ "retrieved\_chunks": [\{"chunk\_id": "2111.12981\_s4\_c1", "section\_heading": "2.2.1 Private mean estimation...", "text": "A merit of our approach is that it allows powerful techniques from robust statistics...", "similarity\_score": 0.8936, "rank": 1\}]\}\}
+};
+\end{tikzpicture}
+\caption{Contrato JSON invariante real de la instancia \texttt{inst\_04783} en Capa 5 ($\mathcal{D}_{\text{test}}$), encapsulando Config A, Config B y linaje multi-etapa. Elaboración propia.}
+\label{fig:json_contrato}
+\end{figure*}
+
+\begin{table*}[!ht]
+\centering
+\caption{Matriz de Vecindad Retórica en $\Delta^8$ para Síntesis Determinista de Distribuciones en Demostraciones 9-Shot}
+\label{tab:vecindad_retorica}
+\scriptsize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{l c l l}
+\toprule
+\textbf{Clase Real ($c^*$)} & \textbf{Banda $[L_{c^*};\; U_{c^*}]$} & \textbf{Vecinos Primarios $\mathcal{N}_1$} & \textbf{Vecinos Secundarios $\mathcal{N}_2$} \\
+\midrule
+Background & $[0,62;\; 0,78]$ & Further Reading, Gap & Originator, Evidence \\
+Gap & $[0,60;\; 0,76]$ & Background, Comparison & Evidence, Improvement \\
+Basis & $[0,56;\; 0,72]$ & Improvement, Application & Background, Originator \\
+Comparison & $[0,58;\; 0,75]$ & Improvement, Evidence & Gap, Background \\
+Application & $[0,60;\; 0,76]$ & Basis, Improvement & Evidence, Comparison \\
+Improvement & $[0,56;\; 0,72]$ & Basis, Comparison & Application, Evidence \\
+Evidence & $[0,64;\; 0,80]$ & Comparison, Background & Basis, Gap \\
+Originator & $[0,64;\; 0,80]$ & Background, Basis & Application, Evidence \\
+Further Reading & $[0,68;\; 0,84]$ & Background, Evidence & Application, Basis \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \begin{figure*}[!ht]
 \centering

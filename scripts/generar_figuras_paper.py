@@ -359,7 +359,7 @@ def plot_fig03_split(gold_df, runs, df_all) -> None:
     plt.close(fig_cm)
 
     # --- 2. Dumbbell pareado A -> B por macro-sección citante (1 columna en cuerpo principal) ---
-    fig_s, ax2 = plt.subplots(figsize=(5.7, 3.85))
+    fig_s, ax2 = plt.subplots(figsize=(5.7, 3.30))
     sec_counts = gold_df["macro_section"].value_counts()
     sec_order = ["Related Work", "Intro / Prelim", "Experiments", "Method / Setup", "Otras", "Conclusion", "Sin sección"]
     sec_order = [s for s in sec_order if s in sec_counts.index]
@@ -542,17 +542,17 @@ def plot_fig11_split(gold_df, df_summary, df_all) -> None:
     color_gem = "#C53030"
 
     # --- 1. Frontera de Pareto (1 columna en cuerpo principal) ---
-    fig_p, ax0 = plt.subplots(figsize=(6.3, 4.45))
+    fig_p, ax0 = plt.subplots(figsize=(6.3, 3.90))
 
     label_specs = {
-        "gpt41_zs_a":  ((-10, -18), "right"),
-        "gpt41_zs_b":  ((-8, 26),   "right"),
-        "gpt41_fs_a":  ((-12, -26), "right"),
-        "gpt41_fs_b":  ((12, 14),   "left"),
+        "gpt41_zs_a":  ((-10, -16), "right"),
+        "gpt41_zs_b":  ((-8, 24),   "right"),
+        "gpt41_fs_a":  ((-10, -20), "right"),
+        "gpt41_fs_b":  ((12, 12),   "left"),
         "gemini_zs_a": ((-16, -8),  "right"),
-        "gemini_zs_b": ((-8, 18),   "right"),
-        "gemini_fs_a": ((0, -34),   "center"),
-        "gemini_fs_b": ((0, 18),    "center"),
+        "gemini_zs_b": ((-8, 16),   "right"),
+        "gemini_fs_a": ((0, -32),   "center"),
+        "gemini_fs_b": ((0, 16),    "center"),
     }
 
     pareto_sorted = df_summary.sort_values(["Costo Neto / 10k ($)", "Macro-F1"], ascending=[True, False])
