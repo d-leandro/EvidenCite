@@ -1,0 +1,93 @@
+name: Deploy EvidenCite Academy Lite (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      instance_id:
+        description: 'Existing Terraform EC2 instance (i-...)'
+        required: true
+        type: string
+      models_bucket:
+        description: 'Existing private S3 artifacts bucket'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type DEPLOY-EC2 to authorize remote Docker deployment'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidencite-ec2-demo-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: inputs.confirmation == 'DEPLOY-EC2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      AWS_REGION: us-east-1
+      INSTANCE_ID: ${{ inputs.instance_id }}
+      MODELS_BUCKET: ${{ inputs.models_bucket }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Validate target instance and ownership
+        run: |
+          [[ "$INSTANCE_ID" =~ ^i-[0-9a-f]{8,17}$ ]] || exit 2
+          aws ec2 describe-instances --instance-ids "$INSTANCE_ID" > "$RUNNER_TEMP/ec2.json"
+          python3 - "$RUNNER_TEMP/ec2.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1]))
+          hosts=[i for r in x.get('Reservations',[]) for i in r.get('Instances',[])]
+          assert len(hosts)==1, 'Unexpected EC2 count'
+          host=hosts[0]
+          assert host['State']['Name']=='running', 'EC2 is not running'
+          assert any(t.get('Key')=='Project' and t.get('Value')=='EvidenCite' for t in host.get('Tags',[])), 'EC2 project tag mismatch'
+          print('Verified EC2 host is running and tagged for EvidenCite')
+          PY
+          aws s3api head-bucket --bucket "$MODELS_BUCKET"
+      - name: Create SSM command parameters (no API keys)
+        run: |
+          python3 tools/prepare_ssm_deploy.py "$GITHUB_SHA" "$MODELS_BUCKET" "$RUNNER_TEMP/ssm.json"
+      - name: Deploy via SSM (no SSH)
+        run: |
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "EvidenCite EC2 Demo $GITHUB_SHA" \
+            --parameters "file://$RUNNER_TEMP/ssm.json" \
+            --query 'Command.CommandId' --output text)"
+          echo "SSM Command ID: $COMMAND_ID"
+          for attempt in $(seq 1 470); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || true)"
+            case "$STATUS" in
+              Success)
+                echo '[OK] Remote deployment succeeded'
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}'
+                exit 1
+                ;;
+            esac
+            sleep 15
+          done
+          echo '[STOP] SSM deployment did not finish before the job timeout.' >&2
+          exit 1
+      - name: Summary
+        run: |
+          echo '### EvidenCite EC2 Demo' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Remote Compose updated. Access only through SSM port forwarding.' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,56 @@
+name: Validate EvidenCite EC2 Demo
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+    paths:
+      - 'infra/ec2-demo/**'
+      - 'compose.academy.yaml'
+      - 'api/Dockerfile.academy'
+      - 'tools/aws_academy_preflight.py'
+      - 'tools/upload_academy_models_s3.sh'
+      - 'tools/ec2_academy_deploy.sh'
+      - 'tools/prepare_ssm_deploy.py'
+      - '.github/workflows/validate-ec2-demo.yml'
+      - '.github/workflows/deploy-ec2-demo.yml'
+  pull_request:
+    paths:
+      - 'infra/ec2-demo/**'
+      - 'compose.academy.yaml'
+      - 'api/Dockerfile.academy'
+      - 'tools/aws_academy_preflight.py'
+      - 'tools/upload_academy_models_s3.sh'
+      - 'tools/ec2_academy_deploy.sh'
+      - 'tools/prepare_ssm_deploy.py'
+      - '.github/workflows/validate-ec2-demo.yml'
+      - '.github/workflows/deploy-ec2-demo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.11.4'
+      - name: Terraform format
+        run: terraform -chdir=infra/ec2-demo fmt -check -recursive
+      - name: Init providers without state or AWS credentials
+        run: terraform -chdir=infra/ec2-demo init -backend=false -input=false -no-color
+      - name: Validate Terraform
+        run: terraform -chdir=infra/ec2-demo validate -no-color
+      - name: Validate Compose cloud (no containers)
+        env:
+          GEMINI_API_KEY: placeholder-for-syntax-only
+        run: docker compose -f compose.academy.yaml config --quiet
+      - name: Python and Shell syntax
+        run: |
+          python3 -m py_compile tools/aws_academy_preflight.py tools/prepare_ssm_deploy.py
+          bash -n tools/upload_academy_models_s3.sh tools/ec2_academy_deploy.sh infra/ec2-demo/bootstrap.sh

@@ -1,0 +1,56 @@
+# AWS Academy Learner Lab: t3.large (8 GiB RAM). Granite is intentionally unavailable.
+# This file never changes the local compose.yaml.
+name: evidencite-academy
+services:
+  api:
+    image: evidencite-api:academy
+    build:
+      context: .
+      dockerfile: api/Dockerfile.academy
+    environment:
+      ENABLE_DEMO_MODEL: "false"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-false}
+      GRANITE_URL: http://127.0.0.1:65535
+      HF_HOME: /root/.cache/huggingface
+      EVIDENCITE_METRICS_DB: /workspace/var/metrics.sqlite3
+      EVIDENCITE_TFIDF_ROOT: /opt/evidencite-models
+      EVIDENCITE_SCIBERT_A_PATH: /opt/evidencite-models/scibert_A
+      EVIDENCITE_SCIBERT_B_PATH: /opt/evidencite-models/scibert_B
+    volumes:
+      - /srv/evidencite/models/scibert_A:/opt/evidencite-models/scibert_A:ro
+      - /srv/evidencite/models/scibert_B:/opt/evidencite-models/scibert_B:ro
+      - /srv/evidencite/models/tfidf_A:/opt/evidencite-models/tfidf_A:ro
+      - /srv/evidencite/models/tfidf_B:/opt/evidencite-models/tfidf_B:ro
+      - /srv/evidencite/metrics:/workspace/var
+      - hf-cache:/root/.cache/huggingface
+    mem_limit: 6g
+    cpus: 1.6
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 180s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  hf-cache:
