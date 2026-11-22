@@ -247,7 +247,7 @@ El cruce directo inicial resolvía el cuerpo citado en apenas $0,4\pct{}$ ($43/1
 
 % === CONTENIDO CAPA 5 (x = 17.39) ===
 \node[card] (c5a) at (17.39, -0.88) {\textbf{Panel 3 Jueces (vLLM, A2):}\\$\bar{\kappa}=0,3939$; Casos A--D y F.\\Llama-3.1, Qwen2.5 y Mistral (7B--8B).};
-\node[card] (c5b) at (17.39, -2.02) {\textbf{Revisión Manual (A3):}\\$100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($\mathbf{N=2.798}$ Gold, $54,32\pct{}$ corregidas).};
+\node[card] (c5b) at (17.39, -2.02) {\textbf{Revisión Manual (A3):}\\$100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($\mathbf{N=2.798}$ Gold, $54,32\pct{}$ corregidas).\\$\kappa=0,509$ entre revisores.};
 
 % === FLECHAS PRINCIPALES ENTRE CAPAS ===
 \draw[flow] ( 3.58, -1.35) -- ( 3.90, -1.35);
@@ -416,7 +416,7 @@ En la Actividad A2, desplegamos en vLLM~\cite{kwon2023efficient} (NVIDIA A100-40
 (y_{\text{prior}}, \text{Rev.}), & \text{D: empate } 1\text{-}1\text{-}1.
 \end{cases}
 \end{equation}
-Esta regla conservadora protege el subconjunto Gold (Caso F) y retiene $y_{\text{prior}}$ ante mayorías divergentes (Caso C), evitando que el sesgo de los jueces 7B--8B hacia clases genéricas erosione entre $39\pct{}$ y $53\pct{}$ las clases minoritarias. Posteriormente, en la Actividad A3, dos integrantes del equipo de investigación revisaron manualmente el $100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($N = 2.798$ instancias en $1.258$ artículos citantes), certificando el \textit{ground truth} integral de prueba y conservando las etiquetas previas ($\mathcal{D}_{\text{test}}^{(\text{panel})}$) para auditar el cambio distribucional.
+Esta regla conservadora protege el subconjunto Gold (Caso F) y retiene $y_{\text{prior}}$ ante mayorías divergentes (Caso C), evitando que el sesgo de los jueces 7B--8B hacia clases metodológicas (Application, Comparison y Basis) erosione entre el $40\pct{}$ y el $57\pct{}$ de las instancias de Improvement, Further Reading, Evidence y Originator. Posteriormente, en la Actividad A3, dos revisores del equipo etiquetaron de forma independiente el $100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($N = 2.798$ instancias en $1.258$ artículos citantes), sin ver la etiqueta previa ni la del otro revisor. Los desacuerdos se resolvieron en este orden: (i) si la cita proviene de \textit{MultiCite} y su etiqueta coincide con la de un revisor, se adopta esa etiqueta; (ii) en los restantes se consultaron tres LLMs (Claude Fable 5.2, GPT-6 y Gemini Argon) como desempate y se adoptó la etiqueta del revisor respaldada por más modelos (en empate, la del segundo revisor); (iii) las citas en las que ningún modelo respaldó a los revisores se revisaron nuevamente y se decidieron caso por caso, certificando así el \textit{ground truth} integral de prueba y conservando las etiquetas previas ($\mathcal{D}_{\text{test}}^{(\text{panel})}$) para auditar el cambio distribucional.
 
 \subsection{Clasificadores Supervisados y Adaptadores LoRA (A4)}
 \label{sec:metodo_a4}
@@ -519,6 +519,8 @@ Basis & $709$ & $1.189$ & $1.328$ & $672$ & $199$ ($7,1\pct{}$) & $928$ & $201$ 
 \end{table*}
 
 En A2, los tres jueces de 7B--8B procesaron el corpus con abstención prácticamente nula ($0,12\pct{}$ solo en Mistral-7B) y concordancia inter-juez moderada-baja ($\bar{\kappa} = 0,3939$). Bajo la Ec.~\eqref{eq:reglas_consenso_panel}, $7.439$ instancias alcanzaron consenso confirmatorio o unánime (Casos A y B), $7.590$ quedaron marcadas para revisión por divergencia o empate (Casos C y D) y $3.629$ permanecieron blindadas como Gold de \textit{MultiCite} (Caso F). Sobre ese subconjunto Gold, el voto mayoritario 7B--8B acertó apenas el $36,40\pct{}$, confirmando el sesgo de sobre-atribución metodológica descrito por Fogelson et al.~\cite{fogelson2025llms}.
+
+Las dos revisiones independientes coincidieron en $1.750$ de las $2.798$ citas ($62,5\pct{}$), con un Kappa de Cohen de $\kappa = 0,509$ (acuerdo moderado), por encima de la concordancia del panel 7B--8B ($\bar{\kappa} = 0,3939$). De los $1.048$ desacuerdos, $147$ se resolvieron con \textit{MultiCite}, $894$ con el desempate de los LLMs a favor de uno de los revisores y $7$ se revisaron nuevamente con criterio, caso por caso. Los desacuerdos más frecuentes enfrentaron a Background con clases cercanas como Evidence, Gap y Application.
 
 La curaduría humana integral de $\mathcal{D}_{\text{test}}$ en A3 modificó $1.520$ de las $2.798$ etiquetas ($54,32\pct{}$): $69,73\pct{}$ en el estrato de desacuerdo (\textit{Needs Review}), $48,25\pct{}$ en el consenso del panel y $35,70\pct{}$ en \textit{MultiCite} al desambiguar hacia las nueve clases. Como ilustra la Tabla~\ref{tab:distribucion_etapas_a1_a2_a3}, A3 corrigió la sobrerrepresentación artificial inducida por las cuotas de minado y restituyó la distribución natural del discurso científico~\cite{jurgens2018measuring,zhang2025deep}, liderada por Background ($42,89\pct{}$) y Application ($22,77\pct{}$).
 
@@ -751,7 +753,9 @@ Needs Review (Desacuerdo) & $1.120$ ($40,0\pct{}$) & $48,66\pct{}$ & $44,82\pct{
 }
 \end{table}
 
-Este diagnóstico también explica el bajo rendimiento de 9-Shot: al muestrearse de $\mathcal{D}_{\text{train}}$ sin curaduría A3, cuatro de los nueve ejemplares provenían del estrato de empate 1-1-1, donde el panel presenta $69,73\pct{}$ de error. En respuesta a \textbf{PI3}, los LLMs comerciales en 0-Shot ---que no dependen de esas etiquetas ruidosas--- ofrecen el mejor equilibrio entre precisión, calibración ($\text{ECE}=0,1158$ en Gemini 0s-B) y costo operativo ($\$6,59\text{--}\$17,68/10\text{k}$ citas, optimizables con nivel mínimo de pensamiento), mientras los modelos supervisados locales presentan latencia de milisegundos y costo marginal nulo por llamada pero quedan relegados en exactitud mientras se entrenen con etiquetas automáticas.
+Este diagnóstico también explica el bajo rendimiento de 9-Shot: al muestrearse de $\mathcal{D}_{\text{train}}$ sin curaduría A3, cuatro de los nueve ejemplares provenían del estrato de empate 1-1-1, donde el panel presenta $66,06\pct{}$ de error. En respuesta a \textbf{PI3}, los LLMs comerciales en 0-Shot ---que no dependen de esas etiquetas ruidosas--- ofrecen el mejor equilibrio entre precisión, calibración ($\text{ECE}=0,1158$ en Gemini 0s-B) y costo operativo ($\$6,59\text{--}\$17,68/10\text{k}$ citas, optimizables con nivel mínimo de pensamiento), mientras los modelos supervisados locales presentan latencia de milisegundos y costo marginal nulo por llamada pero quedan relegados en exactitud mientras se entrenen con etiquetas automáticas.
+
+Como los desempates de A3 se apoyaron en LLMs comerciales, y dos de ellos pertenecen a las familias evaluadas en A5 (GPT y Gemini), no puede descartarse un sesgo leve a favor de esas familias. Su efecto es acotado: en $894$ de los $901$ desempates el modelo solo eligió entre las dos etiquetas humanas.
 
 \subsection{Techo de A4: Destilación de un Etiquetador Débil y Limitaciones}
 
