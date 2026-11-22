@@ -37,6 +37,23 @@ resource "aws_security_group" "demo" {
   description = "EvidenCite demo: no public ingress"
   vpc_id      = data.aws_vpc.default.id
 
+  # Only expose the TLS-terminating Caddy proxy; SSH and 8080 remain closed.
+  ingress {
+    description = "HTTP for ACME challenge and HTTPS redirect"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS EvidenCite evaluator access"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "Outbound for SSM, S3, packages and APIs"
     from_port   = 0
@@ -94,6 +111,10 @@ resource "aws_instance" "demo" {
   }
 
   lifecycle {
+    # Preserve the running instance when bootstrap.sh changes.
+    # New instances still receive the latest bootstrap.
+    ignore_changes = [user_data]
+
     precondition {
       condition     = var.allow_paid_resources
       error_message = "Deployment blocked: set -var='allow_paid_resources=true' only after checking lab limits and costs."
