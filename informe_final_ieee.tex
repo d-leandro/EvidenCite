@@ -14,6 +14,7 @@
 \usepackage[colorlinks=true,urlcolor=blue!55!black,citecolor=blue!55!black,linkcolor=blue!55!black]{hyperref}
 
 \renewcommand{\IEEEkeywordsname}{Palabras clave}
+\addto\captionsspanish{\renewcommand{\appendixname}{Anexo}}
 \newcommand{\pct}{\mbox{\symbol{37}}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcolumntype{C}{>{\centering\arraybackslash}X}
@@ -524,16 +525,9 @@ La curaduría humana integral de $\mathcal{D}_{\text{test}}$ en A3 modificó $1.
 \subsection{Clasificadores Supervisados (A4): Selección, Techo y Evaluación sobre el Gold}
 \label{sec:resultados_a4}
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{reports/figures/paper/fig12_a4_seleccion_y_techo.pdf}
-\caption{Experimentación de A4 (Macro-F1 de test). (a) R1: valor e intervalo de confianza del $95\pct{}$ por modelo y configuración ($^*$mezcla de expertos, entrenada con otra receta). (b) R2: las $58$ corridas y la media por modelo; la banda gris cubre las medias de los siete primeros, sin diferencia detectable entre sí; en negrita, las familias candidatas. (c) Modelos definitivos frente al test automático y al Gold humano (un marcador por corrida); las bandas verticales indican el rango de GPT-4.1-mini y Gemini-3.8-Flash en 0-Shot sobre el Gold. Elaboración propia.}
-\label{fig:a4_seleccion_y_techo}
-\end{figure*}
-
 \subsubsection{Rondas de Selección}
 
-En R1 (Figura~\ref{fig:a4_seleccion_y_techo}a) los modelos quedaron en una banda estrecha de Macro-F1 ($0,80\text{--}0,83$), con intervalos de confianza del $95\pct{}$ de $\pm 0,014$ solapados casi por completo (valores no comparables con los de R2: aquella iteración del etiquetado incluía $h_{\text{citing}}$ en el panel y en la entrada). Gemma 4 y Hunyuan ocuparon las últimas posiciones en validación y en prueba, y Gemma 4 fue además el más costoso: su variante E4B requirió $73\text{--}94$ GB y $50\text{--}57$ min por corrida, frente a $39$ GB y $22\text{--}28$ min de Llama-3.2-3B en la misma GPU, por un diseño multimodal (torres de visión y audio, \textit{embeddings} por capa y bloques heterogéneos) que no aporta a una tarea de solo texto; en su variante de mezcla de expertos (26B-A4B), LoRA alcanzó apenas el $0,12\pct{}$ de los parámetros. Ambas familias se descartaron.
+En R1 (Figura~\ref{fig:a4_seleccion_y_techo}a, Anexo~\ref{sec:anexo_figuras}) los modelos quedaron en una banda estrecha de Macro-F1 ($0,80\text{--}0,83$), con intervalos de confianza del $95\pct{}$ de $\pm 0,014$ solapados casi por completo (valores no comparables con los de R2: aquella iteración del etiquetado incluía $h_{\text{citing}}$ en el panel y en la entrada). Gemma 4 y Hunyuan ocuparon las últimas posiciones en validación y en prueba, y Gemma 4 fue además el más costoso: su variante E4B requirió $73\text{--}94$ GB y $50\text{--}57$ min por corrida, frente a $39$ GB y $22\text{--}28$ min de Llama-3.2-3B en la misma GPU, por un diseño multimodal (torres de visión y audio, \textit{embeddings} por capa y bloques heterogéneos) que no aporta a una tarea de solo texto; en su variante de mezcla de expertos (26B-A4B), LoRA alcanzó apenas el $0,12\pct{}$ de los parámetros. Ambas familias se descartaron.
 
 En R2 (Figura~\ref{fig:a4_seleccion_y_techo}b) las $58$ corridas se concentran entre $0,721$ y $0,756$. El factor modelo es significativo (ANOVA de una vía, $p<0,001$) solo por los tres modelos inferiores: entre los siete primeros no hay diferencia detectable ($p=0,45$), y la semilla desplaza por sí sola cada corrida en $\pm 0,006$ (desviación estándar entre semillas). Ni el tamaño (Spearman $|\rho|<0,2$), ni la generación, ni la arquitectura predicen el desempeño, y la Config B no se distingue de la Config A ($+0,0035$; $p=0,07$; $28$ pares). Entre las familias candidatas (Llama, Qwen3.5 y Granite) la decisión no pudo ser predictiva. Llama-3.2-3B, el más rápido ($22\text{--}28$ min y $39$ GB por corrida), se descartó porque su distribución es de acceso restringido, sujeta a registro y aprobación del proveedor. Qwen3.5, con la mejor media de validación en su variante de 4B, se descartó por costo: sus bloques híbridos se ejecutan sin núcleos optimizados y la variante de 2B requirió $37\text{--}48$ min y $55\text{--}58$ GB en la misma GPU. Se eligió Granite ($24\text{--}32$ min y $49$ GB): denso, de solo texto, de acceso abierto y la única familia cuyo siguiente tamaño pertenece a la misma generación (Granite-4.2-8B).
 
@@ -550,6 +544,8 @@ Granite-4.2-8B obtiene $0,744$ (Config A) y $0,737$ (Config B) en el test autom�
 Frente al Gold, el desempeño de todos los modelos supervisados se desploma (Figura~\ref{fig:a4_seleccion_y_techo}c y Tabla~\ref{tab:maestra_resultados}): Granite-4.2-8B queda en $0,435\text{--}0,463$ de Macro-F1 (cuatro corridas), SciBERT en $0,433\text{--}0,462$ y las $64$ corridas previas (R2, Qwen3-0.6B y SciBERT), recalificadas sin reentrenar, en $0,434\text{--}0,456$ (medias por modelo y configuración); es decir, al nivel de GPT-4.1-mini y entre $13$ y $17$ puntos por debajo de Gemini-3.8-Flash. Tampoco se conserva el orden relativo de los modelos entre ambos conjuntos de prueba (Spearman $\rho=0,32$; $30$ grupos, incluidas las variantes de API), como en otros \textit{benchmarks} al corregir sus etiquetas~\cite{northcutt2021pervasive}. El análisis por instancia identifica la causa: donde los revisores confirmaron la etiqueta automática, los modelos aciertan entre el $83\pct{}$ y el $87\pct{}$; donde la corrigieron, predicen la etiqueta automática original entre el $62\pct{}$ y el $65\pct{}$ de las veces y la humana solo entre el $13,5\pct{}$ y el $16,6\pct{}$. Por clase (Tabla~\ref{tab:f1_por_clase_a5}), Granite-4.2-8B, entrenado sobre cuotas de minado casi uniformes, predice Background en torno al $11\pct{}$ de los casos cuando constituye el $43\pct{}$ del Gold (precisión $0,84$; exhaustividad $0,21$) y sobre-predice Gap, Evidence e Improvement (precisión $0,11\text{--}0,21$): Gap pasa de $0,76$ de F1 en validación a $0,18$ en el Gold, mientras Further Reading se mantiene ($0,89 \to 0,83$).
 
 Tampoco la evidencia local ayuda a estos modelos: sobre el Gold, la Config B empeora a SciBERT ($-0,029$), Qwen3-0.6B ($-0,014$) y TF-IDF ($-0,034$; $p<0,05$ en los tres) y no cambia a Granite-4.2-8B ($+0,010$; $p=0,09$; \textit{bootstrap} pareado).
+
+Las matrices de confusión normalizadas por fila sobre el Gold (Figuras~\ref{fig:confusion_tfidf}--\ref{fig:confusion_granite}, Anexo~\ref{sec:anexo_figuras}) muestran el mismo patrón en las tres familias: la diagonal se sostiene en Further Reading (exhaustividad de $0,85\text{--}0,95$) y es mínima en Background ($0,21\text{--}0,29$), cuyas citas se reparten entre las ocho clases restantes ---en SciBERT Config A, $0,18$ hacia Gap, $0,11$ hacia Originator y $0,09$ hacia Application, Improvement y Evidence---, reflejo del prior casi uniforme que imponen las cuotas de entrenamiento. La diferencia B $-$ A localiza el efecto de la evidencia local: en TF-IDF la Config B reduce la exhaustividad de las nueve clases (hasta $-0,10$ en Basis y Originator); en SciBERT la reduce en Background ($0,29 \to 0,21$) y Application ($0,63 \to 0,53$) y la eleva en Originator ($0,64 \to 0,70$); en Granite-4.2-8B la eleva en Application ($0,55 \to 0,69$) y Further Reading ($0,89 \to 0,95$), la reduce en Basis ($0,78 \to 0,59$) e Improvement ($0,63 \to 0,31$) y apenas mueve Background ($0,21 \to 0,23$).
 
 \subsection{Desempeño Predictivo, Contraste Config A vs. B y Calibración (A4--A6)}
 \label{sec:resultados_a5}
@@ -708,7 +704,7 @@ Proyectado a $10.000$ citas (Figura~\ref{fig:frontera_pareto_y_sensibilidad_pane
 \subsubsection{Costo de Entrenamiento de los Modelos Supervisados}
 \label{sec:costo_a4}
 
-La contabilidad anterior solo incluye el costo marginal de las APIs. Los modelos de A4 no pagan por llamada, pero sí por su entrenamiento ($47,8$ h registradas en las $92$ corridas, sin contar aprovisionamiento ni corridas fallidas) y por el cómputo de inferencia. \textbf{\textless ACÁ VAN LOS GASTOS DE ENTRENAMIENTO\textgreater}
+La contabilidad anterior solo incluye el costo marginal de las APIs. Los modelos de A4 no pagan por llamada, pero sí por su entrenamiento ($47,8$ h registradas en las $92$ corridas, sin contar aprovisionamiento ni corridas fallidas) y por el cómputo de inferencia. El entrenamiento de las versiones definitivas de la Tabla~\ref{tab:maestra_resultados} costó cerca de $12,7$ USD ($\approx 42.000$ COP): Granite-4.2-8B con LoRA, $1,6$ h en una B200 de RunPod ($8$ USD/h), $12,44$ USD; SciBERT, $0,6$ h en T4 y A100 de Colab, $767$ COP, y TF-IDF, $28$ COP. La cifra cubre solo esas seis corridas; excluye la selección de modelos (R1 y R2), las corridas fallidas y el aprovisionamiento.
 
 \begin{figure*}[t]
 \centering
@@ -787,5 +783,39 @@ Como trabajo futuro se proyectan cuatro líneas. Primero, repetir la destilació
 \IEEEtriggeratref{18}
 \bibliographystyle{IEEEtran}
 \bibliography{referencias}
+
+\clearpage
+\onecolumn
+\appendices
+\section{Figuras Complementarias}
+\label{sec:anexo_figuras}
+
+\begin{figure*}[!ht]
+\centering
+\includegraphics[width=\textwidth]{reports/figures/paper/fig12_a4_seleccion_y_techo.pdf}
+\caption{Experimentación de A4 (Macro-F1 de test). (a) R1: valor e intervalo de confianza del $95\pct{}$ por modelo y configuración ($^*$mezcla de expertos, entrenada con otra receta). (b) R2: las $58$ corridas y la media por modelo; la banda gris cubre las medias de los siete primeros, sin diferencia detectable entre sí; en negrita, las familias candidatas. (c) Modelos definitivos frente al test automático y al Gold humano (un marcador por corrida); las bandas verticales indican el rango de GPT-4.1-mini y Gemini-3.8-Flash en 0-Shot sobre el Gold. Elaboración propia.}
+\label{fig:a4_seleccion_y_techo}
+\end{figure*}
+
+\begin{figure*}[!ht]
+\centering
+\includegraphics[width=\textwidth]{reports/figures/consolidacion/confusion_differential_tfidf_logreg_A_lrna_vs_tfidf_logreg_B_lrna.pdf}
+\caption{Matrices de confusión normalizadas por fila (exhaustividad en la diagonal) de TF-IDF + Regresión Logística sobre el Gold humano ($N = 2.798$): Config A ($\text{Macro-F1} = 0,366$), Config B ($\text{Macro-F1} = 0,332$) y diferencia B $-$ A. Elaboración propia.}
+\label{fig:confusion_tfidf}
+\end{figure*}
+
+\begin{figure*}[!ht]
+\centering
+\includegraphics[width=\textwidth]{reports/figures/consolidacion/confusion_differential_scibert_scivocab_uncased_encoder_A_lr2e-5_vs_scibert_scivocab_uncased_encoder_B_lr2e-5.pdf}
+\caption{Matrices de confusión normalizadas por fila (exhaustividad en la diagonal) de SciBERT sobre el Gold humano ($N = 2.798$): Config A ($\text{Macro-F1} = 0,462$), Config B ($\text{Macro-F1} = 0,433$) y diferencia B $-$ A. Elaboración propia.}
+\label{fig:confusion_scibert}
+\end{figure*}
+
+\begin{figure*}[!ht]
+\centering
+\includegraphics[width=\textwidth]{reports/figures/consolidacion/confusion_differential_granite-4.2-8b_lora_A_lr1e-4_test_revisado_vs_granite-4.2-8b_lora_B_lr1e-4_test_revisado.pdf}
+\caption{Matrices de confusión normalizadas por fila (exhaustividad en la diagonal) de Granite-4.2-8B + LoRA sobre el Gold humano ($N = 2.798$), corridas evaluadas con el test revisado: Config A ($\text{Macro-F1} = 0,435$), Config B ($\text{Macro-F1} = 0,441$) y diferencia B $-$ A. Elaboración propia.}
+\label{fig:confusion_granite}
+\end{figure*}
 
 \end{document}
