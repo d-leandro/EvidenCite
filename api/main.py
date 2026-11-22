@@ -4,8 +4,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import router
-from api.pdf_routes import router as pdf_router
+from api.routers.predictions import router
+from api.routers.pdf import router as pdf_router
+from api.routers.metrics import router as metrics_router
 
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 
@@ -23,6 +24,7 @@ def health():
 
 app.include_router(router)
 app.include_router(pdf_router)
+app.include_router(metrics_router)
 
 app.mount(
     "/static",

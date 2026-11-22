@@ -8,6 +8,20 @@ const errorElement = document.getElementById("error-message");
 
 const API = "/api/v1";
 
+// Indicadores de inferencia.
+const progressEl = document.createElement("p");
+progressEl.id = "prediction-progress";
+progressEl.className = "prediction-progress hidden";
+progressEl.setAttribute("role", "timer");
+progressEl.setAttribute("aria-live", "off");
+submitButton.closest(".form-footer")
+    .insertAdjacentElement("afterend", progressEl);
+
+const latencyEl = document.createElement("p");
+latencyEl.id = "prediction-latency";
+latencyEl.className = "prediction-latency hidden";
+resultSection.appendChild(latencyEl);
+
 // Configuration A/B controls the visible model selection.
 let uiConfiguration = "A";
 let uiModels = [];
@@ -267,12 +281,14 @@ form.addEventListener("submit", async (event) => {
 
     submitButton.disabled = true;
     submitButton.textContent = "Analizando cita...";
+    let progressInterval = null;
 
     try {
         const citingContext = contextInput.value.trim();
         const targetCitation = targetInput.value.trim();
 
         const mode = currentMode();
+        const selectedModelId = modelSelector.value;
 
         if (mode === "A" &&
             (!citedTitleInput.value.trim() ||
@@ -299,11 +315,37 @@ form.addEventListener("submit", async (event) => {
         });
 
         // Step 2: Run selected classifier.
+        const predictionStartedAt = performance.now();
+
+        if (selectedModelId) {
+            const updateProgress = () => {
+                const elapsed = Math.floor(
+                    (performance.now() - predictionStartedAt) / 1000
+                );
+                const minutes = String(
+                    Math.floor(elapsed / 60)
+                ).padStart(2, "0");
+                const seconds = String(
+                    elapsed % 60
+                ).padStart(2, "0");
+
+                progressEl.textContent =
+                    `${modelSelector.selectedOptions[0]?.textContent || selectedModelId}: ${minutes}:${seconds}. ` +
+                    (selectedModelId.startsWith("granite-")
+                        ? "En CPU puede tardar más de un minuto."
+                        : "Analizando la cita...");
+            };
+
+            progressEl.classList.remove("hidden");
+            updateProgress();
+            progressInterval = setInterval(updateProgress, 1000);
+        }
+
         const prediction = await apiRequest("/predict", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                model_id: modelSelector.value,
+                model_id: selectedModelId,
                 citing_context: prepared.citing_context,
                 target_citation: targetCitation,
                 cited_title: mode === "A"
@@ -322,16 +364,36 @@ form.addEventListener("submit", async (event) => {
             }),
         });
 
-        renderPrediction(prediction);
+        const requestElapsedMs =
+            performance.now() - predictionStartedAt;
+
+        renderPrediction(prediction, requestElapsedMs);
+        // The metric exists on the API already; only update browser-observed time.
+        if (prediction.run_id) {
+            apiRequest("/metrics/client", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    run_id: prediction.run_id,
+                    client_ms: requestElapsedMs,
+                }),
+            }).catch(() => {});
+        }
     } catch (error) {
         showError(error.message);
     } finally {
+        if (progressInterval !== null) {
+            clearInterval(progressInterval);
+        }
+        progressEl.classList.add("hidden");
+        progressEl.textContent = "";
+
         submitButton.disabled = false;
         submitButton.textContent = "✦ CLASIFICAR INTENCIÓN DE CITA";
     }
 });
 
-function renderPrediction(data) {
+function renderPrediction(data, requestElapsedMs) {
     document.getElementById("prediction").textContent =
         data.predicted_label.toUpperCase();
 
@@ -384,6 +446,22 @@ function renderPrediction(data) {
     warning.textContent = data.is_demo
         ? "DEMO MODE : Synthetic prediction. Scores are not scientifically meaningful."
         : "";
+
+    const modelLatencyMs = Number(data.latency_ms);
+
+    if (Number.isFinite(modelLatencyMs) &&
+        modelLatencyMs >= 0) {
+        const serverLatency = Number(data.server_ms);
+        latencyEl.textContent =
+            `Modelo (reportado): ${(modelLatencyMs / 1000).toFixed(1)} s` +
+            (Number.isFinite(serverLatency)
+                ? ` | API: ${(serverLatency / 1000).toFixed(1)} s`
+                : "") +
+            ` | HTTP: ${(requestElapsedMs / 1000).toFixed(1)} s`;
+        latencyEl.classList.remove("hidden");
+    } else {
+        latencyEl.classList.add("hidden");
+    }
 
     resultSection.classList.remove("hidden");
     resultSection.scrollIntoView({behavior: "smooth", block: "nearest"});

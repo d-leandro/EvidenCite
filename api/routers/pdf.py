@@ -6,8 +6,8 @@ from tempfile import TemporaryDirectory
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from api.evidence import get_retriever
-from api.pdf_cache import get_pdf_parser
+from api.services.evidence import get_retriever
+from api.services.pdf_cache import get_pdf_parser
 
 router = APIRouter(prefix="/api/v1")
 MAX_PDF_BYTES = 20 * 1024 * 1024

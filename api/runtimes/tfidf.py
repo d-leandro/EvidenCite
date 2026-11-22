@@ -8,7 +8,7 @@ from pathlib import Path
 
 from api.schemas import PredictionRequest
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 WORKER_PYTHON = Path(os.getenv(
     "EVIDENCITE_TFIDF_PYTHON",
@@ -40,7 +40,7 @@ def _get_worker():
 
     if _process is None or _process.poll() is not None:
         _process = subprocess.Popen(
-            [str(WORKER_PYTHON), "-m", "api.tfidf_worker"],
+            [str(WORKER_PYTHON), "-m", "api.workers.tfidf_worker"],
             cwd=str(PROJECT_ROOT),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

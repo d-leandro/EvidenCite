@@ -8,6 +8,8 @@
     <title>EvidenCite</title>
 
     <link rel="stylesheet" href="/static/styles.css?v=18">
+    <link rel="stylesheet" href="/static/metrics.css?v=1">
+    <link rel="stylesheet" href="/static/training.css?v=4">
 </head>
 
 <body>
@@ -86,6 +88,13 @@
         </button>
 
 
+
+            <button class="tab" data-tab="metrics" type="button" aria-selected="false">
+            ◷ Tiempos y costos
+        </button>
+        <button class="tab" data-tab="training" type="button" aria-selected="false">
+            ◫ Entrenamiento
+        </button>
 
     </nav>
 
@@ -346,6 +355,47 @@
         </section>
 
     </main>
+    <section id="metrics-tab" class="tab-content" aria-label="Tiempos y costos de inferencia">
+      <div class="metrics-panel panel">
+        <h2 class="metrics-heading">Tiempos y costos de inferencia</h2>
+        <p class="metrics-intro">Cada clasificación registra el modelo, su configuración, latencia, resultado y tokens cuando están disponibles. Los costos se muestran únicamente si hay tarifas verificadas configuradas.</p>
+        <div class="metrics-toolbar">
+          <select id="metrics-model" aria-label="Filtrar por modelo"><option value="all">Todos los modelos</option></select>
+          <select id="metrics-config" aria-label="Filtrar por configuración">
+            <option value="all">Ambas configuraciones</option>
+            <option value="A">Configuración A</option>
+            <option value="B">Configuración B</option>
+          </select>
+          <button id="metrics-refresh" type="button">Actualizar</button>
+          <a href="/api/v1/metrics/export.csv" download>Exportar CSV</a>
+        </div>
+        <div class="metrics-grid">
+          <div class="metrics-stat"><span>Ejecuciones registradas</span><strong id="metric-count">0</strong></div>
+          <div class="metrics-stat"><span>Predicciones reales exitosas</span><strong id="metric-ok">0</strong></div>
+          <div class="metrics-stat"><span>Latencia media de la API</span><strong id="metric-mean">N/D</strong></div>
+          <div class="metrics-stat"><span>Costo estimado conocido</span><strong id="metric-cost">N/D</strong><small id="metric-cost-note">Sin datos</small></div>
+        </div>
+        <h3 class="metrics-subheading">Latencia media por modelo y configuración</h3>
+        <div id="metrics-chart" aria-label="Comparación de latencia media"></div>
+        <h3 class="metrics-subheading">Historial de ejecuciones</h3>
+        <div class="metrics-table-wrap">
+          <table class="metrics-table"><thead><tr>
+            <th>Fecha</th><th>Modelo</th><th>Estado</th><th>Clase</th>
+            <th>API</th><th>Modelo*</th><th>Navegador</th><th>Tokens E/S</th><th>USD</th>
+          </tr></thead><tbody id="metrics-rows"></tbody></table>
+        </div>
+        <p class="metrics-footnote">* La latencia reportada por el predictor puede provenir de caché y superar la duración real de la petición; se marca con ⚠. Para comparar modelos se utiliza la medición común de la API. No se almacena texto de las citas.</p>
+        <p id="metrics-status" class="metrics-footnote" role="status" aria-live="polite">Abre esta pestaña para cargar datos.</p>
+      </div>
+    </section>
+    <section id="training-tab" class="tab-content" aria-label="Entrenamiento y experimentos">
+      <div class="metrics-panel panel">
+        <h2 class="metrics-heading">Entrenamiento y experimentos</h2>
+        <p class="metrics-intro">Esta pestaña mostrará las duraciones de entrenamiento, hiperparámetros, métricas de evaluación y artefactos reales registrados en MLflow.</p>
+        <p class="metrics-footnote">Pendiente de integración con los registros de MLflow. No se muestran tiempos ni resultados inventados.</p>
+      </div>
+    </section>
+
 
 
 
@@ -357,5 +407,7 @@
 
 <script src="/static/readiness.js?v=1"></script>
 <script src="/static/source-method.js?v=1"></script>
+    <script src="/static/metrics.js?v=1"></script>
+    <script src="/static/training.js?v=4"></script>
 </body>
 </html>

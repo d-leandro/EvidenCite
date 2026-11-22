@@ -1444,3 +1444,23 @@ body[data-configuration="B"] #model-selector:focus {
     opacity: 1;
     visibility: visible;
 }
+
+
+/* Indicadores de procesamiento de inferencia. */
+.prediction-progress {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-light);
+    color: var(--cyan);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.prediction-latency {
+    margin: 0;
+    padding: 0 22px 20px;
+    color: var(--muted);
+    font-size: 12px;
+}

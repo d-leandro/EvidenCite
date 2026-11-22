@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from api.schemas import PredictionRequest, PrepareContextRequest
 from api.model_registry import list_models
-from api.demo import predict_demo
+from api.services.demo import predict_demo
 from src.data.builder import CANONICAL_9_CLASSES
 
 router = APIRouter(prefix="/api/v1")
@@ -15,10 +15,9 @@ def get_labels():
     return {"labels": CANONICAL_9_CLASSES}
 
 
-@router.post("/predict")
-def predict(request: PredictionRequest):
+def _predict_impl(request: PredictionRequest):
     if request.model_id in ("tfidf-a", "tfidf-b"):
-        from api.tfidf_runtime import tfidf_available, predict_tfidf
+        from api.runtimes.tfidf import tfidf_available, predict_tfidf
 
         if not tfidf_available():
             raise HTTPException(
@@ -40,7 +39,7 @@ def predict(request: PredictionRequest):
             ) from exc
 
     if request.model_id == "scibert-a":
-        from api.real_models import scibert_available, predict_scibert
+        from api.runtimes.scibert import scibert_available, predict_scibert
         if not scibert_available("scibert-a"):
             raise HTTPException(
                 status_code=503,
@@ -52,7 +51,7 @@ def predict(request: PredictionRequest):
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if request.model_id == "scibert-b":
-        from api.real_models import (
+        from api.runtimes.scibert import (
             scibert_b_available,
             predict_scibert_b,
         )
@@ -66,6 +65,53 @@ def predict(request: PredictionRequest):
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    if request.model_id in ("gemini-a", "gemini-b"):
+        from api.runtimes.gemini import (
+            gemini_available,
+            predict_gemini,
+        )
+
+        if not gemini_available():
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API key is not configured.",
+            )
+
+        try:
+            return predict_gemini(request.model_id, request)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=str(exc),
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Gemini inference failed. "
+                    "The Google API may be temporarily unavailable."
+                ),
+            ) from exc
+
+    if request.model_id in ("granite-a", "granite-b"):
+        from api.runtimes.granite_client import (
+            granite_available,
+            predict_granite,
+        )
+
+        if not granite_available():
+            raise HTTPException(
+                status_code=503,
+                detail="El servicio Granite no está disponible.",
+            )
+
+        try:
+            return predict_granite(request.model_id, request)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     if request.model_id == "demo-workflow":
         enabled = os.getenv("ENABLE_DEMO_MODEL", "").lower() in ("true", "1", "yes")
         if not enabled:
@@ -76,6 +122,26 @@ def predict(request: PredictionRequest):
         status_code=503,
         detail="Inference models are not registered yet.",
     )
+
+
+@router.post("/predict")
+def predict(request: PredictionRequest):
+    """Measure every real model with one common server-side clock."""
+    import time
+    from api.services.metrics import log_inference
+
+    start = time.perf_counter()
+    try:
+        result = _predict_impl(request)
+    except Exception as exc:
+        log_inference(request.model_id, None,
+                      (time.perf_counter() - start) * 1000.0, error=exc)
+        raise
+    duration_ms = (time.perf_counter() - start) * 1000.0
+    run_id = log_inference(request.model_id, result, duration_ms)
+    payload = (result if isinstance(result, dict) else
+               result.model_dump(mode="json") if hasattr(result, "model_dump") else {})
+    return {**payload, "run_id": run_id, "server_ms": round(duration_ms, 2)}
 
 
 @router.get("/models")
@@ -103,7 +169,7 @@ def prepare_context(request: PrepareContextRequest):
 
 @router.get("/papers/lookup")
 def lookup_cited_paper(query: str):
-    from api.paper_lookup import lookup_paper
+    from api.services.paper_lookup import lookup_paper
 
     if len(query.strip()) < 4:
         raise HTTPException(
@@ -126,7 +192,7 @@ def retrieve_evidence(request: EvidenceRequest):
     )
 
     inference_request = InferenceRequest(**request.model_dump())
-    from api.evidence import get_retriever
+    from api.services.evidence import get_retriever
 
     result = resolve_request_evidence(
         inference_request,

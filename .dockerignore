@@ -14,3 +14,6 @@ documentacion/
 
 # Local Terraform cache
 **/.terraform/
+
+# Granite se monta como volumen, no se copia a Docker.
+deploy-assets/granite_base/

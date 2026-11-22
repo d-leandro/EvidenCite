@@ -7,7 +7,7 @@ from pathlib import Path
 from api.adapters import to_inference_request
 from api.schemas import PredictionRequest
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BACKUP_ROOT = (
     Path.home()
     / "evidencite-mlflow-backup"

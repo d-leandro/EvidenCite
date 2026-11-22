@@ -6,8 +6,12 @@ services:
     environment:
       ENABLE_DEMO_MODEL: "true"
       HF_HOME: /root/.cache/huggingface
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-false}
+      EVIDENCITE_METRICS_DB: /workspace/var/metrics.sqlite3
     volumes:
       - hf-cache:/root/.cache/huggingface
+      - metrics-data:/workspace/var
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 10s
@@ -31,5 +35,39 @@ services:
       app:
         condition: service_started
 
+
+  granite:
+    image: evidencite-api:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        python -m pip install -q --no-deps torchao==0.18.0 &&
+        exec uvicorn api.workers.granite_service:app
+        --host 0.0.0.0 --port 8001 --workers 1
+    environment:
+      HF_HUB_OFFLINE: "1"
+      GRANITE_BASE_PATH: /models/base
+      GRANITE_A_PATH: /models/a
+      GRANITE_B_PATH: /models/b
+    volumes:
+      - ./api:/workspace/api:ro
+      - ./src/modeling/predict.py:/workspace/src/modeling/predict.py:ro
+      - ./deploy-assets/granite_base:/models/base:ro
+      - ${HOME}/evidencite-mlflow-backup/test-revisado/granite_A/artifacts:/models/a:ro
+      - ${HOME}/evidencite-mlflow-backup/test-revisado/granite_B/artifacts:/models/b:ro
+    ports:
+      - "127.0.0.1:8091:8001"
+    mem_limit: 14g
+    memswap_limit: 17g
+    cpus: 8
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 180s
+    restart: unless-stopped
+
 volumes:
   hf-cache:
+  metrics-data:

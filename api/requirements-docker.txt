@@ -11,3 +11,5 @@ requests>=2.34.2
 scikit-learn>=1.9.1
 transformers>=5.20.2
 uvicorn>=0.54.0
+
+google-genai==2.34.0

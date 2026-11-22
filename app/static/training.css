@@ -1,0 +1,31 @@
+/* MLflow training dashboard. Styles are scoped to avoid affecting inference. */
+#training-tab .training-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0}
+#training-tab .training-toolbar label{font-size:12px;color:var(--muted)}
+#training-tab .training-toolbar select{background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:9px 12px;max-width:100%}
+#training-tab .training-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 25px}
+#training-tab .training-stat{padding:16px;background:var(--panel);border:1px solid var(--border);border-radius:6px}
+#training-tab .training-stat small{display:block;color:var(--muted);font-size:11px}
+#training-tab .training-stat strong{display:block;font-size:24px;margin-top:9px;color:var(--text)}
+#training-tab .training-chart{display:grid;gap:11px;margin:14px 0 26px}
+#training-tab .training-chart-row{display:grid;grid-template-columns:175px minmax(50px,1fr) 75px;gap:12px;align-items:center;font-size:12px}
+#training-tab .training-chart-row span{overflow-wrap:anywhere}
+#training-tab .training-chart-row strong{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+#training-tab .training-track{height:12px;border-radius:8px;background:#18283c;overflow:hidden}
+#training-tab .training-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#21a7ec,#25db9a);min-width:2px}
+#training-tab .training-table-scroll{overflow-x:auto;margin:15px 0}
+#training-tab .training-table{width:100%;border-collapse:collapse;font-size:12px}
+#training-tab .training-table th{color:#ab84ff;text-align:left;padding:12px 9px;white-space:nowrap}
+#training-tab .training-table td{padding:12px 9px;border-top:1px solid var(--border);vertical-align:top}
+#training-tab .training-table td:first-child{max-width:290px;overflow-wrap:anywhere}
+#training-tab .training-note{font-size:12px;color:var(--muted);line-height:1.6;margin:12px 0}
+#training-tab .training-chip{font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted);display:inline-block}
+#training-tab .training-details{max-width:240px;overflow-wrap:anywhere}
+#training-tab .training-details summary{cursor:pointer;color:var(--cyan)}
+#training-tab .training-details dl{margin-top:6px;font-size:11px}
+#training-tab .training-details dt{color:var(--muted);margin-top:5px}
+#training-tab .training-details dd{margin:0}
+@media(max-width:720px){#training-tab .training-overview{grid-template-columns:1fr}#training-tab .training-chart-row{grid-template-columns:105px minmax(30px,1fr) 62px;gap:7px}}
+
+#training-tab .training-source-small{font-size:14px;line-height:1.6}
+#training-tab .training-table td{min-width:60px}
+#training-tab .training-table td:first-child{min-width:180px}
