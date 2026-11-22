@@ -82,7 +82,7 @@ flowchart LR
 ## 3. Diagrama 2: Arquitectura Desacoplada en Cinco Capas del Pipeline de Datos y Etiquetado (A1–A3)
 
 * **Correspondencia en `informe_final_ieee.tex`:** Figura 2 (`\label{fig:arquitectura_5_capas}`), Sección III-B (ancho completo `figure*`).
-* **Inspiración Bibliográfica:** Figura 2 de **CiteFusion** (Paolini et al., 2025, p. 5923; archivo `assets-informe-final/citefusion-ensemble-architecture.png`). Se adopta el patrón de **banda superior de chevrones de proceso** (*process chevron banner*) alineada verticalmente con los bloques detallados de artefactos, motores de resolución y volúmenes verificados debajo de cada etapa.
+* **Patrón Visual:** Arquitectura híbrida horizontal con **5 zonas de borde punteado** (una por capa, altura uniforme) conectadas secuencialmente, más un **carril inferior de infraestructura y salida** que separa los servicios externos (`Semantic Scholar API`, `ar5iv HTML`, `arXiv PDF / Docling`), el cilindro de caché persistente (`SQLite`), una mini-leyenda de flechas (flujo secuencial vs. consulta API/caché) y la tarjeta de salida `Dataset Final Etiquetado (Paridad 1:1)`.
 
 ### 3.1. Código Mermaid
 
