@@ -200,94 +200,94 @@ El cruce directo inicial resolvía el cuerpo citado en apenas $0,4\pct{}$ ($43/1
     font=\sffamily\scriptsize,
     zone/.style={draw=#1!45, dashed, line width=0.45pt, rounded corners=4pt},
     zlabel/.style={font=\sffamily\bfseries\scriptsize, text=black!88, align=center},
-    card/.style={draw=black!35, line width=0.4pt, fill=white, rounded corners=2pt, inner sep=3pt, align=left, font=\sffamily\tiny},
-    pill/.style={draw=#1!55!black, line width=0.45pt, fill=#1!11, rounded corners=2pt, inner xsep=2pt, inner ysep=2.5pt, minimum width=1.55cm, minimum height=7.4mm, text width=1.40cm, align=center, font=\sffamily\tiny},
-    db/.style={cylinder, shape border rotate=90, aspect=0.22, draw=orange!60!black, line width=0.5pt, fill=orange!15, minimum height=9.5mm, minimum width=1.45cm, align=center, font=\sffamily\bfseries\tiny},
+    card/.style={draw=black!35, line width=0.4pt, fill=white, rounded corners=2pt, inner sep=2.5pt, text width=3.20cm, align=left, font=\sffamily\tiny},
+    pill/.style={draw=#1!55!black, line width=0.45pt, fill=#1!11, rounded corners=2pt, inner xsep=2pt, inner ysep=2pt, minimum width=1.55cm, minimum height=6.4mm, text width=1.40cm, align=center, font=\sffamily\tiny},
+    db/.style={cylinder, shape border rotate=90, aspect=0.22, draw=orange!60!black, line width=0.5pt, fill=orange!15, minimum height=6.2mm, minimum width=1.42cm, align=center, font=\sffamily\bfseries\tiny},
     flow/.style={-{Latex[length=2.1mm, width=1.4mm]}, semithick, black!78},
     ext/.style={-{Latex[length=1.9mm, width=1.3mm]}, semithick, dashed, orange!70!black},
     extbi/.style={{Latex[length=1.8mm, width=1.2mm]}-{Latex[length=1.8mm, width=1.2mm]}, semithick, dashed, orange!70!black}
 ]
-% === 5 CAPAS CON ENCABEZADO INTEGRADO Y CONTORNO DISCONTINUO SUTIL ===
+% === 5 CAPAS HOMOGENEAS (MISMO ANCHO 3.58cm Y ALTURA 2.90cm) ===
 \foreach \xL/\xR/\col/\tit in {%
-    -1.68/ 1.68/gray/{Capa 1: Ingesta Bruta},
-     2.12/ 5.58/violet/{Capa 2: Estructuración},
-     6.02/ 9.58/blue/{Capa 3: Segmentación},
-    10.02/13.68/teal/{Capa 4: Dataset 1:1},
-    14.12/17.58/green/{Capa 5: Supervisión}%
+     0.00/ 3.58/gray/{Capa 1: Ingesta Bruta},
+     3.90/ 7.48/violet/{Capa 2: Estructuración},
+     7.80/11.38/blue/{Capa 3: Segmentación},
+    11.70/15.28/teal/{Capa 4: Dataset 1:1},
+    15.60/19.18/green/{Capa 5: Supervisión}%
 }{
     \begin{scope}
-        \clip[rounded corners=4pt] (\xL, -3.55) rectangle (\xR, 0.36);
-        \fill[\col!6]  (\xL, -3.55) rectangle (\xR, 0.36);
-        \fill[\col!20] (\xL, -0.18) rectangle (\xR, 0.36);
-        \draw[\col!35, line width=0.35pt] (\xL, -0.18) -- (\xR, -0.18);
+        \clip[rounded corners=4pt] (\xL, -2.62) rectangle (\xR, 0.28);
+        \fill[\col!6]  (\xL, -2.62) rectangle (\xR, 0.28);
+        \fill[\col!20] (\xL, -0.14) rectangle (\xR, 0.28);
+        \draw[\col!35, line width=0.35pt] (\xL, -0.14) -- (\xR, -0.14);
     \end{scope}
-    \draw[zone=\col] (\xL, -3.55) rectangle (\xR, 0.36);
-    \node[zlabel] at ({(\xL+\xR)/2}, 0.09) {\tit};
+    \draw[zone=\col] (\xL, -2.62) rectangle (\xR, 0.28);
+    \node[zlabel] at ({(\xL+\xR)/2}, 0.07) {\tit};
 }
 
-% === CONTENIDO CAPA 1 ===
-\node[card, text width=2.96cm] (c1a) at (0.00, -0.78) {\textbf{MultiCite:} $11.251$ citas humanas ($7$ clases).};
-\node[card, text width=2.96cm] (c1b) at (0.00, -1.72) {\textbf{unarXive:} Volcados \LaTeX{} en Ciencias de la Computación.};
-\node[card, fill=orange!6, draw=orange!50!black, text width=2.96cm] (c1c) at (0.00, -2.84) {\textbf{Adquisición Dirigida (2 niveles):}\\HTML + PDF en memoria ($\le 20$ pág., $20\text{ MB}$).};
+% === CONTENIDO CAPA 1 (x = 1.79) ===
+\node[card] (c1a) at (1.79, -0.58) {\textbf{MultiCite:} $11.251$ citas humanas ($7$ clases).};
+\node[card] (c1b) at (1.79, -1.32) {\textbf{unarXive:} Volcados \LaTeX{} CS.};
+\node[card, fill=orange!6, draw=orange!50!black] (c1c) at (1.79, -2.10) {\textbf{Adquisición Dirigida (2 niveles):}\\HTML + PDF ($\le 20$ pág., $20\text{ MB}$).};
 
-% === CONTENIDO CAPA 2 ===
-\node[card, text width=3.06cm] (c2a) at (3.85, -0.82) {\textbf{Corpus Estructurado:}\\$\mathbf{66.314}$ artículos; $30.722$ citados con cuerpo válido.};
-\node[card, text width=3.06cm] (c2b) at (3.85, -1.92) {\textbf{Validación Seminal:}\\Top-$250 \to 146$ validados $\to 135$ cuerpos completos.};
-\node[card, text width=3.06cm] (c2c) at (3.85, -2.96) {\textbf{Ámbito Envolvente} $\tilde{h}(p_t)$:\\Encabezados autorales exactos.};
+% === CONTENIDO CAPA 2 (x = 5.69) ===
+\node[card] (c2a) at (5.69, -0.60) {\textbf{Corpus Estructurado:} $\mathbf{66.314}$ artículos; $30.722$ citados con cuerpo.};
+\node[card] (c2b) at (5.69, -1.38) {\textbf{Validación Seminal:} Top-$250 \to 146$ validados $\to 135$ cuerpos.};
+\node[card] (c2c) at (5.69, -2.14) {\textbf{Ámbito Envolvente} $\tilde{h}(p_t)$:\\Encabezados autorales exactos.};
 
-% === CONTENIDO CAPA 3 ===
-\node[card, text width=3.16cm] (c3a) at (7.80, -1.30) {\textbf{Contextos Citantes ($m=3$):}\\$179.114 \to \mathbf{144.826}$ pares ($\bar{w}=83,94$ pal.), \texttt{<cite>}, \texttt{[OTHERCIT]}.\\$3.629$ Gold + $4.445$ léxicas\\$+ 136.752$ pool sin etiqueta.};
-\node[card, text width=3.16cm] (c3b) at (7.80, -2.86) {\textbf{Chunks Citados:}\\Acumulación voraz de oraciones ($W_{\max} \le 110$ pal.).};
+% === CONTENIDO CAPA 3 (x = 9.59) ===
+\node[card] (c3a) at (9.59, -0.96) {\textbf{Contextos Citantes ($m=3$):}\\$179.114 \to \mathbf{144.826}$ pares ($\bar{w}=83,94$ pal.), \texttt{<cite>}, \texttt{[OTHERCIT]}.\\$3.629$ Gold + $4.445$ léxicas + $136.752$ pool.};
+\node[card] (c3b) at (9.59, -2.14) {\textbf{Chunks Citados:}\\Acumulación voraz ($W_{\max} \le 110$ pal.).};
 
-% === CONTENIDO CAPA 4 ===
-\node[card, text width=3.26cm] (c4a) at (11.85, -0.88) {\textbf{Etiquetado Débil (NLI):}\\DeBERTa-v3 ($\tau=0,6$): $63.802 / 135.035$ ($47,25\pct{}$) $\to 10.584$.};
-\node[card, text width=3.26cm] (c4b) at (11.85, -1.94) {\textbf{Top-3 Chunks (SciBERT):}\\Similitud coseno $\bar{s}_{\pi_1}=0,8943$.};
-\node[card, text width=3.26cm] (c4c) at (11.85, -2.94) {\textbf{Partición ($\text{leakage}=0$):}\\$\mathbf{18.658}$ ($13.077 / 2.783 / 2.798$).};
+% === CONTENIDO CAPA 4 (x = 13.49) ===
+\node[card] (c4a) at (13.49, -0.62) {\textbf{Etiquetado Débil (NLI):} DeBERTa-v3 ($\tau=0,6$): $63.802 / 135.035$ ($47,25\pct{}$) $\to 10.584$.};
+\node[card] (c4b) at (13.49, -1.42) {\textbf{Top-3 Chunks (SciBERT):}\\Similitud coseno $\bar{s}_{\pi_1}=0,8943$.};
+\node[card] (c4c) at (13.49, -2.16) {\textbf{Partición ($\text{leakage}=0$):}\\$\mathbf{18.658}$ ($13.077 / 2.783 / 2.798$).};
 
-% === CONTENIDO CAPA 5 ===
-\node[card, text width=3.06cm] (c5a) at (15.85, -1.16) {\textbf{Panel 3 Jueces (vLLM, A2):}\\$\bar{\kappa}=0,3939$; Casos A--D y F.\\Llama-3.1, Qwen2.5 y Mistral (7B--8B).};
-\node[card, text width=3.06cm] (c5b) at (15.85, -2.66) {\textbf{Revisión Manual (A3):}\\$100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($\mathbf{N=2.798}$ Gold, $54,32\pct{}$ corregidas).};
+% === CONTENIDO CAPA 5 (x = 17.39) ===
+\node[card] (c5a) at (17.39, -0.88) {\textbf{Panel 3 Jueces (vLLM, A2):}\\$\bar{\kappa}=0,3939$; Casos A--D y F.\\Llama-3.1, Qwen2.5 y Mistral (7B--8B).};
+\node[card] (c5b) at (17.39, -2.02) {\textbf{Revisión Manual (A3):}\\$100\pct{}$ de $\mathcal{D}_{\text{test}}$ ($\mathbf{N=2.798}$ Gold, $54,32\pct{}$ corregidas).};
 
 % === FLECHAS PRINCIPALES ENTRE CAPAS ===
-\draw[flow] (1.68, -1.65) -- (2.12, -1.65);
-\draw[flow] (5.58, -1.65) -- (6.02, -1.65);
-\draw[flow] (9.58, -1.65) -- (10.02, -1.65);
-\draw[flow] (13.68, -1.65) -- (14.12, -1.65);
+\draw[flow] ( 3.58, -1.35) -- ( 3.90, -1.35);
+\draw[flow] ( 7.48, -1.35) -- ( 7.80, -1.35);
+\draw[flow] (11.38, -1.35) -- (11.70, -1.35);
+\draw[flow] (15.28, -1.35) -- (15.60, -1.35);
 
-% === CARRIL INFERIOR: SERVICIOS EXTERNOS, CACHE SQLITE, LEYENDA Y SALIDA FINAL ===
+% === CARRIL INFERIOR COMPACTO (ALTURA UNIFORME 1.12cm: y=-3.04 a -4.16) ===
 % Servicios Externos (margenes simetricos: 0.15cm izq/der, 0.14cm entre cajas)
-\fill[orange!5, rounded corners=4pt] (-1.68, -4.18) rectangle (3.55, -5.62);
-\draw[zone=orange] (-1.68, -4.18) rectangle (3.55, -5.62);
-\node[font=\sffamily\bfseries\tiny, anchor=west, text=orange!75!black] at (-1.53, -4.40) {Servicios Externos (APIs y Parsers)};
-\node[pill=orange] (s2)  at (-0.755, -5.06) {\textbf{Semantic}\\\textbf{Scholar API}};
-\node[pill=orange] (a5v) at ( 0.935, -5.06) {\textbf{ar5iv}\\(HTML T1)};
-\node[pill=orange] (doc) at ( 2.625, -5.06) {\textbf{arXiv PDF}\\(Docling T2)};
+\fill[orange!5, rounded corners=4pt] (0.00, -3.04) rectangle (5.23, -4.16);
+\draw[zone=orange] (0.00, -3.04) rectangle (5.23, -4.16);
+\node[font=\sffamily\bfseries\tiny, anchor=west, text=orange!75!black] at (0.15, -3.20) {Servicios Externos (APIs y Parsers)};
+\node[pill=orange] (s2)  at (0.925, -3.74) {\textbf{Semantic}\\\textbf{Scholar API}};
+\node[pill=orange] (a5v) at (2.615, -3.74) {\textbf{ar5iv}\\(HTML T1)};
+\node[pill=orange] (doc) at (4.305, -3.74) {\textbf{arXiv PDF}\\(Docling T2)};
 
 % Cache Local (SQLite)
-\fill[orange!5, rounded corners=4pt] (4.15, -4.18) rectangle (8.30, -5.62);
-\draw[zone=orange] (4.15, -4.18) rectangle (8.30, -5.62);
-\node[font=\sffamily\bfseries\tiny, anchor=west, text=orange!75!black] at (4.30, -4.40) {Caché Local Persistente};
-\node[db] (sqldb) at (5.12, -5.08) {SQLite};
-\node[font=\sffamily\tiny, align=left, anchor=west, text width=2.25cm] at (5.92, -5.06) {Metadatos $O(1)$\\y preprints ar5iv/PDF};
+\fill[orange!5, rounded corners=4pt] (5.75, -3.04) rectangle (9.88, -4.16);
+\draw[zone=orange] (5.75, -3.04) rectangle (9.88, -4.16);
+\node[font=\sffamily\bfseries\tiny, anchor=west, text=orange!75!black] at (5.90, -3.20) {Caché Local Persistente};
+\node[db] (sqldb) at (6.72, -3.78) {SQLite};
+\node[font=\sffamily\tiny, align=left, anchor=west, text width=2.22cm] at (7.52, -3.74) {Metadatos $O(1)$\\y preprints ar5iv/PDF};
 
 % Mini-leyenda central
-\node[draw=black!20, line width=0.4pt, fill=gray!4, rounded corners=2pt, inner sep=4pt, anchor=west, text width=2.72cm, font=\sffamily\tiny] (leg) at (8.56, -4.90) {%
-    \tikz[baseline=-0.5ex]\draw[flow] (0,0) -- (0.45,0); Flujo secuencial\\[3pt]
+\node[draw=black!20, line width=0.4pt, fill=gray!4, rounded corners=2pt, inner sep=3.5pt, anchor=west, text width=2.72cm, font=\sffamily\tiny] (leg) at (10.18, -3.60) {%
+    \tikz[baseline=-0.5ex]\draw[flow] (0,0) -- (0.45,0); Flujo secuencial\\[2.5pt]
     \tikz[baseline=-0.5ex]\draw[ext]  (0,0) -- (0.45,0); Consulta API / Caché%
 };
 
-% Dataset Final Etiquetado (alineado exactamente al borde derecho x=17.58)
-\node[draw=green!55!black, semithick, fill=green!10, rounded corners=3pt, inner sep=4.5pt, anchor=east, text width=5.55cm, align=left, font=\sffamily\tiny] (finalds) at (17.58, -4.90) {%
-    \textbf{\scriptsize Dataset Final Etiquetado (Paridad 1:1)}\\[2pt]
+% Dataset Final Etiquetado (alineado exactamente al borde derecho x=19.18)
+\node[draw=green!55!black, semithick, fill=green!10, rounded corners=3pt, inner sep=4pt, minimum height=1.12cm, anchor=east, text width=5.65cm, align=left, font=\sffamily\tiny] (finalds) at (19.18, -3.60) {%
+    \textbf{\scriptsize Dataset Final Etiquetado (Paridad 1:1)}\\[1.5pt]
     $\bullet$ $\mathbf{18.658}$ instancias ($9$ clases; Config A y Config B).\\
     $\bullet$ $\mathbf{5.864}$ Gold totales ($100\pct{}$ test $N=2.798$) $\cdot$ $\text{leakage}=0$.%
 };
 
 % === CONEXIONES INFRAESTRUCTURA <-> PIPELINE Y SALIDA FINAL ===
-\draw[extbi] (0.00, -3.55) -- (0.00, -4.18);
-\draw[extbi] (3.55, -4.90) -- (4.15, -4.90);
-\draw[ext]   (4.85, -4.18) -- (4.85, -3.55);
-\draw[flow]  (15.85, -3.55) -- (15.85, -4.34);
+\draw[extbi] ( 1.79, -2.62) -- ( 1.79, -3.04);
+\draw[extbi] ( 5.23, -3.60) -- ( 5.75, -3.60);
+\draw[ext]   ( 6.60, -3.04) -- ( 6.60, -2.62);
+\draw[flow]  (17.39, -2.62) -- (17.39, -3.04);
 \end{tikzpicture}%
 }
 \caption{Arquitectura desacoplada en cinco capas del pipeline de datos, infraestructura de adquisición (APIs externas y caché SQLite) y etiquetado multi-etapa de EvidenCite (Actividades A1, A2 y A3). Elaboración propia.}
