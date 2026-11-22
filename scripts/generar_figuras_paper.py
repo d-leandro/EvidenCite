@@ -221,8 +221,8 @@ def plot_fig02(runs, df_summary) -> None:
         dtype=float,
     )
 
-    fig = plt.figure(figsize=(13.4, 4.85))
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.52, 1.05], wspace=0.20)
+    fig = plt.figure(figsize=(12.8, 3.75))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.36, 1.05], wspace=0.16)
 
     # Panel A: Heatmap F1 por clase
     ax0 = fig.add_subplot(gs[0, 0])
@@ -230,26 +230,26 @@ def plot_fig02(runs, df_summary) -> None:
     ax0.set_xticks(np.arange(len(cls_order)))
     ax0.set_xticklabels(
         [f"{SHORT_CLASS_LABELS[c]} ({fmt_int_es(support_dict[c])})" for c in cls_order],
-        rotation=35, ha="right", rotation_mode="anchor", fontsize=11.0,
+        rotation=32, ha="right", rotation_mode="anchor", fontsize=10.2,
     )
     ax0.set_yticks(np.arange(len(VARIANTS)))
-    ax0.set_yticklabels([v[1] for v in VARIANTS], fontsize=11.0)
-    ax0.axhline(3.5, color="white", linewidth=2.4)
-    ax0.set_title("(a) F1-Score por clase canónica (por soporte)", pad=10)
+    ax0.set_yticklabels([v[1] for v in VARIANTS], fontsize=10.2)
+    ax0.axhline(3.5, color="white", linewidth=2.2)
+    ax0.set_title("(a) F1-Score por clase canónica (por soporte)", pad=8, fontsize=11.5)
 
     for i in range(mat_f1.shape[0]):
         for j in range(mat_f1.shape[1]):
             val = mat_f1[i, j]
             ax0.text(
                 j, i, fmt_es(val, 2),
-                ha="center", va="center", fontsize=11.0,
+                ha="center", va="center", fontsize=10.2,
                 color="white" if val > 0.60 else "#111111",
                 fontweight="bold",
             )
     cbar = fig.colorbar(im, ax=ax0, fraction=0.032, pad=0.025)
-    cbar.set_label("F1-Score", fontsize=11.0)
+    cbar.set_label("F1-Score", fontsize=10.2)
     cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 1)))
-    cbar.ax.tick_params(labelsize=11.0)
+    cbar.ax.tick_params(labelsize=10.0)
 
     # Panel B: Dot / Lollipop plot conectado horizontal (mismo eje Y que el heatmap)
     ax1 = fig.add_subplot(gs[0, 1])
@@ -293,40 +293,40 @@ def plot_fig02(runs, df_summary) -> None:
     ax1.set_xticks([0.35, 0.45, 0.55, 0.65, 0.75])
     ax1.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: fmt_es(x, 2)))
     ax1.set_xlabel("Puntaje")
-    ax1.set_title("(b) Desempeño global (N = 2.798)", pad=10)
+    ax1.set_title("(b) Desempeño global (N = 2.798)", pad=8, fontsize=11.5)
     ax1.grid(axis="x", linestyle="--", alpha=0.35, zorder=0)
 
     leg_b = [
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=c_macro, markeredgecolor="#1A202C", markersize=7.2, label="Macro-F1"),
-        Line2D([0], [0], marker="^", color="none", markerfacecolor=c_acc,   markeredgecolor="#1A202C", markersize=7.2, label="Accuracy"),
-        Line2D([0], [0], marker="s", color="none", markerfacecolor=c_wf1,   markeredgecolor="#1A202C", markersize=6.8, label="Weighted-F1"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=c_macro, markeredgecolor="#1A202C", markersize=6.8, label="Macro-F1"),
+        Line2D([0], [0], marker="^", color="none", markerfacecolor=c_acc,   markeredgecolor="#1A202C", markersize=6.8, label="Accuracy"),
+        Line2D([0], [0], marker="s", color="none", markerfacecolor=c_wf1,   markeredgecolor="#1A202C", markersize=6.4, label="Weighted-F1"),
     ]
     ax1.legend(
-        handles=leg_b, loc="upper center", bbox_to_anchor=(0.49, -0.17),
-        ncol=3, frameon=True, framealpha=0.95, fontsize=10.5,
-        columnspacing=0.9, handletextpad=0.35,
+        handles=leg_b, loc="upper center", bbox_to_anchor=(0.49, -0.22),
+        ncol=3, frameon=True, framealpha=0.95, fontsize=10.0,
+        columnspacing=0.85, handletextpad=0.35,
     )
 
     fig.savefig(OUT_DIR / "fig02_desempeno_global_y_por_clase.png", bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_fig03(gold_df, runs, df_all) -> None:
-    """Fig. 6 del manuscrito: Matrices diferenciadas por modelo (Blues vs Reds, %) + Dumbbell A->B (Opción 6-1)."""
+def plot_fig03_split(gold_df, runs, df_all) -> None:
+    """Genera por separado: (1) matrices de confusión A5 para Anexo A, (2) Dumbbell por macro-sección (1 col. cuerpo)."""
     from matplotlib.lines import Line2D
-
-    fig = plt.figure(figsize=(16.0, 5.15))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.12, 1.12, 1.32], wspace=0.42)
 
     short_9 = ["Bkg", "Gap", "Bas", "Cmp", "App", "Imp", "Evi", "Org", "F.R."]
     color_gpt = "#1F6AA5"
     color_gem = "#C53030"
 
+    # --- 1. Matrices de confusión A5 (Anexo A) ---
+    fig_cm = plt.figure(figsize=(11.8, 4.75))
+    gs_cm = fig_cm.add_gridspec(1, 2, wspace=0.34)
     for col_idx, (vid, title_txt, cmap_name, title_color) in enumerate([
         ("gpt41_zs_b",  "(a) GPT-4.1-mini 0s-B (% fila)",   "Blues", "#1A4D7A"),
         ("gemini_zs_b", "(b) Gemini-3.8-Flash 0s-B (% fila)", "Reds",  "#9B2226"),
     ]):
-        ax = fig.add_subplot(gs[0, col_idx])
+        ax = fig_cm.add_subplot(gs_cm[0, col_idx])
         cm = np.array(runs[vid]["a6"]["confusion_matrix"], dtype=float)
         cm_pct = (cm / np.maximum(cm.sum(axis=1, keepdims=True), 1.0)) * 100.0
         im = ax.imshow(cm_pct, cmap=cmap_name, vmin=0.0, vmax=100.0)
@@ -342,22 +342,24 @@ def plot_fig03(gold_df, runs, df_all) -> None:
             for j in range(9):
                 val = cm_pct[i, j]
                 if val >= 8.0 or i == j:
-                    txt = f"{int(round(val))}"
                     ax.text(
-                        j, i, txt,
+                        j, i, f"{int(round(val))}",
                         ha="center", va="center", fontsize=10.5,
                         fontweight="bold" if i == j else "normal",
                         color="white" if val > 52.0 else "#111111",
                     )
-        cbar = fig.colorbar(im, ax=ax, fraction=0.044, pad=0.03)
+        cbar = fig_cm.colorbar(im, ax=ax, fraction=0.044, pad=0.03)
         cbar.set_ticks([0, 25, 50, 75, 100])
         cbar.ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x)}%"))
         cbar.ax.tick_params(labelsize=9.8)
         if col_idx == 1:
             cbar.set_label("% fila", fontsize=10.5)
 
-    # Panel C: Gráfico Dumbbell pareado (Config A -> Config B) por macro-sección citante
-    ax2 = fig.add_subplot(gs[0, 2])
+    fig_cm.savefig(OUT_DIR / "fig03ab_matrices_confusion_a5.png", bbox_inches="tight")
+    plt.close(fig_cm)
+
+    # --- 2. Dumbbell pareado A -> B por macro-sección citante (1 columna en cuerpo principal) ---
+    fig_s, ax2 = plt.subplots(figsize=(5.7, 3.85))
     sec_counts = gold_df["macro_section"].value_counts()
     sec_order = ["Related Work", "Intro / Prelim", "Experiments", "Method / Setup", "Otras", "Conclusion", "Sin sección"]
     sec_order = [s for s in sec_order if s in sec_counts.index]
@@ -376,27 +378,22 @@ def plot_fig03(gold_df, runs, df_all) -> None:
 
     offset = 0.14
     for i in range(len(sec_order)):
-        # Guía vertical suave por categoría
         ax2.axvline(i, color="#E2E8F0", linewidth=0.9, zorder=0)
-
-        # Dumbbell GPT (izquierda, azul)
         xg = i - offset
         ax2.plot([xg, xg], [gpt_a[i], gpt_b[i]], color=color_gpt, linewidth=2.2, zorder=2)
-        ax2.scatter(xg, gpt_a[i], s=76, marker="o", facecolors="white", edgecolors=color_gpt, linewidth=1.9, zorder=4)
-        ax2.scatter(xg, gpt_b[i], s=84, marker="o", facecolors=color_gpt, edgecolors="#1A202C", linewidth=1.0, zorder=5)
+        ax2.scatter(xg, gpt_a[i], s=72, marker="o", facecolors="white", edgecolors=color_gpt, linewidth=1.8, zorder=4)
+        ax2.scatter(xg, gpt_b[i], s=80, marker="o", facecolors=color_gpt, edgecolors="#1A202C", linewidth=1.0, zorder=5)
 
-        # Dumbbell Gemini (derecha, rojo)
         xm = i + offset
         ax2.plot([xm, xm], [gem_a[i], gem_b[i]], color=color_gem, linewidth=2.2, zorder=2)
-        ax2.scatter(xm, gem_a[i], s=76, marker="o", facecolors="white", edgecolors=color_gem, linewidth=1.9, zorder=4)
-        ax2.scatter(xm, gem_b[i], s=84, marker="o", facecolors=color_gem, edgecolors="#1A202C", linewidth=1.0, zorder=5)
+        ax2.scatter(xm, gem_a[i], s=72, marker="o", facecolors="white", edgecolors=color_gem, linewidth=1.8, zorder=4)
+        ax2.scatter(xm, gem_b[i], s=80, marker="o", facecolors=color_gem, edgecolors="#1A202C", linewidth=1.0, zorder=5)
 
-    # Anotación destacada del salto +10,3 pp en Related Work para GPT
     ax2.annotate(
         "+10,3 pp",
         xy=(-offset, gpt_b[0] + 0.8),
-        xytext=(0.42, 60.5),
-        fontsize=10.6, fontweight="bold", color=color_gpt,
+        xytext=(0.40, 60.5),
+        fontsize=10.8, fontweight="bold", color=color_gpt,
         arrowprops=dict(arrowstyle="->", color=color_gpt, lw=1.4),
         zorder=6,
     )
@@ -404,28 +401,28 @@ def plot_fig03(gold_df, runs, df_all) -> None:
     ax2.set_xticks(x_s)
     ax2.set_xticklabels(
         [f"{s} ({fmt_int_es(sec_counts[s])})" for s in sec_order],
-        rotation=32, ha="right", rotation_mode="anchor", fontsize=10.5,
+        rotation=30, ha="right", rotation_mode="anchor", fontsize=10.4,
     )
     ax2.set_xlim(-0.55, len(sec_order) - 0.45)
-    ax2.set_ylabel("Accuracy (%)")
-    ax2.set_ylim(26, 84)
-    ax2.set_title("(c) Exactitud A $\\rightarrow$ B por macro-sección (0-Shot)", pad=10)
+    ax2.set_ylabel("Accuracy (%)", fontsize=11.0)
+    ax2.set_ylim(25, 84)
+    ax2.set_title("Exactitud A $\\rightarrow$ B por macro-sección (0-Shot)", pad=9, fontsize=11.8)
     ax2.grid(axis="y", linestyle="--", alpha=0.35, zorder=0)
 
     leg_c = [
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.2, label="GPT-4.1-mini"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.2, label="Gemini-3.8-Flash"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.2, label="Config B (local)"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor="white",   markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.2, label="Config A (global)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.0, label="GPT-4.1-mini"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.0, label="Gemini-3.8-Flash"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.0, label="Config B (local)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="white",   markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.0, label="Config A (global)"),
     ]
     ax2.legend(
         handles=leg_c, loc="lower center", ncol=2,
-        frameon=True, framealpha=0.95, fontsize=9.5,
-        handletextpad=0.35, columnspacing=0.9, borderpad=0.4,
+        frameon=True, framealpha=0.95, fontsize=9.4,
+        handletextpad=0.35, columnspacing=0.85, borderpad=0.38,
     )
 
-    fig.savefig(OUT_DIR / "fig03_confusiones_criticas_y_seccion_citante.png", bbox_inches="tight")
-    plt.close(fig)
+    fig_s.savefig(OUT_DIR / "fig03c_exactitud_por_macro_seccion.png", bbox_inches="tight")
+    plt.close(fig_s)
 
 
 def plot_fig08(df_summary, df_all) -> None:
@@ -536,23 +533,25 @@ def plot_fig08(df_summary, df_all) -> None:
     plt.close(fig)
 
 
-def plot_fig11(gold_df, df_summary, df_all) -> None:
-    """Fig. 8 del manuscrito: Frontera de Pareto + Sensibilidad por estrato A1/A2."""
-    fig, axes = plt.subplots(1, 2, figsize=(13.6, 4.9))
-
-    # Panel A: Frontera de Pareto (Alternativa A: círculos uniformes + sombreado región dominada)
-    ax0 = axes[0]
+def plot_fig11_split(gold_df, df_summary, df_all) -> None:
+    """Genera por separado: (1) Frontera de Pareto (1 col. cuerpo), (2) Sensibilidad por estrato A1/A2 (Anexo A)."""
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
 
+    color_gpt = "#1F6AA5"
+    color_gem = "#C53030"
+
+    # --- 1. Frontera de Pareto (1 columna en cuerpo principal) ---
+    fig_p, ax0 = plt.subplots(figsize=(6.3, 4.45))
+
     label_specs = {
-        "gpt41_zs_a":  ((-8, -32),  "right"),
-        "gpt41_zs_b":  ((-8, 28),   "right"),
-        "gpt41_fs_a":  ((-6, -34),  "center"),
-        "gpt41_fs_b":  ((12, 12),   "left"),
+        "gpt41_zs_a":  ((-10, -18), "right"),
+        "gpt41_zs_b":  ((-8, 26),   "right"),
+        "gpt41_fs_a":  ((-12, -26), "right"),
+        "gpt41_fs_b":  ((12, 14),   "left"),
         "gemini_zs_a": ((-16, -8),  "right"),
         "gemini_zs_b": ((-8, 18),   "right"),
-        "gemini_fs_a": ((0, -36),   "center"),
+        "gemini_fs_a": ((0, -34),   "center"),
         "gemini_fs_b": ((0, 18),    "center"),
     }
 
@@ -567,7 +566,6 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     xlim_min, xlim_max = 2.6, 82.0
     ylim_min, ylim_max = 0.365, 0.665
 
-    # Sombreado suave de la región estrictamente dominada (bajo la frontera y a la derecha del óptimo)
     dom_x = [p[0] for p in pareto_pts] + [xlim_max]
     dom_y = [p[1] for p in pareto_pts] + [pareto_pts[-1][1]]
     ax0.fill_between(dom_x, dom_y, ylim_min, color="#94A3B8", alpha=0.13, zorder=1)
@@ -580,9 +578,6 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
         linestyle="--", color="#334155", linewidth=1.6, zorder=3,
     )
 
-    color_gpt = "#1F6AA5"
-    color_gem = "#C53030"
-
     for _, r in df_summary.iterrows():
         vid = r["vid"]
         is_gpt = "gpt" in vid
@@ -594,13 +589,13 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
         if vid == "gemini_zs_b":
             ax0.scatter(
                 x_val, y_val,
-                s=255, marker="o", facecolors="none",
+                s=240, marker="o", facecolors="none",
                 edgecolors=fam_color, linewidth=1.35, alpha=0.65, zorder=4,
             )
 
         ax0.scatter(
             x_val, y_val,
-            s=115, marker="o",
+            s=110, marker="o",
             facecolors=fam_color if is_0s else "white",
             edgecolors="#1A202C" if is_0s else fam_color,
             linewidth=1.15 if is_0s else 2.0,
@@ -614,7 +609,7 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
             xytext=(dx, dy),
             textcoords="offset points",
             ha=ha_align,
-            fontsize=10.6,
+            fontsize=10.3,
             fontweight="bold" if vid in ("gemini_zs_b", "gpt41_zs_b") else "normal",
             arrowprops=dict(arrowstyle="-", color="#64748B", lw=0.85),
             zorder=6,
@@ -629,25 +624,28 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     ax0.yaxis.set_major_formatter(mticker.FuncFormatter(lambda y, _: fmt_es(y, 2)))
     ax0.set_xlabel("Costo neto por 10.000 citas (USD, escala log)")
     ax0.set_ylabel("Macro-F1 (9 clases)")
-    ax0.set_title("(a) Frontera de Pareto costo vs. Macro-F1", pad=10)
+    ax0.set_title("Frontera de Pareto: costo neto vs. Macro-F1", pad=9)
     ax0.grid(True, which="major", linestyle="--", alpha=0.32, zorder=0)
 
     legend_handles = [
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.5, label="GPT-4.1-mini"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.5, label="Gemini-3.8-Flash"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gpt, markeredgecolor="#1A202C", markersize=7.2, label="GPT-4.1-mini"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=color_gem, markeredgecolor="#1A202C", markersize=7.2, label="Gemini-3.8-Flash"),
         Line2D([0], [0], color="#334155", linestyle="--", linewidth=1.5, label="Frontera de Pareto"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.5, label="0-Shot (Pareto)"),
-        Line2D([0], [0], marker="o", color="none", markerfacecolor="white", markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.5, label="9-Shot (dominado)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="#334155", markeredgecolor="#1A202C", markersize=7.2, label="0-Shot (Pareto)"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="white", markeredgecolor="#334155", markeredgewidth=1.8, markersize=7.2, label="9-Shot (dominado)"),
         Patch(facecolor="#94A3B8", alpha=0.22, edgecolor="none", label="Región dominada"),
     ]
     ax0.legend(
         handles=legend_handles, loc="lower right", ncol=2,
-        frameon=True, framealpha=0.95, fontsize=9.0,
-        handletextpad=0.4, columnspacing=0.9, borderpad=0.45,
+        frameon=True, framealpha=0.95, fontsize=8.1,
+        handletextpad=0.32, columnspacing=0.65, borderpad=0.35,
     )
 
-    # Panel B: Sensibilidad sobre Gold Humano por estrato previo A1/A2 (Opción 8b-1: paleta unificada)
-    ax1 = axes[1]
+    fig_p.savefig(OUT_DIR / "fig11a_frontera_pareto.png", bbox_inches="tight")
+    plt.close(fig_p)
+
+    # --- 2. Sensibilidad sobre Gold Humano por estrato previo A1/A2 (Anexo A) ---
+    fig_e, ax1 = plt.subplots(figsize=(7.6, 4.4))
     strata_order = [
         "Human Gold\n(MultiCite)",
         "Panel\nUnánime 3/3",
@@ -660,7 +658,6 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     color_gem_soft = "#D96B6B"
     color_gpt_soft = "#6B9AC4"
 
-    # (vid, label, color, linestyle, marker, lw, ms, hollow)
     plot_specs = [
         ("gemini_zs_b", "Gem 0s-B", color_gem,      "-",  "o", 2.5, 6.8, False),
         ("gpt41_zs_b",  "GPT 0s-B", color_gpt,      "-",  "o", 2.5, 6.8, False),
@@ -697,7 +694,7 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
     ax1.set_xticklabels([f"{st}\n(n={fmt_int_es(st_counts[st])})" for st in strata_order], fontsize=10.5)
     ax1.set_ylabel("Accuracy sobre Gold A3 (%)")
     ax1.set_ylim(37, 80)
-    ax1.set_title("(b) Exactitud por estrato previo A1/A2", pad=10)
+    ax1.set_title("Exactitud sobre el Gold humano por estrato previo A1/A2", pad=10)
     ax1.grid(linestyle="--", alpha=0.32, zorder=0)
     ax1.legend(
         loc="lower left", ncol=3,
@@ -705,19 +702,18 @@ def plot_fig11(gold_df, df_summary, df_all) -> None:
         columnspacing=0.9, handletextpad=0.4, borderpad=0.45,
     )
 
-    fig.tight_layout(w_pad=2.0)
-    fig.savefig(OUT_DIR / "fig11_frontera_pareto_y_sensibilidad_panel.png", bbox_inches="tight")
-    plt.close(fig)
+    fig_e.savefig(OUT_DIR / "fig11b_exactitud_por_estrato.png", bbox_inches="tight")
+    plt.close(fig_e)
 
 
 def main() -> None:
     setup_style()
     gold_df, runs, df_summary, df_all = load_data()
     plot_fig02(runs, df_summary)
-    plot_fig03(gold_df, runs, df_all)
+    plot_fig03_split(gold_df, runs, df_all)
     plot_fig08(df_summary, df_all)
-    plot_fig11(gold_df, df_summary, df_all)
-    print("4 figuras IEEE regeneradas exitosamente en:", OUT_DIR)
+    plot_fig11_split(gold_df, df_summary, df_all)
+    print("Figuras IEEE regeneradas exitosamente en:", OUT_DIR)
 
 
 if __name__ == "__main__":
