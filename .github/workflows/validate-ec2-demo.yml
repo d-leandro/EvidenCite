@@ -49,6 +49,7 @@ jobs:
       - name: Validate Compose cloud (no containers)
         env:
           GEMINI_API_KEY: placeholder-for-syntax-only
+          EVIDENCITE_DOMAIN: evidencite.example.com
         run: docker compose -f compose.academy.yaml config --quiet
       - name: Python and Shell syntax
         run: |
