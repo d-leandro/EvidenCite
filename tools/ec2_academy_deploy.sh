@@ -79,6 +79,22 @@ docker compose --env-file "$ENV_FILE" -f compose.academy.yaml config --quiet
 # Only changes this isolated Compose project; does not affect local WSL Granite.
 docker compose --env-file "$ENV_FILE" -f compose.academy.yaml up -d --build --wait --wait-timeout 1800
 
+# Nginx resolves the API container IP at startup.
+# Refresh its upstream after Docker recreates the API.
+docker compose --env-file "$ENV_FILE" -f compose.academy.yaml restart gateway
+
+# Allow the restarted gateway to accept connections before health checks.
+for attempt in $(seq 1 15); do
+  if curl -fsS --max-time 5 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    break
+  fi
+  if [ "$attempt" -eq 15 ]; then
+    echo '[STOP] Gateway unavailable after restart' >&2
+    exit 1
+  fi
+  sleep 2
+done
+
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8080/health
 # Verify that the API reports all six real model configurations as available.
 python3 - <<'PYCHECK'
