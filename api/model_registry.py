@@ -18,12 +18,55 @@ def demo_enabled() -> bool:
 
 
 MODELS = {
-    "qwen3-8b-lora-b": ModelSpec(
-        id="qwen3-8b-lora-b",
-        name="Qwen3 8B + LoRA",
+    "tfidf-a": ModelSpec(
+        id="tfidf-a",
+        name="TF-IDF + Logistic Regression — Configuration A",
+        family="tfidf",
+        configuration="A",
+    ),
+    "tfidf-b": ModelSpec(
+        id="tfidf-b",
+        name="TF-IDF + Logistic Regression — Configuration B",
+        family="tfidf",
+        configuration="B",
+    ),
+    "scibert-a": ModelSpec(
+        id="scibert-a",
+        name="SciBERT — Configuration A (Real Model)",
+        family="encoder",
+        configuration="A",
+    ),
+    "scibert-b": ModelSpec(
+        id="scibert-b",
+        name="SciBERT — Configuration B (Real Model)",
+        family="encoder",
+        configuration="B",
+    ),
+    "gemini-a": ModelSpec(
+        id="gemini-a",
+        name="Gemini 3.5 Flash-Lite (Configuración A)",
+        family="llm_api",
+        configuration="A",
+    ),
+    "gemini-b": ModelSpec(
+        id="gemini-b",
+        name="Gemini 3.5 Flash-Lite (Configuración B)",
+        family="llm_api",
+        configuration="B",
+    ),
+    "granite-a": ModelSpec(
+        id="granite-a",
+        name="Granite 4.2 8B + LoRA INT8 (Configuración A)",
+        family="transformer",
+        configuration="A",
+    ),
+    "granite-b": ModelSpec(
+        id="granite-b",
+        name="Granite 4.2 8B + LoRA INT8 (Configuración B)",
         family="transformer",
         configuration="B",
     ),
+
     "demo-workflow": ModelSpec(
         id="demo-workflow",
         name="Demo (Synthetic Predictions)",
@@ -37,6 +80,25 @@ def list_models():
     models = [asdict(model) for model in MODELS.values()]
 
     for model in models:
+        if model["id"].startswith("tfidf-"):
+            from api.runtimes.tfidf import tfidf_available
+            model["available"] = tfidf_available()
+        if model["id"] == "scibert-a":
+            from api.runtimes.scibert import scibert_available
+            model["available"] = scibert_available("scibert-a")
+
+        if model["id"] == "scibert-b":
+            from api.runtimes.scibert import scibert_b_available
+            model["available"] = scibert_b_available()
+
+        if model["id"].startswith("gemini-"):
+            from api.runtimes.gemini import gemini_available
+            model["available"] = gemini_available()
+
+        if model["id"].startswith("granite-"):
+            from api.runtimes.granite_client import granite_available
+            model["available"] = granite_available()
+
         if model["id"] == "demo-workflow":
             model["available"] = demo_enabled()
 

@@ -968,3 +968,499 @@ textarea:focus {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+
+/* EVIDENCITE CONFIGURATION SWITCH */
+
+body {
+    transition: background-color 0.35s ease;
+}
+
+body[data-configuration="A"] {
+    --config-accent: #26c6d5;
+    --config-glow: rgba(38, 198, 213, 0.13);
+}
+
+body[data-configuration="B"] {
+    --config-accent: #ad8aff;
+    --config-glow: rgba(173, 138, 255, 0.14);
+    --cyan: #ad8aff;
+    --cyan-soft: rgba(173, 138, 255, 0.12);
+    --border: #352d51;
+    background: radial-gradient(
+        circle at top,
+        #1e1833 0,
+        #060b14 48%
+    );
+}
+
+.configuration-switch {
+    margin: 24px 0 18px;
+    padding: 19px;
+    background: linear-gradient(140deg, #111c2b, #0b1321);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body[data-configuration="B"] .configuration-switch {
+    border-color: #443465;
+}
+
+.configuration-switch-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.configuration-eyebrow {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+#configuration-indicator {
+    color: var(--config-accent);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+}
+
+.configuration-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.configuration-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: left;
+    background: #0a1220;
+    color: var(--muted);
+    border: 1px solid #27384d;
+    border-radius: 9px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s,
+                transform 0.2s, box-shadow 0.25s;
+}
+
+.configuration-option:hover {
+    border-color: var(--config-accent);
+}
+
+.configuration-option:focus-visible {
+    outline: 2px solid var(--config-accent);
+    outline-offset: 3px;
+}
+
+.configuration-option.active {
+    background: var(--config-glow);
+    border-color: var(--config-accent);
+    color: var(--text);
+    box-shadow: inset 0 0 18px var(--config-glow);
+}
+
+.configuration-symbol {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 37px;
+    height: 37px;
+    border-radius: 8px;
+    background: #17263a;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.configuration-option.active .configuration-symbol {
+    color: var(--config-accent);
+    background: var(--config-glow);
+}
+
+.configuration-option strong,
+.configuration-option small {
+    display: block;
+}
+
+.configuration-option strong {
+    font-size: 13px;
+}
+
+.configuration-option small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.configuration-description {
+    margin: 14px 0 0;
+    color: #a9b9cb;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+body[data-configuration="B"] .paper-lookup label,
+body[data-configuration="B"] #model-selector {
+    color: var(--config-accent);
+}
+
+body[data-configuration="B"] #model-selector:hover,
+body[data-configuration="B"] #model-selector:focus {
+    border-color: var(--config-accent);
+}
+
+@media (max-width: 550px) {
+    .configuration-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* VALIDACIÓN PROGRESIVA */
+
+.required-mark {
+    color: #ffb86b;
+    font-weight: 800;
+}
+
+.readiness-panel {
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #091321;
+}
+
+.readiness-header,
+.readiness-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.readiness-header strong {
+    font-size: 13px;
+}
+
+#readiness-count {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.readiness-progress {
+    display: flex;
+    gap: 5px;
+    margin: 14px 0;
+}
+
+.readiness-progress span {
+    flex: 1;
+    height: 5px;
+    border-radius: 5px;
+    background: #27354a;
+    transition: background 0.25s ease;
+}
+
+.readiness-progress span.complete {
+    background: var(--green);
+}
+
+.readiness-item {
+    padding: 9px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.readiness-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border: 1px solid #60748b;
+    border-radius: 50%;
+}
+
+.readiness-item.complete .readiness-icon {
+    background: var(--green);
+    border-color: var(--green);
+}
+
+.readiness-item.complete .readiness-icon::after {
+    content: "✓";
+    display: block;
+    color: #05231a;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+}
+
+.readiness-name {
+    flex: 1;
+}
+
+.readiness-state {
+    font-size: 11px;
+}
+
+.readiness-item.complete .readiness-state {
+    color: var(--green);
+}
+
+.readiness-help {
+    margin: 13px 0 0;
+    color: #aab9ca;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.readiness-help.ready {
+    color: var(--green);
+}
+
+.classify-button:disabled {
+    opacity: 0.4;
+    filter: saturate(0.35);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* MÉTODOS DE ENTRADA REPLEGABLES */
+
+.source-method-selector {
+    margin-bottom: 15px;
+}
+
+.source-method-heading strong {
+    display: block;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.source-method-heading p {
+    margin: 7px 0 16px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.source-method-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+}
+
+.source-method-options button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 51px;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #091321;
+    color: #bfd0e1;
+    border: 1px solid #2b4056;
+    border-radius: 9px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.source-method-options button:hover {
+    border-color: var(--config-accent, #39c8ff);
+}
+
+.source-method-options button.active {
+    border-color: var(--config-accent, #39c8ff);
+    background: var(--config-glow, rgba(57,200,255,0.10));
+}
+
+.source-method-symbol {
+    display: grid;
+    place-items: center;
+    width: 27px;
+    height: 27px;
+    font-size: 19px;
+    color: var(--config-accent, #39c8ff);
+}
+
+.source-method-name {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.source-method-ready {
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.source-method-ready[hidden] {
+    display: none;
+}
+
+.source-method-options button.complete {
+    border-color: rgba(37, 219, 154, 0.45);
+}
+
+.source-method-chevron {
+    font-size: 19px;
+    color: var(--muted);
+    transition: transform 0.2s;
+}
+
+.source-method-options button.active .source-method-chevron {
+    transform: rotate(180deg);
+}
+
+.source-method-panel {
+    margin-top: 13px;
+    padding: 16px;
+    background: #080f1a;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+}
+
+.source-method-panel .pdf-upload-panel {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.source-manual-button {
+    padding: 11px 14px;
+    background: #11283b;
+    color: var(--config-accent, #39c8ff);
+    border: 1px solid var(--config-accent, #39c8ff);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.source-manual-button:hover {
+    filter: brightness(1.2);
+}
+
+
+/* CAMPOS MANUALES INTEGRADOS */
+
+#source-panel-manual #config-a-fields {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+#source-panel-manual #config-a-fields > h3 {
+    display: none;
+}
+
+#source-panel-manual #cited-title {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 13px 16px;
+    background: #080e18;
+    color: var(--text);
+    border: 1px solid #34506a;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+#source-panel-manual #cited-title:focus,
+#source-panel-manual #cited-abstract:focus {
+    border-color: var(--config-accent, #39c8ff);
+    box-shadow: 0 0 0 3px
+        var(--config-glow, rgba(57, 200, 255, 0.12));
+}
+
+#source-panel-manual #cited-title::placeholder,
+#source-panel-manual #cited-abstract::placeholder {
+    color: #7790aa;
+}
+
+
+/* TOOLTIP BUSCADOR */
+
+.paper-help-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    width: 21px;
+    height: 21px;
+    border: 1px solid var(--config-accent, #39c8ff);
+    border-radius: 50%;
+    color: var(--config-accent, #39c8ff);
+    background: var(--config-glow, rgba(57,200,255,0.12));
+    font-size: 15px;
+    cursor: help;
+    vertical-align: middle;
+}
+
+.paper-help-icon:focus-visible {
+    outline: 2px solid var(--config-accent, #39c8ff);
+    outline-offset: 3px;
+}
+
+.paper-help-tooltip {
+    position: absolute;
+    z-index: 100;
+    left: 0;
+    top: calc(100% + 10px);
+    width: min(330px, 70vw);
+    padding: 14px;
+    border: 1px solid var(--config-accent, #39c8ff);
+    border-radius: 9px;
+    background: #142238;
+    color: #e5edf7;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    font: 400 12px/1.6 system-ui, sans-serif;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.paper-help-icon:hover .paper-help-tooltip,
+.paper-help-icon:focus .paper-help-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+
+/* Indicadores de procesamiento de inferencia. */
+.prediction-progress {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-light);
+    color: var(--cyan);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.prediction-latency {
+    margin: 0;
+    padding: 0 22px 20px;
+    color: var(--muted);
+    font-size: 12px;
+}

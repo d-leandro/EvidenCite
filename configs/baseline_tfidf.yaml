@@ -9,7 +9,7 @@ input_representation:
   max_seq_length: 512
   enforce_per_chunk_budget: true
   top_k_chunks: 3
-  strip_cite_tags: true
+  strip_cite_tags: false
 
 tfidf:
   ngram_min: 1

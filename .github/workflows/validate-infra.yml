@@ -1,0 +1,66 @@
+name: Validate EvidenCite IaC
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+    paths:
+      - 'infra/evidencite/**'
+      - '.github/workflows/**'
+      - 'compose.yaml'
+      - 'api/**'
+      - 'app/**'
+      - 'src/**'
+      - 'gateway/**'
+      - 'tools/cloud_preflight.py'
+  pull_request:
+    paths:
+      - 'infra/evidencite/**'
+      - '.github/workflows/**'
+      - 'compose.yaml'
+      - 'api/**'
+      - 'app/**'
+      - 'src/**'
+      - 'gateway/**'
+      - 'tools/cloud_preflight.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    name: Terraform + Compose (no AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.11.4'
+
+      - name: Check Terraform formatting
+        run: terraform -chdir=infra/evidencite fmt -check -recursive
+
+      - name: Initialize without remote state or AWS credentials
+        run: terraform -chdir=infra/evidencite init -backend=false -input=false -lockfile=readonly -no-color
+
+      - name: Validate Terraform configuration
+        run: terraform -chdir=infra/evidencite validate -no-color
+
+      - name: Validate Docker Compose structure (no containers)
+        run: docker compose -f compose.yaml config --quiet
+
+      - name: Python syntax (no model loading)
+        run: python3 -m compileall -q api src
+
+      - name: Frontend JavaScript syntax
+        run: |
+          find app/static -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+
+      - name: Report full-stack cloud readiness (informational)
+        run: python3 tools/cloud_preflight.py --report

@@ -656,7 +656,7 @@ class TransformerPredictor(BasePredictor):
                 per_item_ms = batch_ms / max(1, cur_bs)
 
                 logits = outputs.logits if hasattr(outputs, "logits") else outputs[0]
-                probs_tensor = torch.softmax(logits, dim=-1).cpu().numpy()
+                probs_tensor = torch.softmax(logits.float(), dim=-1).cpu().numpy()
 
                 for i in range(cur_bs):
                     req = norm_reqs[offset + i]
@@ -947,7 +947,7 @@ class LLMApiPredictor(BasePredictor):
 
         if self.llm_config.enforce_structured_output:
             config_kwargs["response_mime_type"] = "application/json"
-            config_kwargs["response_schema"] = LLMResponse
+            config_kwargs["response_json_schema"] = LLMResponse.model_json_schema()
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
         max_attempts = max(1, self.llm_config.max_retries + 1)

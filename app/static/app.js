@@ -8,6 +8,172 @@ const errorElement = document.getElementById("error-message");
 
 const API = "/api/v1";
 
+// Indicadores de inferencia.
+const progressEl = document.createElement("p");
+progressEl.id = "prediction-progress";
+progressEl.className = "prediction-progress hidden";
+progressEl.setAttribute("role", "timer");
+progressEl.setAttribute("aria-live", "off");
+submitButton.closest(".form-footer")
+    .insertAdjacentElement("afterend", progressEl);
+
+const latencyEl = document.createElement("p");
+latencyEl.id = "prediction-latency";
+latencyEl.className = "prediction-latency hidden";
+resultSection.appendChild(latencyEl);
+
+// Configuration A/B controls the visible model selection.
+let uiConfiguration = "A";
+let uiModels = [];
+const lastModelForConfiguration = {A: null, B: null};
+
+const configurationButtons =
+    document.querySelectorAll("[data-config-choice]");
+
+modelSelector.addEventListener("change", () => {
+    const model = uiModels.find(item => item.id === modelSelector.value);
+
+    if (model && (model.configuration === "A" ||
+                  model.configuration === "B")) {
+        lastModelForConfiguration[model.configuration] = model.id;
+    }
+});
+
+const nombresModelosEs = {
+    "tfidf-a": "TF-IDF + Regresión logística (A)",
+    "tfidf-b": "TF-IDF + Regresión logística (B)",
+    "scibert-a": "SciBERT (Configuración A)",
+    "scibert-b": "SciBERT (Configuración B)"
+};
+
+function setUiConfiguration(mode) {
+    if (mode !== "A" && mode !== "B") return;
+
+    const currentModel = uiModels.find(
+        item => item.id === modelSelector.value
+    );
+
+    if (currentModel?.configuration === uiConfiguration) {
+        lastModelForConfiguration[uiConfiguration] = currentModel.id;
+    }
+
+    const previousMode = uiConfiguration;
+    uiConfiguration = mode;
+    document.body.dataset.configuration = mode;
+
+    for (const button of configurationButtons) {
+        const active = button.dataset.configChoice === mode;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+    }
+
+    document.getElementById("configuration-indicator").textContent =
+        `CONFIGURACIÓN ${mode}`;
+
+    document.getElementById("configuration-description").textContent =
+        mode === "A"
+            ? "Necesitas el contexto de la cita, la cita objetivo, el título y el resumen del artículo citado."
+            : "Necesitas el contexto de la cita, la cita objetivo y tres fragmentos relevantes del artículo citado.";
+
+    const available = uiModels.filter(
+        model => model.available && model.configuration === mode
+    );
+
+    modelSelector.replaceChildren();
+
+    for (const model of available) {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.textContent = nombresModelosEs[model.id] || model.name.replace(/[\u2013\u2014]/g, ":").replace("Configuration", "Configuración");
+        modelSelector.appendChild(option);
+    }
+
+    const preferred = available.find(
+        model => model.id === lastModelForConfiguration[mode]
+    );
+
+    const selected = preferred || available[0];
+
+    if (selected) {
+        modelSelector.value = selected.id;
+        lastModelForConfiguration[mode] = selected.id;
+        modelSelector.disabled = false;
+        submitButton.disabled = false;
+        modelSelector.dispatchEvent(
+            new Event("change", {bubbles: true})
+        );
+    } else {
+        modelSelector.disabled = true;
+        submitButton.disabled = true;
+        showError("No hay modelos disponibles para esta configuración.");
+    }
+
+    if (previousMode !== mode) {
+        resultSection.classList.add("hidden");
+        errorElement.classList.add("hidden");
+    }
+}
+
+function loadConfigurationModels(models) {
+    uiModels = models;
+    setUiConfiguration(uiConfiguration);
+}
+
+configurationButtons.forEach(button => {
+    button.addEventListener("click", () => {
+        setUiConfiguration(button.dataset.configChoice);
+    });
+});
+
+
+const modelConfigurations = new Map();
+const configAFields = document.getElementById("config-a-fields");
+const citedTitleInput = document.getElementById("cited-title");
+const citedAbstractInput = document.getElementById("cited-abstract");
+
+function currentMode() {
+    return modelConfigurations.get(modelSelector.value) === "A"
+        ? "A" : "B";
+}
+
+function updateEvidenceMode() {
+    const isA = currentMode() === "A";
+
+    configAFields.classList.toggle("hidden", !isA);
+
+    const button = document.getElementById("retrieve-evidence-button");
+    const status = document.getElementById("evidence-status");
+
+    if (button) button.classList.toggle("hidden", isA);
+    if (status) status.classList.toggle("hidden", isA);
+
+    const paperHelp = document.querySelector(
+        ".paper-lookup > .paper-help"
+    );
+    if (paperHelp) {
+        paperHelp.textContent = isA
+            ? "Busca el artículo para obtener su título y resumen."
+            : "Busca y confirma el artículo para recuperar los 3 fragmentos más relevantes.";
+    }
+
+    const pdfHelp = document.querySelector(
+        ".pdf-upload-panel > .paper-help"
+    );
+    if (pdfHelp) {
+        pdfHelp.textContent = isA
+            ? "Sube un PDF para extraer el título y resumen. Revísalos antes de clasificar."
+            : "Sube un PDF para recuperar los 3 fragmentos más relevantes.";
+    }
+
+    if (!isA && selectedPaper?.arxiv_id && !button) {
+        mountEvidenceRetriever();
+    }
+
+    syncPdfStateForMode();
+}
+
+modelSelector.addEventListener("change", updateEvidenceMode);
+
 async function apiRequest(path, options = {}) {
     const response = await fetch(`${API}${path}`, options);
     const data = await response.json();
@@ -16,7 +182,7 @@ async function apiRequest(path, options = {}) {
         const detail = data.detail;
         const message = Array.isArray(detail)
             ? detail.map(item => item.msg).join("; ")
-            : detail || "Request failed";
+            : detail || "No se pudo completar la solicitud.";
         throw new Error(message);
     }
     return data;
@@ -32,11 +198,12 @@ async function initialize() {
         modelSelector.replaceChildren();
 
         for (const model of modelsData.models) {
+            modelConfigurations.set(model.id, model.configuration);
             const option = document.createElement("option");
             option.value = model.id;
             option.textContent = model.available
                 ? model.name
-                : `${model.name} (Unavailable)`;
+                : `${model.name} (No disponible)`;
             option.disabled = !model.available;
             modelSelector.appendChild(option);
         }
@@ -44,10 +211,13 @@ async function initialize() {
         const firstAvailable = modelsData.models.find(m => m.available);
         if (firstAvailable) {
             modelSelector.value = firstAvailable.id;
+            updateEvidenceMode();
         } else {
             submitButton.disabled = true;
-            showError("No inference models are currently available.");
+            showError("No hay modelos disponibles en este momento.");
         }
+
+        loadConfigurationModels(modelsData.models);
 
         const taxonomy = document.getElementById("taxonomy-list");
         taxonomy.replaceChildren();
@@ -110,11 +280,29 @@ form.addEventListener("submit", async (event) => {
     resultSection.classList.add("hidden");
 
     submitButton.disabled = true;
-    submitButton.textContent = "ANALYZING...";
+    submitButton.textContent = "Analizando cita...";
+    let progressInterval = null;
 
     try {
         const citingContext = contextInput.value.trim();
         const targetCitation = targetInput.value.trim();
+
+        const mode = currentMode();
+        const selectedModelId = modelSelector.value;
+
+        if (mode === "A" &&
+            (!citedTitleInput.value.trim() ||
+             !citedAbstractInput.value.trim())) {
+            throw new Error(
+                "Configuration A requires a cited paper title and abstract."
+            );
+        }
+
+        if (mode === "B" && !retrievedEvidence?.cited_chunks?.length) {
+            throw new Error(
+                "Configuration B requires retrieved evidence chunks."
+            );
+        }
 
         // Step 1: Prepare target citation and mask secondary citations.
         const prepared = await apiRequest("/prepare-context", {
@@ -127,32 +315,85 @@ form.addEventListener("submit", async (event) => {
         });
 
         // Step 2: Run selected classifier.
+        const predictionStartedAt = performance.now();
+
+        if (selectedModelId) {
+            const updateProgress = () => {
+                const elapsed = Math.floor(
+                    (performance.now() - predictionStartedAt) / 1000
+                );
+                const minutes = String(
+                    Math.floor(elapsed / 60)
+                ).padStart(2, "0");
+                const seconds = String(
+                    elapsed % 60
+                ).padStart(2, "0");
+
+                progressEl.textContent =
+                    `${modelSelector.selectedOptions[0]?.textContent || selectedModelId}: ${minutes}:${seconds}. ` +
+                    (selectedModelId.startsWith("granite-")
+                        ? "En CPU puede tardar más de un minuto."
+                        : "Analizando la cita...");
+            };
+
+            progressEl.classList.remove("hidden");
+            updateProgress();
+            progressInterval = setInterval(updateProgress, 1000);
+        }
+
         const prediction = await apiRequest("/predict", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                model_id: modelSelector.value,
+                model_id: selectedModelId,
                 citing_context: prepared.citing_context,
                 target_citation: targetCitation,
-                cited_title: selectedPaper?.title ?? null,
-                cited_abstract: selectedPaper?.abstract ?? null,
+                cited_title: mode === "A"
+                    ? citedTitleInput.value.trim()
+                    : selectedPaper?.title ?? null,
+                cited_abstract: mode === "A"
+                    ? citedAbstractInput.value.trim()
+                    : selectedPaper?.abstract ?? null,
                 cited_arxiv_id: selectedPaper?.arxiv_id ?? null,
-                cited_chunks: retrievedEvidence?.cited_chunks ?? null,
-                cited_chunk_sections:
-                    retrievedEvidence?.cited_chunk_sections ?? null,
+                cited_chunks: mode === "B"
+                    ? retrievedEvidence?.cited_chunks ?? null
+                    : null,
+                cited_chunk_sections: mode === "B"
+                    ? retrievedEvidence?.cited_chunk_sections ?? null
+                    : null,
             }),
         });
 
-        renderPrediction(prediction);
+        const requestElapsedMs =
+            performance.now() - predictionStartedAt;
+
+        renderPrediction(prediction, requestElapsedMs);
+        // The metric exists on the API already; only update browser-observed time.
+        if (prediction.run_id) {
+            apiRequest("/metrics/client", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    run_id: prediction.run_id,
+                    client_ms: requestElapsedMs,
+                }),
+            }).catch(() => {});
+        }
     } catch (error) {
         showError(error.message);
     } finally {
+        if (progressInterval !== null) {
+            clearInterval(progressInterval);
+        }
+        progressEl.classList.add("hidden");
+        progressEl.textContent = "";
+
         submitButton.disabled = false;
-        submitButton.textContent = "✦ CLASSIFY CITATION";
+        submitButton.textContent = "✦ CLASIFICAR INTENCIÓN DE CITA";
     }
 });
 
-function renderPrediction(data) {
+function renderPrediction(data, requestElapsedMs) {
     document.getElementById("prediction").textContent =
         data.predicted_label.toUpperCase();
 
@@ -203,8 +444,24 @@ function renderPrediction(data) {
     }
 
     warning.textContent = data.is_demo
-        ? "DEMO MODE — Synthetic prediction. Scores are not scientifically meaningful."
+        ? "DEMO MODE : Synthetic prediction. Scores are not scientifically meaningful."
         : "";
+
+    const modelLatencyMs = Number(data.latency_ms);
+
+    if (Number.isFinite(modelLatencyMs) &&
+        modelLatencyMs >= 0) {
+        const serverLatency = Number(data.server_ms);
+        latencyEl.textContent =
+            `Modelo (reportado): ${(modelLatencyMs / 1000).toFixed(1)} s` +
+            (Number.isFinite(serverLatency)
+                ? ` | API: ${(serverLatency / 1000).toFixed(1)} s`
+                : "") +
+            ` | HTTP: ${(requestElapsedMs / 1000).toFixed(1)} s`;
+        latencyEl.classList.remove("hidden");
+    } else {
+        latencyEl.classList.add("hidden");
+    }
 
     resultSection.classList.remove("hidden");
     resultSection.scrollIntoView({behavior: "smooth", block: "nearest"});
@@ -233,9 +490,9 @@ paperButton.addEventListener("click", async () => {
     if (!query) return;
 
     paperButton.disabled = true;
-    paperButton.textContent = "SEARCHING...";
+    paperButton.textContent = "BUSCANDO...";
     paperResult.classList.remove("hidden");
-    paperResult.textContent = "Searching for cited paper...";
+    paperResult.textContent = "Buscando el artículo citado...";
     selectedPaper = null;
 
     try {
@@ -247,23 +504,31 @@ paperButton.addEventListener("click", async () => {
         title.textContent = paper.title;
 
         const authors = document.createElement("p");
-        authors.textContent = paper.authors?.join(", ") || "Unknown authors";
+        authors.textContent = paper.authors?.join(", ") || "Autores no disponibles";
 
         const details = document.createElement("p");
         details.textContent =
-            `Source: ${paper.source} | arXiv: ${paper.arxiv_id || "N/A"}`;
+            `Fuente: ${paper.source} | arXiv: ${paper.arxiv_id || "N/A"}`;
 
         const abstract = document.createElement("p");
-        abstract.textContent = paper.abstract || "Abstract unavailable.";
+        abstract.textContent = paper.abstract || "Resumen no disponible.";
 
         const confirm = document.createElement("button");
         confirm.type = "button";
-        confirm.textContent = "CONFIRM THIS PAPER";
+        confirm.textContent = "CONFIRMAR ARTÍCULO";
 
         confirm.addEventListener("click", () => {
             selectedPaper = paper;
-            mountEvidenceRetriever();
-            confirm.textContent = "✓ PAPER SELECTED";
+            citedTitleInput.value = paper.title || "";
+            citedAbstractInput.value = paper.abstract || "";
+
+            if (currentMode() === "B") {
+                mountEvidenceRetriever();
+            } else {
+                resetEvidence();
+                updateEvidenceMode();
+            }
+            confirm.textContent = "✓ ARTÍCULO CONFIRMADO";
             confirm.disabled = true;
         });
 
@@ -271,10 +536,10 @@ paperButton.addEventListener("click", async () => {
             title, authors, details, abstract, confirm
         );
     } catch (error) {
-        paperResult.textContent = `Search failed: ${error.message}`;
+        paperResult.textContent = `Error durante la búsqueda: ${error.message}`;
     } finally {
         paperButton.disabled = false;
-        paperButton.textContent = "SEARCH";
+        paperButton.textContent = "BUSCAR";
     }
 });
 
@@ -291,7 +556,7 @@ function resetEvidence() {
     const button = document.getElementById("retrieve-evidence-button");
     if (button) {
         button.disabled = false;
-        button.textContent = "RETRIEVE TOP 3 EVIDENCE";
+        button.textContent = "RECUPERAR LOS 3 FRAGMENTOS";
     }
 }
 
@@ -300,19 +565,39 @@ targetInput.addEventListener("input", resetEvidence);
 paperQuery.addEventListener("input", resetEvidence);
 
 function mountEvidenceRetriever() {
-    resetEvidence();
+    const existingButton =
+        document.getElementById("retrieve-evidence-button");
+    const existingStatus =
+        document.getElementById("evidence-status");
+
+    // Reuse the existing controls and evidence when switching A/B.
+    if (
+        existingButton &&
+        existingStatus &&
+        paperResult.contains(existingButton)
+    ) {
+        const isA = currentMode() === "A";
+
+        existingButton.classList.toggle("hidden", isA);
+        existingStatus.classList.toggle("hidden", isA);
+        return;
+    }
+
+    // Only replace stale controls. Do not discard retrieved evidence.
+    existingButton?.remove();
+    existingStatus?.remove();
 
     const button = document.createElement("button");
     button.id = "retrieve-evidence-button";
     button.type = "button";
-    button.textContent = "RETRIEVE TOP 3 EVIDENCE";
+    button.textContent = "RECUPERAR LOS 3 FRAGMENTOS";
     button.disabled = !selectedPaper?.arxiv_id;
 
     const status = document.createElement("div");
     status.id = "evidence-status";
 
     if (!selectedPaper?.arxiv_id) {
-        status.textContent = "Full-text retrieval requires an arXiv ID.";
+        status.textContent = "La recuperación del texto completo requiere un identificador arXiv.";
     }
 
     button.addEventListener("click", async () => {
@@ -321,15 +606,15 @@ function mountEvidenceRetriever() {
         const arxivId = selectedPaper?.arxiv_id;
 
         if (context.length < 20) {
-            status.textContent = "Enter a citation context first.";
+            status.textContent = "Primero escribe el contexto de la cita.";
             return;
         }
 
         resetEvidence();
         button.disabled = true;
-        button.textContent = "RETRIEVING...";
+        button.textContent = "RECUPERANDO...";
         status.textContent =
-            "Extracting the article and ranking chunks with SciBERT...";
+            "Extrayendo el artículo y ordenando los fragmentos con SciBERT...";
 
         try {
             const data = await apiRequest("/evidence", {
@@ -355,7 +640,7 @@ function mountEvidenceRetriever() {
             }
 
             if (!data.cited_chunks?.length) {
-                throw new Error("No evidence chunks were returned.");
+                throw new Error("No se encontraron fragmentos de evidencia.");
             }
 
             retrievedEvidence = data;
@@ -364,7 +649,7 @@ function mountEvidenceRetriever() {
             container.className = "evidence-results";
 
             const heading = document.createElement("h3");
-            heading.textContent = "RETRIEVED EVIDENCE — TOP 3";
+            heading.textContent = "EVIDENCIA RECUPERADA: 3 FRAGMENTOS";
             container.appendChild(heading);
 
             data.cited_chunks.forEach((chunk, index) => {
@@ -373,8 +658,8 @@ function mountEvidenceRetriever() {
 
                 const title = document.createElement("h4");
                 title.textContent =
-                    `TOP ${index + 1} — ` +
-                    (data.cited_chunk_sections?.[index] || "Unknown section");
+                    `FRAGMENTO ${index + 1}: ` +
+                    (data.cited_chunk_sections?.[index] || "Sección no identificada");
 
                 const paragraph = document.createElement("p");
                 paragraph.textContent = chunk;
@@ -385,11 +670,11 @@ function mountEvidenceRetriever() {
 
             status.replaceChildren(container);
             button.textContent =
-                `✓ ${data.cited_chunks.length} CHUNKS READY`;
+                `✓ ${data.cited_chunks.length} FRAGMENTOS LISTOS`;
         } catch (error) {
-            status.textContent = `Retrieval failed: ${error.message}`;
+            status.textContent = `Error al recuperar la evidencia: ${error.message}`;
             button.disabled = false;
-            button.textContent = "RETRY RETRIEVAL";
+            button.textContent = "REINTENTAR RECUPERACIÓN";
         }
     });
 
@@ -404,55 +689,161 @@ const pdfUploadResult = document.getElementById("pdf-upload-result");
 const pdfAcknowledgement =
     document.getElementById("pdf-match-confirmation");
 
+// Cache kept only in the current browser session.
+let pdfCache = null;
+let pdfProcessing = false;
+
+function pdfCacheValid() {
+    return Boolean(
+        pdfCache &&
+        pdfInput.files?.[0] === pdfCache.file &&
+        contextInput.value.trim() === pdfCache.context &&
+        targetInput.value.trim() === pdfCache.target
+    );
+}
+
+function renderPdfEvidence(cache) {
+    const container = document.createElement("div");
+    container.className = "evidence-results";
+
+    const heading = document.createElement("h3");
+    heading.textContent =
+        `PDF PROCESADO: ${cache.title || cache.file.name}`;
+    container.appendChild(heading);
+
+    cache.chunks.forEach((chunk, index) => {
+        const item = document.createElement("article");
+        item.className = "evidence-chunk";
+
+        const title = document.createElement("h4");
+        title.textContent =
+            `FRAGMENTO ${index + 1}: ` +
+            (cache.sections?.[index] || "Sección no identificada");
+
+        const paragraph = document.createElement("p");
+        paragraph.textContent = chunk;
+
+        item.append(title, paragraph);
+        container.appendChild(item);
+    });
+
+    pdfUploadResult.replaceChildren(container);
+}
+
+function syncPdfStateForMode() {
+    if (pdfProcessing || !pdfCacheValid()) return;
+
+    const mode = currentMode();
+
+    selectedPaper = {
+        title: pdfCache.title,
+        abstract: pdfCache.abstract,
+        arxiv_id: null,
+    };
+
+    if (mode === "A") {
+        // Preserve any manual edits made after PDF extraction.
+        if (!citedTitleInput.value.trim()) {
+            citedTitleInput.value = pdfCache.title || "";
+        }
+        if (!citedAbstractInput.value.trim()) {
+            citedAbstractInput.value = pdfCache.abstract || "";
+        }
+
+        pdfUploadResult.textContent =
+            "Título y resumen disponibles. Revisa los campos antes de clasificar.";
+        pdfUploadButton.textContent = "✓ DATOS DISPONIBLES";
+    } else if (pdfCache.chunks?.length) {
+        retrievedEvidence = {
+            cited_title: pdfCache.title,
+            cited_abstract: pdfCache.abstract,
+            cited_chunks: pdfCache.chunks,
+            cited_chunk_sections: pdfCache.sections,
+        };
+
+        renderPdfEvidence(pdfCache);
+        pdfUploadButton.textContent = "✓ EVIDENCIA DISPONIBLE";
+    } else {
+        retrievedEvidence = null;
+
+        pdfUploadResult.textContent =
+            "El PDF ya está identificado. Para usar la configuración B, " +
+            "recupera los tres fragmentos relevantes del mismo archivo. " +
+            "No necesitas seleccionarlo nuevamente.";
+
+        pdfUploadButton.textContent = "RECUPERAR FRAGMENTOS";
+    }
+
+    pdfUploadButton.disabled = !pdfAcknowledgement.checked;
+}
+
 pdfUploadButton.disabled = true;
 
 pdfAcknowledgement.addEventListener("change", () => {
-    pdfUploadButton.disabled = !pdfAcknowledgement.checked;
+    pdfUploadButton.disabled =
+        pdfProcessing || !pdfAcknowledgement.checked;
 });
 
 for (const field of [contextInput, targetInput]) {
     field.addEventListener("input", () => {
+        pdfCache = null;
         pdfAcknowledgement.checked = false;
         pdfUploadButton.disabled = true;
     });
 }
 
+// Searching for another article invalidates the PDF cache.
+paperQuery.addEventListener("input", () => {
+    pdfCache = null;
+});
+
 pdfInput.addEventListener("change", () => {
+    pdfCache = null;
     pdfAcknowledgement.checked = false;
     pdfUploadButton.disabled = true;
+
     resetEvidence();
     selectedPaper = null;
+
     paperResult.replaceChildren();
     paperResult.classList.add("hidden");
     paperQuery.value = "";
 });
 
 pdfUploadButton.addEventListener("click", async () => {
-    if (!pdfAcknowledgement.checked) return;
+    if (pdfProcessing || !pdfAcknowledgement.checked) return;
 
     const file = pdfInput.files?.[0];
     const context = contextInput.value.trim();
     const target = targetInput.value.trim();
+    const mode = currentMode();
 
     if (!file) {
-        pdfUploadResult.textContent = "Select a PDF first.";
+        pdfUploadResult.textContent = "Primero selecciona un PDF.";
         return;
     }
 
     if (file.size > 20 * 1024 * 1024) {
-        pdfUploadResult.textContent = "Maximum PDF size is 20 MB.";
+        pdfUploadResult.textContent =
+            "El tamaño máximo del PDF es 20 MB.";
         return;
     }
 
     if (context.length < 20) {
-        pdfUploadResult.textContent = "Enter a citation context first.";
+        pdfUploadResult.textContent =
+            "Primero escribe el contexto de la cita.";
         return;
     }
 
-    resetEvidence();
-    selectedPaper = null;
-    paperResult.replaceChildren();
-    paperResult.classList.add("hidden");
+    // Reuse existing PDF information without another HTTP request.
+    if (pdfCacheValid()) {
+        if (mode === "A" || pdfCache.chunks?.length) {
+            syncPdfStateForMode();
+            return;
+        }
+    }
+
+    const previousCache = pdfCacheValid() ? pdfCache : null;
 
     const formData = new FormData();
     formData.append("file", file);
@@ -462,68 +853,86 @@ pdfUploadButton.addEventListener("click", async () => {
         formData.append("target_citation", target);
     }
 
+    pdfProcessing = true;
     pdfUploadButton.disabled = true;
-    pdfUploadButton.textContent = "PROCESSING...";
-    pdfUploadResult.textContent =
-        "Extracting PDF with Docling and retrieving evidence with SciBERT...";
+    pdfUploadButton.textContent = "PROCESANDO...";
+
+    pdfUploadResult.textContent = mode === "A"
+        ? "Extrayendo el título y resumen con Docling. " +
+          "Esto puede tardar unos minutos. Mantén esta página abierta."
+        : "Procesando el PDF y recuperando evidencia con SciBERT. " +
+          "Esto puede tardar unos minutos. Mantén esta página abierta.";
 
     try {
-        const data = await apiRequest("/evidence/pdf", {
-            method: "POST",
-            body: formData,
-        });
+        const data = await apiRequest(
+            mode === "A" ? "/metadata/pdf" : "/evidence/pdf",
+            {
+                method: "POST",
+                body: formData,
+            }
+        );
 
+        // A mode switch alone does not invalidate the response.
+        // A different file or citation context does.
         if (
             pdfInput.files?.[0] !== file ||
             contextInput.value.trim() !== context ||
             targetInput.value.trim() !== target
         ) {
             pdfUploadResult.textContent =
-                "Inputs changed during processing. Please retry.";
+                "El archivo o el contexto cambió durante el procesamiento. " +
+                "Inténtalo nuevamente.";
             return;
         }
 
-        retrievedEvidence = data;
+        pdfCache = {
+            file,
+            context,
+            target,
+            title: data.cited_title || previousCache?.title || "",
+            abstract: data.cited_abstract || previousCache?.abstract || "",
+            chunks: mode === "B"
+                ? (data.cited_chunks || [])
+                : (previousCache?.chunks || []),
+            sections: mode === "B"
+                ? (data.cited_chunk_sections || [])
+                : (previousCache?.sections || []),
+        };
+
+        // Populate A metadata even when the PDF was processed in B.
+        citedTitleInput.value = pdfCache.title;
+        citedAbstractInput.value = pdfCache.abstract;
+
         selectedPaper = {
-            title: data.cited_title,
-            abstract: data.cited_abstract,
+            title: pdfCache.title,
+            abstract: pdfCache.abstract,
             arxiv_id: null,
         };
 
+        if (pdfCache.chunks.length) {
+            retrievedEvidence = {
+                cited_title: pdfCache.title,
+                cited_abstract: pdfCache.abstract,
+                cited_chunks: pdfCache.chunks,
+                cited_chunk_sections: pdfCache.sections,
+            };
+        }
+
         paperQuery.value = "";
-
-        const container = document.createElement("div");
-        container.className = "evidence-results";
-
-        const heading = document.createElement("h3");
-        heading.textContent =
-            `PDF PROCESSED — ${data.cited_title || file.name}`;
-        container.appendChild(heading);
-
-        data.cited_chunks.forEach((chunk, index) => {
-            const item = document.createElement("article");
-            item.className = "evidence-chunk";
-
-            const title = document.createElement("h4");
-            title.textContent =
-                `TOP ${index + 1} — ` +
-                (data.cited_chunk_sections?.[index] || "Unknown section");
-
-            const paragraph = document.createElement("p");
-            paragraph.textContent = chunk;
-
-            item.append(title, paragraph);
-            container.appendChild(item);
-        });
-
-        pdfUploadResult.replaceChildren(container);
-        pdfUploadButton.textContent = "✓ PDF PROCESSED";
+        paperResult.replaceChildren();
+        paperResult.classList.add("hidden");
 
     } catch (error) {
         pdfUploadResult.textContent =
-            `PDF processing failed: ${error.message}`;
-        pdfUploadButton.textContent = "RETRY PDF";
+            `Error al procesar el PDF: ${error.message}`;
+        pdfUploadButton.textContent = "REINTENTAR PDF";
     } finally {
-        pdfUploadButton.disabled = !pdfAcknowledgement.checked;
+        pdfProcessing = false;
+
+        if (pdfCacheValid()) {
+            syncPdfStateForMode();
+        } else {
+            pdfUploadButton.disabled = !pdfAcknowledgement.checked;
+        }
     }
 });

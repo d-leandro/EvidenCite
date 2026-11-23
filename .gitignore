@@ -98,3 +98,7 @@ ipython_config.py
 # Archivos swap de Vim y nano
 *.swp
 *.swo
+deploy-assets/
+.terraform/
+*.tfstate
+*.tfstate.*

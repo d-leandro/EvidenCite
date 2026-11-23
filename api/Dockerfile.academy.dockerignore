@@ -1,0 +1,21 @@
+# Include only source needed by the Academy image, never local artifacts/secrets.
+**
+!api/
+!api/**
+!src/
+!src/**
+!app/
+!app/**
+!configs/
+!configs/**
+# Defense in depth: private and runtime files should never enter the build context.
+.env
+.env.*
+**/.env
+**/.env.*
+**/__pycache__/
+**/*.pyc
+**/*.safetensors
+**/*.joblib
+**/*.sqlite3
+**/*.db

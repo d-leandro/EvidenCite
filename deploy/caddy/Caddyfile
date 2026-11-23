@@ -1,0 +1,4 @@
+{$EVIDENCITE_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy gateway:80
+}

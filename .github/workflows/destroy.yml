@@ -2,6 +2,11 @@ name: Destroy EvidenCite
 
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Escribe DESTROY_EVIDENCITE para destruir la infraestructura (el estado S3 se conserva)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,6 +26,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Gate - explicit destruction consent
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DESTROY_EVIDENCITE" ]; then
+            echo "::error::Escribe DESTROY_EVIDENCITE para autorizar destrucción"
+            exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -70,20 +84,10 @@ jobs:
         run: |
           terraform destroy -auto-approve
 
-      - name: Remove Terraform state bucket
-        run: |
-          aws s3 rm \
-            "s3://${STATE_BUCKET}" \
-            --recursive
-
-          aws s3api delete-bucket \
-            --bucket "$STATE_BUCKET" \
-            --region "$AWS_REGION"
-
       - name: Destroy summary
         run: |
           echo "## 💀 EvidenCite destroyed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Terraform infrastructure was removed successfully." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The temporary Terraform state bucket was also deleted." >> "$GITHUB_STEP_SUMMARY"
+          echo "The Terraform state bucket was preserved for audit and later reuse." >> "$GITHUB_STEP_SUMMARY"

@@ -2,6 +2,11 @@ name: Deploy EvidenCite
 
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Escribe DEPLOY_EVIDENCITE (el despliegue puede generar costos AWS)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,6 +26,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Gate - explicit consent and full stack preflight
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "DEPLOY_EVIDENCITE" ]; then
+            echo "::error::Escribe DEPLOY_EVIDENCITE para autorizar creación de infraestructura"
+            exit 1
+          fi
+          python3 tools/cloud_preflight.py --strict
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
