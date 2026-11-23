@@ -31,7 +31,7 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
-# No inbound rules: only SSM sessions and port forwarding for demonstration.
+# Public HTTP/HTTPS terminate at Caddy; SSH and direct API ports stay closed.
 resource "aws_security_group" "demo" {
   name_prefix = "${var.project_name}-"
   description = "EvidenCite demo: no public ingress"
@@ -68,29 +68,18 @@ resource "aws_security_group" "demo" {
 locals {
   models_bucket_name = "${var.project_name}-${data.aws_caller_identity.current.account_id}-models"
 }
-resource "aws_s3_bucket_public_access_block" "models" {
-  bucket                  = local.models_bucket_name
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "models" {
-  bucket = local.models_bucket_name
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
+# The model bucket and its access-block/encryption settings are PERSISTENT.
+# They are intentionally outside this ephemeral Terraform stack so that a
+# destroy/apply cycle never deletes the model artifacts or their protections.
+# One-time migration: detach the two existing resources from Terraform state
+# BEFORE running plan/apply/destroy; instructions in REBUILD.md.
 
 resource "aws_instance" "demo" {
   ami                         = data.aws_ami.amazon_linux_2023.id
   instance_type               = var.instance_type
   subnet_id                   = sort(data.aws_subnets.default.ids)[0]
   vpc_security_group_ids      = [aws_security_group.demo.id]
-  associate_public_ip_address = true # outbound access in default VPC; no inbound SG rules
+  associate_public_ip_address = true # dynamic public IP for Caddy HTTPS
   iam_instance_profile        = var.instance_profile_name
   user_data                   = file("${path.module}/bootstrap.sh")
 

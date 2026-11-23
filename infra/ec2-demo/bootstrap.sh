@@ -2,7 +2,7 @@
 set -euo pipefail
 exec > >(tee -a /var/log/evidencite-bootstrap.log) 2>&1
 
-dnf install -y docker git jq unzip
+dnf install -y docker git unzip
 command -v aws >/dev/null || dnf install -y awscli-2
 systemctl enable --now docker
 
@@ -13,6 +13,13 @@ curl -fLsS --retry 3 \
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
 /usr/bin/docker compose version
+
+# Docker on AL2023 requires the Buildx CLI plugin for `docker compose build`.
+curl -fLsS --retry 3 \
+  https://github.com/docker/buildx/releases/download/v0.20.1/buildx-v0.20.1.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-buildx
+/usr/bin/docker buildx version
 
 install -d -m 0755 /srv/evidencite/models /srv/evidencite/metrics /srv/evidencite/repo
 install -d -m 0700 /srv/evidencite/secrets

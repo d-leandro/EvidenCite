@@ -1,14 +1,60 @@
 #!/usr/bin/env bash
-# Run on the EC2 instance through SSM as root, AFTER configuring S3 and Gemini locally.
+# Run on the EC2 instance through SSM as root. No manual .env setup required.
 set -euo pipefail
 
 BUCKET="${EVIDENCITE_MODELS_BUCKET:-}"
 [[ "$BUCKET" =~ ^[a-z0-9][a-z0-9.-]{2,62}$ ]] || { echo '[STOP] EVIDENCITE_MODELS_BUCKET no configurado'; exit 2; }
 [[ "$(id -u)" == 0 ]] || { echo '[STOP] Se necesita root/sudo'; exit 2; }
+# Resolve the *current* EC2 public IP using IMDSv2. No hard-coded hostname.
+TOKEN="$(curl -fsS --retry 3 --connect-timeout 3 --max-time 10 \
+  -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
+  http://169.254.169.254/latest/api/token)"
+PUBLIC_IP="$(curl -fsS --retry 3 --connect-timeout 3 --max-time 10 \
+  -H "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4)"
+[[ "$PUBLIC_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo '[STOP] IP publica no valida'; exit 2; }
+DOMAIN="evidencite.${PUBLIC_IP//./-}.sslip.io"
+unset TOKEN
+
+# Retrieve SecureString with the EC2 instance role. Never send API keys over SSM commands
+# or Terraform variables. Store the Compose env only on EC2 with mode 0600.
+umask 077
+install -d -m 0700 /srv/evidencite/secrets
 ENV_FILE=/srv/evidencite/secrets/.env
-[[ -s "$ENV_FILE" ]] || { echo '[STOP] Crear el envfile de Gemini en EC2 primero'; exit 2; }
-chmod 600 "$ENV_FILE"
-# Do not print the secret, even for debugging.
+GEMINI_API_KEY="$(aws ssm get-parameter \
+  --region us-east-1 \
+  --name /evidencite/prod/gemini-api-key \
+  --with-decryption \
+  --query Parameter.Value --output text)"
+[[ -n "$GEMINI_API_KEY" && "$GEMINI_API_KEY" != 'None' ]] || { echo '[STOP] Gemini key unavailable'; exit 2; }
+export GEMINI_API_KEY
+python3 - "$ENV_FILE" "$DOMAIN" <<'PYENV'
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+path = Path(sys.argv[1])
+domain = sys.argv[2]
+key = os.environ['GEMINI_API_KEY']
+# Compose-compatible single-quoted dotenv value; no interpolation of $ characters.
+def quote(value):
+    if any(c in value for c in "\r\n"):
+        raise ValueError('Unexpected multiline secret')
+    return "'" + value.replace('\\', '\\\\').replace("'", "\\'") + "'"
+fd, tmp = tempfile.mkstemp(prefix='.env.', dir=path.parent, text=True)
+try:
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, 'w', encoding='utf-8') as file:
+        file.write(f'EVIDENCITE_DOMAIN={domain}\n')
+        file.write('GOOGLE_GENAI_USE_VERTEXAI=false\n')
+        file.write('GEMINI_API_KEY=' + quote(key) + '\n')
+    os.replace(tmp, path)
+finally:
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+PYENV
+unset GEMINI_API_KEY
 
 cd /srv/evidencite/repo
 for model in tfidf_A tfidf_B scibert_A scibert_B; do
@@ -34,4 +80,17 @@ docker compose --env-file "$ENV_FILE" -f compose.academy.yaml config --quiet
 docker compose --env-file "$ENV_FILE" -f compose.academy.yaml up -d --build --wait --wait-timeout 1800
 
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8080/health
-printf '\n[OK] EvidenCite Academy Lite saludable. SSM port-forward: localhost:8080\n'
+# Verify that the API reports all six real model configurations as available.
+python3 - <<'PYCHECK'
+import json
+from urllib.request import urlopen
+with urlopen('http://127.0.0.1:8080/api/v1/models', timeout=10) as response:
+    models = json.load(response)['models']
+expected = {'tfidf-a', 'tfidf-b', 'scibert-a', 'scibert-b', 'gemini-a', 'gemini-b'}
+ready = {m['id'] for m in models if m['available']}
+missing = sorted(expected - ready)
+if missing:
+    raise SystemExit('[STOP] Unavailable models: ' + ', '.join(missing))
+print('[OK] Six model configurations registered')
+PYCHECK
+printf '\n[OK] EvidenCite deployed: https://%s\n' "$DOMAIN"

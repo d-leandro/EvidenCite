@@ -18,7 +18,7 @@ def main():
 
     repo = '/srv/evidencite/repo'
     commands = (
-        'set -euo pipefail; '
+        'set -euo pipefail; cloud-init status --wait >/dev/null; '
         f'if [ ! -d {repo}/.git ]; then '
         f'git clone https://github.com/d-leandro/EvidenCite.git {repo}; '
         'fi; '

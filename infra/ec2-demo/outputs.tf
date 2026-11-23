@@ -15,3 +15,13 @@ output "region" {
 output "ssh_required" {
   value = false
 }
+
+output "public_ip" {
+  value       = aws_instance.demo.public_ip
+  description = "Ephemeral EC2 public IPv4; changes after stop/start"
+}
+
+output "public_url" {
+  value       = "https://evidencite.${replace(aws_instance.demo.public_ip, ".", "-")}.sslip.io"
+  description = "Demo URL. Run the deployment script after any IP change."
+}

@@ -60,7 +60,6 @@ services:
       - "443:443"
     environment:
       EVIDENCITE_DOMAIN: ${EVIDENCITE_DOMAIN:?Configure EVIDENCITE_DOMAIN in private env file}
-      EVIDENCITE_AUTH_HASH: ${EVIDENCITE_AUTH_HASH:?Configure EVIDENCITE_AUTH_HASH in private env file}
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

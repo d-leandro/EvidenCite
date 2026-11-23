@@ -53,7 +53,7 @@ def load_gemini(model_id: str):
             "num_few_shot": 0,
             "shot_variants": None,
             "cache_path": None,
-            "max_retries": 0,
+            "max_retries": 2,
         }
     )
 

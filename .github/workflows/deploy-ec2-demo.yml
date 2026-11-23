@@ -87,7 +87,30 @@ jobs:
           done
           echo '[STOP] SSM deployment did not finish before the job timeout.' >&2
           exit 1
-      - name: Summary
+      - name: Verify public HTTPS and publish URL
         run: |
-          echo '### EvidenCite EC2 Demo' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Remote Compose updated. Access only through SSM port forwarding.' >> "$GITHUB_STEP_SUMMARY"
+          PUBLIC_IP="$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)"
+          [[ "$PUBLIC_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || exit 2
+          DOMAIN="evidencite.${PUBLIC_IP//./-}.sslip.io"
+          URL="https://$DOMAIN"
+          HEALTHY=false
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error --max-time 15 "$URL/health" > /dev/null; then
+              HEALTHY=true
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$HEALTHY" != true ]]; then
+            echo "[STOP] Public HTTPS health check failed: $URL/health" >&2
+            exit 1
+          fi
+          echo "EvidenCite public URL: $URL"
+          {
+            echo '### EvidenCite AWS Academy'
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- URL: $URL"
+            echo '- HTTPS /health: OK'
+            echo '- The public IP and URL change after EC2 stop/start or recreation.'
+          } >> "$GITHUB_STEP_SUMMARY"
