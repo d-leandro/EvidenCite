@@ -1,18 +1,4 @@
-# Public HTTPS endpoint for EvidenCite Academy Lite.
-# The evaluated application and all API paths require HTTP Basic auth.
-# /health is intentionally public to allow remote health checks without credentials.
 {$EVIDENCITE_DOMAIN} {
     encode zstd gzip
-
-    @health path /health
-    handle @health {
-        reverse_proxy gateway:80
-    }
-
-    handle {
-        basic_auth {
-            evaluador {$EVIDENCITE_AUTH_HASH}
-        }
-        reverse_proxy gateway:80
-    }
+    reverse_proxy gateway:80
 }
