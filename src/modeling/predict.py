@@ -947,26 +947,7 @@ class LLMApiPredictor(BasePredictor):
 
         if self.llm_config.enforce_structured_output:
             config_kwargs["response_mime_type"] = "application/json"
-            # Esquema compatible con Google GenAI.
-            # La respuesta sigue validándose con LLMResponse.
-            config_kwargs["response_schema"] = {
-                "type": "OBJECT",
-                "properties": {
-                    "predicted_label": {
-                        "type": "STRING",
-                        "enum": list(CANONICAL_9_CLASSES),
-                    },
-                    "scores": {
-                        "type": "OBJECT",
-                        "properties": {
-                            label: {"type": "NUMBER"}
-                            for label in CANONICAL_9_CLASSES
-                        },
-                        "required": list(CANONICAL_9_CLASSES),
-                    },
-                },
-                "required": ["predicted_label", "scores"],
-            }
+            config_kwargs["response_json_schema"] = LLMResponse.model_json_schema()
 
         gen_config = types.GenerateContentConfig(**config_kwargs)
         max_attempts = max(1, self.llm_config.max_retries + 1)
