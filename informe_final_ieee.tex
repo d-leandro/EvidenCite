@@ -15,7 +15,7 @@
 
 \renewcommand{\IEEEkeywordsname}{Palabras clave}
 \addto\captionsspanish{\renewcommand{\appendixname}{Anexo}}
-\renewcommand{\IEEEbibitemsep}{0.5pt plus 0.5pt}
+\renewcommand{\IEEEbibitemsep}{0pt plus 0.2pt}
 \newcommand{\pct}{\mbox{\symbol{37}}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcolumntype{C}{>{\centering\arraybackslash}X}
@@ -738,6 +738,12 @@ Sobre $22.384$ inferencias vía API, Gemini-3.8-Flash 0-Shot Config B domina la 
 En el conjunto de prueba, el $68\pct{}$ de las etiquetas proviene de consenso humano directo o \textit{MultiCite} ($1.904$ citas) y las $894$ restantes ($32\pct{}$, con $\kappa=0,509$ entre revisores) se resolvieron usando tres LLMs comerciales únicamente como árbitro de desempate entre las dos opciones propuestas por los revisores. Dejar constancia de ese desempate híbrido fija el alcance real de la referencia y motiva validar subconjuntos críticos con expertos del dominio.
 
 Como trabajo futuro se proyectan tres líneas: (1) reetiquetar $\mathcal{D}_{\text{train}}$ y $\mathcal{D}_{\text{dev}}$ con un modelo maestro de frontera validado y calibrado para entrenar clasificadores locales, manteniendo un conjunto de prueba humano independiente ---ampliable mediante auditoría por muestreo o revisión de expertos del dominio--- para evaluar su desempeño real; (2) probar el razonamiento mínimo en Gemini y evaluar por separado el efecto de los pasajes citados sin encabezados de sección; y (3) construir bancos \textit{Few-Shot} con ejemplos curados exclusivamente del conjunto Gold humano.
+
+\section*{Declaración sobre el Uso de Inteligencia Artificial Generativa}
+
+De acuerdo con los lineamientos institucionales de la Universidad de los Andes para el uso de inteligencia artificial generativa (IAG), declaramos que, más allá de los LLMs evaluados como objeto de estudio en A2, A3 y A5 (Sección~III), el equipo empleó \textbf{Google Antigravity} y \textbf{Claude} bajo un ciclo de desarrollo asistido por IA (\textit{AI-Driven Development Lifecycle}, AI-DLC) con revisión humana en cada hito. Su apoyo cubrió: (1) especificación (\textit{Spec-First}), para estructurar registros de decisión arquitectónica y contrastar alternativas de diseño técnico antes de codificar; (2) construcción y operación, asistiendo la codificación modular, pruebas unitarias (\texttt{pytest}), depuración, visualización y configuración de despliegue; y (3) apoyo editorial en \LaTeX{} y revisión de claridad, ortografía y coherencia entre texto, tablas y figuras.
+
+En todo el proceso, la IAG funcionó como herramienta de apoyo al aprendizaje y al flujo técnico, sin reemplazar el razonamiento, el diseño experimental ni la toma de decisiones del equipo. Todo el material generado fue evaluado críticamente y validado con pruebas automatizadas, corridas reales en MLflow y verificación directa de fuentes, sobre literatura pública y sin datos personales ni credenciales.
 
 \bibliographystyle{IEEEtran}
 \bibliography{referencias}
