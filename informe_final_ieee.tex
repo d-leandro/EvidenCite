@@ -415,14 +415,14 @@ La Actividad A4 entrena tres familias de clasificadores sobre $\mathcal{D}_{\tex
 
 \textbf{Protocolo común.} Para aislar el efecto del modelo, los LLMs comparten una receta uniforme: adaptadores LoRA de rango $r=16$ ($\alpha=32$, \textit{dropout} $0,05$) en todas las capas lineales ($0,6\pct{}\text{--}1,7\pct{}$ de parámetros entrenables); AdamW ($\eta = 10^{-4}$, lote efectivo $32$, calentamiento $5\pct{}$, sin \textit{weight decay} ni ponderación por clase); precisión mixta bf16, compilación por bloques y FP8 en capas congeladas cuando el hardware lo admite. El punto de control se elige por \textit{early stopping} sobre el Macro-F1 de $\mathcal{D}_{\text{dev}}$ (dos evaluaciones por época, paciencia de cinco). Sin plantillas de instrucción, contexto citante y evidencia citada se tokenizan como par introduciendo el rótulo \texttt{Cited paper:} en los modelos definitivos. Todas las corridas se registraron en MLflow (datos versionados con DVC) sobre GPUs bajo demanda (Google Colab y RunPod B200).
 
-\textbf{Selección por embudo.} El modelo definitivo surgió de $92$ corridas sucesivas. La \textit{Ronda 1} (R1; $19$ corridas, una semilla, cuatro épocas) comparó diez modelos de siete familias ---incluidos multimodales como Gemma 4--- sobre una iteración previa del etiquetado, fijando tres criterios de inclusión: solo texto, arquitectura densa y capas homogéneas. La \textit{Ronda 2} (R2; $58$ corridas) evaluó diez modelos de 2B a 4B en Config A y B con tres semillas pareadas para separar el efecto del modelo del ruido de inicialización~\cite{dodge2020fine}. Ambas rondas truncan a $512$ tokens. Seleccionada la familia por costo y acceso abierto, se escaló a 8B con decaimiento coseno hasta diez épocas sin truncar; junto con SciBERT y TF-IDF conforma los modelos definitivos ($11$ corridas), evaluados frente al test automático y al Gold. En paralelo, con Qwen3-0.6B ($4$ corridas) se contrastó el modo \textit{clasificador} frente al \textit{generativo} (modelo causal sobre el \textit{prompt} 0-Shot de A5, pérdida solo en respuesta y decodificación voraz).
+\textbf{Selección por embudo.} El modelo definitivo surgió de $92$ corridas sucesivas. La \textit{Ronda 1} (R1; $19$ corridas, una semilla, cuatro épocas) comparó diez modelos de siete familias ---incluidos multimodales como Gemma 4--- sobre una iteración previa del etiquetado, fijando tres criterios de inclusión: solo texto, arquitectura densa y capas homogéneas. La \textit{Ronda 2} (R2; $58$ corridas) evaluó diez modelos de 2B a 4B en Config A y B con tres semillas pareadas para separar el efecto del modelo del ruido de inicialización~\cite{dodge2020fine}. Ambas rondas truncan a $512$ tokens. Seleccionada la familia por costo y acceso abierto, se escaló a 8B con decaimiento coseno hasta diez épocas sin truncar; junto con SciBERT y TF-IDF conforma los modelos definitivos ($11$ corridas), evaluados frente al test automático y al Gold. En paralelo, con Qwen3-0.6B ($4$ corridas) se contrastó el modo \textit{clasificador} frente al \textit{generativo} (modelo causal sobre el \textit{prompt} 0-Shot de la Figura~\ref{fig:prompt_a4_a5}, Anexo~\ref{sec:anexo_figuras}, pérdida solo en respuesta y decodificación voraz).
 
 \subsection{Evaluación Factorial de LLMs Comerciales vía API (A5)}
 \label{sec:metodo_a5}
 
 Sobre el conjunto Gold $\mathcal{D}_{\text{test}}$ ($N = 2.798$) ejecutamos un diseño factorial completo $2 \times 2 \times 2$ ($8$ variantes, $22.384$ inferencias). El primer factor contrasta a GPT-4.1-mini (OpenAI, $\text{temp.}=0,0$, sin pensamiento latente, con tarifas de $\$0,40/1\text{M}$ en entrada, $\$0,10/1\text{M}$ en caché y $\$1,60/1\text{M}$ en salida) frente a Gemini-3.8-Flash (Vertex AI, nivel de pensamiento bajo, a $\$0,75/1\text{M}$ en entrada, $\$0,075/1\text{M}$ en caché y $\$3,75/1\text{M}$ en salida y pensamiento). El segundo factor contrasta Config A frente a Config B (ambas sin $h_{\text{citing}}$, preservando $\tilde{h}_{\pi_r}$ en Config B), y el tercer factor compara 0-Shot ($k=0$) frente a 9-Shot ($k=9$, un ejemplar por clase muestreado de $\mathcal{D}_{\text{train}}$ con semilla $42$).
 
-Imponemos decodificación restringida a esquema JSON (\textit{Structured Outputs}) con la etiqueta $\hat{y}$ y nueve puntajes no negativos $\mathbf{s} \in [0, 1]^9$ proyectados por normalización $L_1$ sobre $\Delta^8$:
+Con la plantilla de la Figura~\ref{fig:prompt_a4_a5}, imponemos decodificación restringida a esquema JSON (\textit{Structured Outputs}) con la etiqueta $\hat{y}$ y nueve puntajes no negativos $\mathbf{s} \in [0, 1]^9$ proyectados por normalización $L_1$ sobre $\Delta^8$:
 \begin{equation}
 \label{eq:proyeccion_l1_simplex}
 p_k = \begin{cases}
@@ -752,6 +752,8 @@ En todo el proceso, la IAG funcionó como herramienta de apoyo al aprendizaje y 
 \onecolumn
 \makeatletter
 \setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{14pt}
+\setlength{\@fpbot}{0pt plus 1fil}
 \makeatother
 \appendices
 \section{Material Complementario: Figuras y Tablas}
@@ -771,6 +773,41 @@ En todo el proceso, la IAG funcionó como herramienta de apoyo al aprendizaje y 
 \end{tikzpicture}
 \caption{Esquema JSON común de la instancia \texttt{inst\_04783} en Capa 5 ($\mathcal{D}_{\text{test}}$), encapsulando Config A, Config B y linaje multi-etapa. Elaboración propia.}
 \label{fig:json_contrato}
+\end{figure*}
+
+\begin{figure*}[!ht]
+\centering
+\begin{tikzpicture}
+\node[draw=black!60, fill=gray!5, rounded corners=2pt, inner sep=4.5pt, text width=0.92\textwidth, align=flush left, font=\ttfamily\scriptsize] {
+\textbf{[System]}\\
+You are an expert computational linguistics annotator specialized in scientific citation intent classification.\\
+Classify the rhetorical function of the target citation (marked with <cite>...</cite> in the citing context) into exactly ONE of the following 9 canonical classes (Lyu et al.):\\
+- Background: The cited work provides general context, theoretical background, domain definitions, or broad overview of the research problem.\\
+- Gap: The cited work motivates the research by highlighting an unsolved problem, limitation, weakness, or open future research direction.\\
+- Basis: The cited work serves as the direct intellectual, theoretical, or methodological foundation upon which the citing authors build their approach.\\
+- Comparison: The citing authors compare their method, results, or findings against the cited work (highlighting similarities, differences, or benchmark performance).\\
+- Application: The citing authors directly use, adopt, or execute a tool, dataset, algorithm, metric, or hyperparameter setting from the cited work.\\
+- Improvement: The citing authors modify, extend, optimize, or refine a method or system originally introduced in the cited work.\\
+- Evidence: The cited work provides empirical facts, quantitative observations, or theorem proofs that substantiate a specific claim in the citing sentence.\\
+- Originator: The citation credits the seminal author(s) who coined a term, introduced a canonical concept, or originally defined the task.\\
+- Further Reading: The citation directs the reader to external surveys, appendices, or supplementary materials for additional details outside the scope of the current paper.\\
+Respond strictly with a valid JSON object matching the required schema:\\
+\{"predicted\_label": "<one of the 9 canonical labels>", "scores": \{"Background": 0.0, "Gap": 0.0, "Basis": 0.0,\\
+\ "Comparison": 0.0, "Application": 0.0, "Improvement": 0.0, "Evidence": 0.0, "Originator": 0.0, "Further Reading": 0.0\}\}\\[3pt]
+\textbf{[Turnos 9-Shot: solo A5 ($k=9$); omitido en 0-Shot y en A4 generativo]}\\
+9 pares consecutivos (User, Assistant), 1 ejemplar por clase de $\mathcal{D}_{\text{train}}$ (semilla 42):\\
+\ User (ej. $k$): Citing Context: <texto\_citante\_k> | Cited Paper Evidence: <evidencia\_k en Config A o Config B>\\
+\ Assistant (ej. $k$): \{"predicted\_label": "Basis", "scores": \{"Basis": 0.65, "Improvement": 0.14, "Application": 0.09, ...\}\} (puntajes sintetizados en $\Delta^8$ según la Tabla~\ref{tab:vecindad_retorica})\\[3pt]
+\textbf{[User: instancia objetivo (ejemplo \texttt{inst\_04783})]}\\
+Citing Context:\\
+The procedure builds upon the recent work by Hopkins, Kamath and Majid <cite>Samuel B Hopkins, Gautam Kamath, and Mahbod Majid, 2022</cite> on pure DP mean estimation...\\
+Cited Paper Evidence:\\
+\ (Config A) Efficient mean estimation with pure differential privacy... [title + abstract]\\
+\ (Config B) 2.2.1 Private mean estimation...: A merit of our approach is that it allows... [Top-3 chunks]
+};
+\end{tikzpicture}
+\caption{Plantilla de \textit{prompt} empleada en A5 (GPT-4.1-mini y Gemini-3.8-Flash, 0-Shot y 9-Shot) y en el modo generativo de A4 (Qwen3-0.6B, 0-Shot). En A4 generativo el modelo recibe los mismos mensajes \texttt{System} y \texttt{User} sin el bloque 9-Shot, pero se entrena para emitir solo la etiqueta canónica y \texttt{EOS} (sin JSON); los clasificadores supervisados de A4 (SciBERT, R1, R2 y Granite-4.2-8B) no utilizan \textit{prompt}. En Gemini, \texttt{System} se envía como \texttt{system\_instruction} y los turnos \texttt{User}/\texttt{Assistant} se concatenan con etiquetas explícitas. Elaboración propia.}
+\label{fig:prompt_a4_a5}
 \end{figure*}
 
 \begin{table*}[!ht]
