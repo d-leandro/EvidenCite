@@ -73,11 +73,20 @@ for model in scibert_A scibert_B; do
   test -s "/srv/evidencite/models/$model/tokenizer_config.json"
  done
 
+for model in granite_A granite_B; do
+  install -d -m 0755 "/srv/evidencite/models/$model"
+  echo "[S3] $model"
+  aws s3 sync "s3://$BUCKET/$model/" "/srv/evidencite/models/$model/" --only-show-errors
+  test -s "/srv/evidencite/models/$model/adapter_model.safetensors" || { echo "[STOP] Missing Granite $model weights" >&2; exit 2; }
+  test -s "/srv/evidencite/models/$model/adapter_config.json" || { echo "[STOP] Missing Granite $model config" >&2; exit 2; }
+done
+
 install -d -m 0700 /srv/evidencite/metrics
 # Check that the configuration is valid without showing resolved environment variables.
 docker compose --env-file "$ENV_FILE" -f compose.aws.yaml config --quiet
 # Only changes this isolated Compose project; does not affect local WSL Granite.
-docker compose --env-file "$ENV_FILE" -f compose.aws.yaml up -d --build --wait --wait-timeout 1800
+# Bring up the six proven configurations FIRST; Granite is started separately.
+docker compose --env-file "$ENV_FILE" -f compose.aws.yaml up -d --build --wait --wait-timeout 1800 api app gateway caddy
 
 # Nginx resolves the API container IP at startup.
 # Refresh its upstream after Docker recreates the API.
@@ -109,4 +118,47 @@ if missing:
     raise SystemExit('[STOP] Unavailable models: ' + ', '.join(missing))
 print('[OK] Six model configurations registered')
 PYCHECK
-printf '\n[OK] EvidenCite deployed: https://%s\n' "$DOMAIN"
+
+# Download official BF16 shards once per EC2 disk; quantization happens at load time.
+# Disk is 100 GiB; Granite runs INT8 on CPU inside a 24 GiB container.
+bash tools/download_granite_base.sh
+# Dockerfile.granite inherits from the existing locally built academy API image.
+docker compose --env-file "$ENV_FILE" -f compose.aws.yaml up -d --build granite
+
+# Granite starts after API. It may take time to quantize 8B parameters on CPU.
+# Fail with logs if it never becomes healthy. The six existing models remain running.
+GRANITE_READY=false
+for attempt in $(seq 1 120); do
+  GRANITE_ID="$(docker compose --env-file "$ENV_FILE" -f compose.aws.yaml ps -q granite)"
+  STATUS="$(docker inspect --format '{{.State.Health.Status}}' "$GRANITE_ID" 2>/dev/null || true)"
+  if [[ "$STATUS" == healthy ]]; then
+    GRANITE_READY=true
+    break
+  fi
+  if [[ "$STATUS" == unhealthy || "$STATUS" == exited ]]; then
+    echo "[WARN] Granite container status: $STATUS" >&2
+    docker compose --env-file "$ENV_FILE" -f compose.aws.yaml logs --no-color --tail=90 granite >&2
+    exit 1
+  fi
+  sleep 15
+done
+if [[ "$GRANITE_READY" != true ]]; then
+  echo '[STOP] Granite not healthy after waiting; inspect memory and container logs' >&2
+  docker compose --env-file "$ENV_FILE" -f compose.aws.yaml logs --no-color --tail=90 granite >&2
+  exit 1
+fi
+
+# The API discovers Granite via its internal Docker hostname; expect all 8 model IDs.
+python3 - <<'PYEIGHT'
+import json
+from urllib.request import urlopen
+expected = {'tfidf-a', 'tfidf-b', 'scibert-a', 'scibert-b',
+            'gemini-a', 'gemini-b', 'granite-a', 'granite-b'}
+with urlopen('http://127.0.0.1:8080/api/v1/models', timeout=15) as response:
+    ready = {m['id'] for m in json.load(response)['models'] if m['available']}
+missing = sorted(expected - ready)
+if missing:
+    raise SystemExit('[STOP] Unavailable models: ' + ', '.join(missing))
+print('[OK] All eight model configurations available')
+PYEIGHT
+printf '\n[OK] Eight-model EvidenCite deployed: https://%s\n' "$DOMAIN"

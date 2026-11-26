@@ -95,10 +95,6 @@ resource "aws_instance" "demo" {
     http_tokens   = "required"
   }
 
-  credit_specification {
-    cpu_credits = "standard" # prevent T3 Unlimited surplus CPU-credit charges; throttling possible
-  }
-
   lifecycle {
     # Preserve the running instance when bootstrap.sh changes.
     # New instances still receive the latest bootstrap.

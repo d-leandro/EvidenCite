@@ -12,8 +12,8 @@ variable "project_name" {
 
 variable "instance_type" {
   type        = string
-  description = "x86_64 instance with >= 8 GiB RAM; Academy Lite without Granite before use"
-  default     = "t3.large"
+  description = "32 GiB RAM CPU host for Granite INT8 and other EvidenCite models"
+  default     = "r6i.xlarge"
 }
 
 variable "instance_profile_name" {
@@ -25,7 +25,7 @@ variable "instance_profile_name" {
 variable "root_volume_gib" {
   type        = number
   description = "EBS gp3; includes models, images, logs and metrics"
-  default     = 60
+  default     = 100
 
   validation {
     condition     = var.root_volume_gib >= 40 && var.root_volume_gib <= 100

@@ -1,7 +1,35 @@
-# AWS Academy: six production inference variants on EC2; Granite runs separately.
-# Keep local compose.yaml independent; Granite GPU integration is separate.
+# AWS EC2 r6i.xlarge (32 GiB): six existing variants plus Granite LoRA A/B CPU INT8.
+# Does not modify the local development compose.yaml.
 name: evidencite-academy
 services:
+  granite:
+    image: evidencite-granite:cpu
+    build:
+      context: .
+      dockerfile: api/Dockerfile.granite
+    entrypoint: ["uvicorn"]
+    command: ["api.workers.granite_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    environment:
+      HF_HUB_OFFLINE: "1"
+      OMP_NUM_THREADS: "3"
+      MKL_NUM_THREADS: "3"
+      GRANITE_BASE_PATH: /models/base
+      GRANITE_A_PATH: /models/a
+      GRANITE_B_PATH: /models/b
+    volumes:
+      - /srv/evidencite/models/granite_base:/models/base:ro
+      - /srv/evidencite/models/granite_A:/models/a:ro
+      - /srv/evidencite/models/granite_B:/models/b:ro
+    mem_limit: 24g
+    cpus: 2.7
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5)"]
+      interval: 30s
+      timeout: 7s
+      retries: 12
+      start_period: 900s
+    restart: unless-stopped
+
   api:
     image: evidencite-api:academy
     build:
@@ -11,7 +39,7 @@ services:
       ENABLE_DEMO_MODEL: "false"
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-false}
-      GRANITE_URL: http://127.0.0.1:65535
+      GRANITE_URL: http://granite:8001
       HF_HOME: /root/.cache/huggingface
       EVIDENCITE_METRICS_DB: /workspace/var/metrics.sqlite3
       EVIDENCITE_TFIDF_ROOT: /opt/evidencite-models
@@ -24,8 +52,8 @@ services:
       - /srv/evidencite/models/tfidf_B:/opt/evidencite-models/tfidf_B:ro
       - /srv/evidencite/metrics:/workspace/var
       - hf-cache:/root/.cache/huggingface
-    mem_limit: 6g
-    cpus: 1.6
+    mem_limit: 5g
+    cpus: 1.3
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 15s

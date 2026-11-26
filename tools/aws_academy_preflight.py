@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
-INSTANCE_TYPE = os.environ.get("EVIDENCITE_INSTANCE_TYPE", "t3.large")
+INSTANCE_TYPE = os.environ.get("EVIDENCITE_INSTANCE_TYPE", "r6i.xlarge")
 PROFILE = os.environ.get("EVIDENCITE_INSTANCE_PROFILE", "LabInstanceProfile")
 
 
