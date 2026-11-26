@@ -488,10 +488,10 @@ window.EvidenCharts = (function () {
     const xMin = 0.28, xMax = 0.78;
     const xScale = (v) => mL + ((v - xMin) / (xMax - xMin)) * cW;
 
-    // Vertical reference lines for API benchmarks
+    // Vertical reference lines for API benchmarks (GPT = violet, Gemini = primary cyan/blue)
     const xGpt = xScale(0.4664), xGem = xScale(0.5996);
-    el("line", { x1: xGpt, y1: startY - 18, x2: xGpt, y2: startY + rows.length * rowH - 8, stroke: "var(--accent-secondary)", "stroke-dasharray": "5 4", "stroke-width": 1.6 }, svg);
-    txt("GPT 0s-B (0,466)", { x: xGpt, y: startY - 26, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-secondary)" }, svg);
+    el("line", { x1: xGpt, y1: startY - 18, x2: xGpt, y2: startY + rows.length * rowH - 8, stroke: "var(--accent-violet)", "stroke-dasharray": "5 4", "stroke-width": 1.6 }, svg);
+    txt("GPT 0s-B (0,466)", { x: xGpt, y: startY - 26, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-violet)" }, svg);
 
     el("line", { x1: xGem, y1: startY - 18, x2: xGem, y2: startY + rows.length * rowH - 8, stroke: "var(--accent-primary)", "stroke-dasharray": "5 4", "stroke-width": 1.8 }, svg);
     txt("Gemini 0s-B (0,600)", { x: xGem, y: startY - 26, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
@@ -723,10 +723,10 @@ window.EvidenCharts = (function () {
     el("line", { x1: 435, y1: 54, x2: 435, y2: baseY, stroke: "var(--line-strong)", "stroke-dasharray": "5 4" }, svg);
 
     const bars = [
-      { x: 140, val: p.gptPanel, col: "var(--accent-secondary)", lbl: "GPT 0s-B", sub: "0,4407", op: 0.55 },
-      { x: 245, val: p.gemPanel, col: "var(--accent-primary)",   lbl: "Gemini 0s-B", sub: "0,4485", op: 0.55 },
-      { x: 540, val: p.gptGold,  col: "var(--accent-secondary)", lbl: "GPT 0s-B", sub: "0,4664", op: 0.92 },
-      { x: 645, val: p.gemGold,  col: "var(--accent-primary)",   lbl: "Gemini 0s-B", sub: "0,5996", op: 1.0 }
+      { x: 140, val: p.gptPanel, col: "var(--accent-violet)",  lbl: "GPT 0s-B", sub: "0,4407", op: 0.52 },
+      { x: 245, val: p.gemPanel, col: "var(--accent-primary)", lbl: "Gemini 0s-B", sub: "0,4485", op: 0.52 },
+      { x: 540, val: p.gptGold,  col: "var(--accent-violet)",  lbl: "GPT 0s-B", sub: "0,4664", op: 0.94 },
+      { x: 645, val: p.gemGold,  col: "var(--accent-primary)", lbl: "Gemini 0s-B", sub: "0,5996", op: 1.0 }
     ];
 
     bars.forEach((b) => {
@@ -761,10 +761,10 @@ window.EvidenCharts = (function () {
       txt(fmtComma(tk, 1), { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
     });
 
-    // Top inline legend
-    el("circle", { cx: 210, cy: 24, r: 6, fill: "var(--accent-secondary)" }, svg);
-    txt("GPT-4.1-mini 0s-B", { x: 222, y: 28, "font-size": 12.5, "font-weight": 600 }, svg);
-    el("circle", { cx: 388, cy: 24, r: 6, fill: "var(--accent-primary)" }, svg);
+    // Top inline legend (GPT = violet, Gemini = cyan/blue)
+    el("circle", { cx: 210, cy: 24, r: 6.5, fill: "var(--accent-violet)" }, svg);
+    txt("GPT-4.1-mini 0s-B", { x: 222, y: 28, "font-size": 12.5, "font-weight": 700, fill: "var(--accent-violet)" }, svg);
+    el("circle", { cx: 388, cy: 24, r: 6.5, fill: "var(--accent-primary)" }, svg);
     txt("Gemini-3.8-Flash 0s-B (gana 9 / 9 clases)", { x: 400, y: 28, "font-size": 12.5, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
 
     rows.forEach((r, i) => {
@@ -774,9 +774,9 @@ window.EvidenCharts = (function () {
 
       const xG = xScale(r.gpt), xM = xScale(r.gem);
       const diff = r.gem - r.gpt;
-      el("line", { x1: xG, y1: y, x2: xM, y2: y, stroke: "var(--accent-primary)", "stroke-width": 3, "stroke-linecap": "round", opacity: 0.75 }, g);
-      el("circle", { cx: xG, cy: y, r: 6, fill: "var(--accent-secondary)", stroke: "var(--bg)", "stroke-width": 1.4 }, g);
-      el("circle", { cx: xM, cy: y, r: 7, fill: "var(--accent-primary)", stroke: "var(--bg)", "stroke-width": 1.6 }, g);
+      el("line", { x1: xG, y1: y, x2: xM, y2: y, stroke: "var(--accent-primary)", "stroke-width": 3, "stroke-linecap": "round", opacity: 0.65 }, g);
+      el("circle", { cx: xG, cy: y, r: 6.5, fill: "var(--accent-violet)", stroke: "var(--bg)", "stroke-width": 1.6 }, g);
+      el("circle", { cx: xM, cy: y, r: 7.2, fill: "var(--accent-primary)", stroke: "var(--bg)", "stroke-width": 1.6 }, g);
       txt(`+${fmtComma(diff, 3)}`, { x: 765, y: y + 4, class: "svg-mono", "font-size": 12, "font-weight": 700, fill: diff > 0.17 ? "var(--accent-gold)" : "var(--ink-2)" }, g);
 
       bindTip(g, `${r.cls} (n = ${r.n})`, [
@@ -808,39 +808,39 @@ window.EvidenCharts = (function () {
     el("rect", { x: 545, y: 14, width: 278, height: 34, rx: 17, fill: "var(--accent-primary-soft)", stroke: "var(--accent-primary)", "stroke-width": 1.2 }, svg);
     txt("Gemini Config B: −19,4% pensamientos", { x: 684, y: 36, "text-anchor": "middle", class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
 
-    // Legend top-left
+    // Legend top-left (GPT = violet, Gemini = cyan/blue)
     el("circle", { cx: 74, cy: 26, r: 5.5, fill: "var(--bg)", stroke: "var(--ink-2)", "stroke-width": 2 }, svg);
     txt("Config A (global)", { x: 86, y: 30, class: "svg-muted", "font-size": 11.5 }, svg);
-    el("circle", { cx: 212, cy: 26, r: 5.5, fill: "var(--accent-secondary)" }, svg);
-    txt("GPT Config B", { x: 224, y: 30, "font-size": 11.5, "font-weight": 600 }, svg);
-    el("circle", { cx: 332, cy: 26, r: 5.5, fill: "var(--accent-primary)" }, svg);
-    txt("Gemini Config B", { x: 344, y: 30, "font-size": 11.5, "font-weight": 600 }, svg);
+    el("circle", { cx: 212, cy: 26, r: 6, fill: "var(--accent-violet)" }, svg);
+    txt("GPT Config B", { x: 224, y: 30, "font-size": 11.5, "font-weight": 700, fill: "var(--accent-violet)" }, svg);
+    el("circle", { cx: 332, cy: 26, r: 6, fill: "var(--accent-primary)" }, svg);
+    txt("Gemini Config B", { x: 344, y: 30, "font-size": 11.5, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
 
     const stepW = cW / rows.length;
     rows.forEach((r, i) => {
       const cx = mL + stepW * (i + 0.5);
       if (r.highlight) {
-        el("rect", { x: cx - stepW * 0.44, y: topY - 6, width: stepW * 0.88, height: botY - topY + 12, rx: 8, fill: "var(--accent-secondary-soft)" }, svg);
+        el("rect", { x: cx - stepW * 0.44, y: topY - 6, width: stepW * 0.88, height: botY - topY + 12, rx: 8, fill: "var(--accent-violet-soft)" }, svg);
       }
 
-      // GPT pair (left offset)
+      // GPT pair (left offset — violet)
       const xg = cx - 18;
       const gG = el("g", {}, svg);
-      el("line", { x1: xg, y1: yScale(r.gptA), x2: xg, y2: yScale(r.gptB), stroke: "var(--accent-secondary)", "stroke-width": 3 }, gG);
-      el("circle", { cx: xg, cy: yScale(r.gptA), r: 6, fill: "var(--bg)", stroke: "var(--accent-secondary)", "stroke-width": 2.2 }, gG);
-      el("circle", { cx: xg, cy: yScale(r.gptB), r: 6.5, fill: "var(--accent-secondary)", stroke: "var(--bg)", "stroke-width": 1.4 }, gG);
+      el("line", { x1: xg, y1: yScale(r.gptA), x2: xg, y2: yScale(r.gptB), stroke: "var(--accent-violet)", "stroke-width": 3 }, gG);
+      el("circle", { cx: xg, cy: yScale(r.gptA), r: 6, fill: "var(--bg)", stroke: "var(--accent-violet)", "stroke-width": 2.2 }, gG);
+      el("circle", { cx: xg, cy: yScale(r.gptB), r: 6.8, fill: "var(--accent-violet)", stroke: "var(--bg)", "stroke-width": 1.4 }, gG);
       bindTip(gG, `GPT 0-Shot · ${r.sec} (n = ${r.n})`, [
         `Config A: ${fmtComma(r.gptA, 2)}%`,
         `Config B: ${fmtComma(r.gptB, 2)}%`,
         `Cambio: ${r.gptB - r.gptA >= 0 ? "+" : ""}${fmtComma(r.gptB - r.gptA, 2)} pp`
       ]);
 
-      // Gemini pair (right offset)
+      // Gemini pair (right offset — primary cyan/blue)
       const xm = cx + 18;
       const gM = el("g", {}, svg);
       el("line", { x1: xm, y1: yScale(r.gemA), x2: xm, y2: yScale(r.gemB), stroke: "var(--accent-primary)", "stroke-width": 3 }, gM);
       el("circle", { cx: xm, cy: yScale(r.gemA), r: 6, fill: "var(--bg)", stroke: "var(--accent-primary)", "stroke-width": 2.2 }, gM);
-      el("circle", { cx: xm, cy: yScale(r.gemB), r: 6.5, fill: "var(--accent-primary)", stroke: "var(--bg)", "stroke-width": 1.4 }, gM);
+      el("circle", { cx: xm, cy: yScale(r.gemB), r: 6.8, fill: "var(--accent-primary)", stroke: "var(--bg)", "stroke-width": 1.4 }, gM);
       bindTip(gM, `Gemini 0-Shot · ${r.sec} (n = ${r.n})`, [
         `Config A: ${fmtComma(r.gemA, 2)}%`,
         `Config B: ${fmtComma(r.gemB, 2)}%`,
@@ -848,7 +848,7 @@ window.EvidenCharts = (function () {
       ]);
 
       if (r.highlight) {
-        txt("+10,28 pp", { x: xg, y: yScale(r.gptB) - 14, "text-anchor": "middle", class: "svg-mono", "font-size": 12.5, "font-weight": 700, fill: "var(--accent-secondary)" }, svg);
+        txt("+10,28 pp", { x: xg, y: yScale(r.gptB) - 14, "text-anchor": "middle", class: "svg-mono", "font-size": 12.5, "font-weight": 700, fill: "var(--accent-violet)" }, svg);
       }
 
       txt(r.sec, { x: cx, y: botY + 24, "text-anchor": "middle", "font-size": 12.2, "font-weight": r.highlight ? 700 : 500 }, svg);
@@ -891,7 +891,166 @@ window.EvidenCharts = (function () {
   }
 
   /* ========================================================================
-     12. A6-01 — Curvas de Fiabilidad y Revisión Selectiva
+     12A. A6 — Tablero Global A4 vs. A5 (14 variantes Tabla III en 7 filas A/B)
+     ======================================================================== */
+  function renderA6GlobalBoard(container, families) {
+    container.innerHTML = "";
+    const svg = el("svg", { viewBox: "0 0 880 512", role: "img", "aria-label": "Tablero global A6: las 14 variantes de Tabla III comparando Config A y Config B" }, container);
+
+    const trackL = 178, trackR = 542;
+    const xMin = 0.30, xMax = 0.63;
+    const xScale = (v) => trackL + ((v - xMin) / (xMax - xMin)) * (trackR - trackL);
+
+    const colF1A = 610;
+    const colF1B = 682;
+    const colAcc = 760;
+    const colEce = 846;
+
+    // Top scannable legend strip
+    el("circle", { cx: 24, cy: 18, r: 5.5, fill: "var(--bg)", stroke: "var(--ink-2)", "stroke-width": 2.4 }, svg);
+    txt("Config A (global)", { x: 36, y: 22, "font-size": 11.8, "font-weight": 600, fill: "var(--ink-2)" }, svg);
+
+    el("circle", { cx: 172, cy: 18, r: 5.5, fill: "var(--accent-primary)" }, svg);
+    txt("Config B (local Top-3)", { x: 184, y: 22, "font-size": 11.8, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
+
+    txt("★", { x: 356, y: 23, "font-size": 14, "font-weight": 700, fill: "var(--accent-gold)" }, svg);
+    txt("Ganador global", { x: 374, y: 22, "font-size": 11.8, "font-weight": 700, fill: "var(--accent-gold)" }, svg);
+
+    txt("Negrita = mejor A / mejor B por familia", { x: 846, y: 22, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 10.8 }, svg);
+
+    // Column headers
+    const headY = 52;
+    txt("Macro-F1 Gold (Config A ○ vs. Config B ●)", { x: (trackL + trackR) / 2, y: headY, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+    txt("F1 (A)", { x: colF1A, y: headY, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+    txt("F1 (B)", { x: colF1B, y: headY, "text-anchor": "end", class: "svg-mono", "font-size": 11, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
+    txt("Acc (B)", { x: colAcc, y: headY, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+    txt("ECE ↓", { x: colEce, y: headY, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+
+    el("line", { x1: 18, y1: 62, x2: 856, y2: 62, class: "svg-axis" }, svg);
+
+    // Vertical gridlines across dumbbell track
+    const gridTop = 66, gridBot = 468;
+    [0.35, 0.40, 0.45, 0.50, 0.55, 0.60].forEach((tk) => {
+      const x = xScale(tk);
+      el("line", { x1: x, y1: gridTop, x2: x, y2: gridBot, class: "svg-grid" }, svg);
+      txt(fmtComma(tk, 2), { x, y: gridBot + 20, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.2 }, svg);
+    });
+
+    // Render 3 visually separated families
+    let curY = 82;
+    const rowStep = 39;
+    const familyGap = 20;
+
+    families.forEach((fam, fIdx) => {
+      if (fIdx > 0) {
+        el("line", { x1: 18, y1: curY - 14, x2: 856, y2: curY - 14, stroke: "var(--line-strong)", "stroke-dasharray": "4 4", "stroke-width": 1 }, svg);
+      }
+
+      // Family accent pill & label
+      const famStartY = curY;
+      const famH = fam.rows.length * rowStep + 14;
+      el("rect", { x: 18, y: famStartY - 10, width: 3.5, height: famH - 4, rx: 2, fill: `var(${fam.accentVar})` }, svg);
+      txt(fam.family.toUpperCase(), { x: 30, y: famStartY + 2, class: "svg-mono", "font-size": 10.6, "font-weight": 700, fill: `var(${fam.accentVar})` }, svg);
+
+      curY += 24;
+
+      fam.rows.forEach((r) => {
+        const y = curY;
+        const g = el("g", {}, svg);
+
+        if (r.globalWinner) {
+          el("rect", { x: 24, y: y - 18, width: 834, height: 36, rx: 6, fill: "var(--accent-primary-soft)" }, g);
+        }
+
+        // Row model label
+        txt(r.globalWinner ? `★ ${r.name}` : r.name, {
+          x: 162, y: y + 4,
+          "text-anchor": "end",
+          "font-size": 13,
+          "font-weight": r.globalWinner || (r.bestA && r.bestB) ? 700 : 500,
+          fill: r.globalWinner ? "var(--accent-primary)" : "var(--ink)"
+        }, g);
+
+        // Dumbbell A -> B
+        const xA = xScale(r.f1A);
+        const xB = xScale(r.f1B);
+        const bImproved = r.f1B >= r.f1A;
+        const segCol = bImproved ? "var(--accent-gold)" : "var(--accent-danger)";
+
+        el("line", {
+          x1: xA, y1: y, x2: xB, y2: y,
+          stroke: segCol,
+          "stroke-width": Math.abs(xB - xA) < 4 ? 2 : 3.2,
+          "stroke-linecap": "round",
+          opacity: bImproved ? 0.9 : 0.72
+        }, g);
+
+        // Config A hollow marker (slate/ink-2)
+        el("circle", {
+          cx: xA, cy: y, r: r.bestA ? 6.4 : 5.6,
+          fill: "var(--bg)",
+          stroke: r.bestA ? "var(--ink)" : "var(--ink-2)",
+          "stroke-width": r.bestA ? 2.6 : 2.1
+        }, g);
+
+        // Config B solid marker (primary cyan/blue; halo on global winner)
+        if (r.globalWinner) {
+          el("circle", { cx: xB, cy: y, r: 12.5, fill: "var(--accent-gold-soft)", stroke: "var(--accent-gold)", "stroke-width": 1.2 }, g);
+        }
+        el("circle", {
+          cx: xB, cy: y, r: r.globalWinner ? 7.4 : (r.bestB ? 6.6 : 5.8),
+          fill: "var(--accent-primary)",
+          stroke: "var(--bg)",
+          "stroke-width": 1.6
+        }, g);
+
+        // Right-hand scannable numeric columns (bold for family winner in A / winner in B)
+        txt(fmtComma(r.f1A, 3), {
+          x: colF1A, y: y + 4, "text-anchor": "end",
+          class: "svg-mono", "font-size": 12.2,
+          "font-weight": r.bestA ? 700 : 400,
+          fill: r.bestA ? "var(--ink)" : "var(--ink-3)"
+        }, g);
+
+        txt(r.globalWinner ? `★ ${fmtComma(r.f1B, 3)}` : fmtComma(r.f1B, 3), {
+          x: colF1B, y: y + 4, "text-anchor": "end",
+          class: "svg-mono", "font-size": r.globalWinner ? 12.8 : 12.2,
+          "font-weight": r.bestB ? 700 : 400,
+          fill: r.globalWinner ? "var(--accent-gold)" : (r.bestB ? "var(--accent-primary)" : "var(--ink-2)")
+        }, g);
+
+        txt(`${fmtComma(r.accB, 1)}%`, {
+          x: colAcc, y: y + 4, "text-anchor": "end",
+          class: "svg-mono", "font-size": 12,
+          "font-weight": r.globalWinner ? 700 : 400,
+          fill: r.globalWinner ? "var(--ink)" : "var(--ink-2)"
+        }, g);
+
+        const eceTxt = r.eceB === null ? "—" : fmtComma(r.eceB, 3);
+        const eceCol = r.eceB === null ? "var(--ink-3)" : (r.eceB < 0.15 ? "var(--accent-gold)" : "var(--accent-danger)");
+        txt(eceTxt, {
+          x: colEce, y: y + 4, "text-anchor": "end",
+          class: "svg-mono", "font-size": 12,
+          "font-weight": r.eceB !== null && r.eceB < 0.15 ? 700 : 500,
+          fill: eceCol
+        }, g);
+
+        const deltaF1 = r.f1B - r.f1A;
+        bindTip(g, `${r.name} · Config A vs. Config B`, [
+          `Config A: F1 = ${fmtComma(r.f1A, 4)} · Acc = ${fmtComma(r.accA, 2)}%` + (r.eceA !== null ? ` · ECE = ${fmtComma(r.eceA, 4)}` : " · ECE = —"),
+          `Config B: F1 = ${fmtComma(r.f1B, 4)} · Acc = ${fmtComma(r.accB, 2)}%` + (r.eceB !== null ? ` · ECE = ${fmtComma(r.eceB, 4)}` : " · ECE = —"),
+          `Diferencia B − A: ${deltaF1 >= 0 ? "+" : "−"}${fmtComma(Math.abs(deltaF1), 4)} Macro-F1`
+        ]);
+
+        curY += rowStep;
+      });
+
+      curY += familyGap;
+    });
+  }
+
+  /* ========================================================================
+     12B. A6-01 — Curvas de Fiabilidad y Revisión Selectiva (en Q&A)
      ======================================================================== */
   function renderA6Calibration(container, cal) {
     container.innerHTML = "";
@@ -1024,11 +1183,11 @@ window.EvidenCharts = (function () {
       ]);
     });
 
-    // Draw optimal 0-Shot points
+    // Draw optimal 0-Shot points (GPT = violet, Gemini = cyan/blue)
     frontierPts.forEach((p) => {
       const x = xScale(p.cost), y = yScale(p.f1);
       const off = offsets[p.id];
-      const col = p.family === "gem" ? "var(--accent-primary)" : "var(--accent-secondary)";
+      const col = p.family === "gem" ? "var(--accent-primary)" : "var(--accent-violet)";
       const g = el("g", {}, optGroup);
       if (p.star) {
         el("circle", { cx: x, cy: y, r: 15, fill: "var(--accent-primary-soft)" }, g);
@@ -1199,6 +1358,7 @@ window.EvidenCharts = (function () {
     renderA5ByClass,
     renderA5MacroSections,
     renderA5NineChips,
+    renderA6GlobalBoard,
     renderA6Calibration,
     createCostQualityChart,
     renderA8Architecture,

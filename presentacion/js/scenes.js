@@ -353,9 +353,9 @@ window.EvidenScenes = (function () {
       C.renderA5NineChips(canvas, D.a5NineShotChips);
       setHeader("a5a7", "Diagnóstico de 9-Shot: 4 de 9 fichas contaminadas", "seed = 42 en train.jsonl · Tabla VI", "Cuatro ejemplares provinieron de empates 1-1-1 donde el error previo en test fue 66,06% (288/436).");
     } else if (step === 4) {
-      controllers.a5a7Mode = "cal";
-      C.renderA6Calibration(canvas, D.a6Calibration);
-      setHeader("a5a7", "Calibración probabilística y utilidad para revisión selectiva", "Tabla III · 10 bins sobre N = 2.798", "Tamaño de burbuja proporcional al número de citas por intervalo. Pasa el cursor para ver valores exactos.");
+      controllers.a5a7Mode = "board";
+      C.renderA6GlobalBoard(canvas, D.a6GlobalBoard);
+      setHeader("a5a7", "Tablero global A6: las 14 variantes de Tabla III (Config A vs. B)", "A4 locales (6) · GPT (4) · Gemini (4) · Gold N = 2.798", "Verde/rojo en el conector indica si Config B mejora o cae; curvas de fiabilidad detalladas disponibles en Q&A (tecla Q).");
     } else {
       if (controllers.a5a7Mode !== "cost") {
         controllers.a5a7Mode = "cost";

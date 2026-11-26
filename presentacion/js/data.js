@@ -174,6 +174,35 @@ window.EVIDENCITE_DATA = {
     { cls: "Evidence",        contaminated: false, origin: "Consenso A2" }
   ],
 
+  // A6 Global Board — Las 14 variantes de Tabla III en 7 filas pareadas (A vs. B)
+  a6GlobalBoard: [
+    {
+      family: "A4 · Supervisados locales (6)",
+      accentVar: "--accent-warn",
+      rows: [
+        { name: "TF-IDF + RL",     f1A: 0.3661, f1B: 0.3317, accA: 40.21, accB: 36.95, eceA: null,   eceB: null,   bestA: false, bestB: false },
+        { name: "SciBERT 110M",    f1A: 0.4623, f1B: 0.4331, accA: 50.54, accB: 45.00, eceA: null,   eceB: null,   bestA: true,  bestB: false },
+        { name: "Granite-4.2-8B",  f1A: 0.4348, f1B: 0.4412, accA: 45.21, accB: 48.96, eceA: null,   eceB: null,   bestA: false, bestB: true }
+      ]
+    },
+    {
+      family: "A5 · GPT-4.1-mini vía API (4)",
+      accentVar: "--accent-violet",
+      rows: [
+        { name: "GPT 9-Shot",      f1A: 0.4146, f1B: 0.4242, accA: 46.43, accB: 49.64, eceA: 0.3282, eceB: 0.3036, bestA: false, bestB: false },
+        { name: "GPT 0-Shot",      f1A: 0.4493, f1B: 0.4664, accA: 50.21, accB: 53.07, eceA: 0.3284, eceB: 0.3360, bestA: true,  bestB: true }
+      ]
+    },
+    {
+      family: "A5 · Gemini-3.8-Flash vía API (4)",
+      accentVar: "--accent-primary",
+      rows: [
+        { name: "Gemini 9-Shot",   f1A: 0.5974, f1B: 0.5943, accA: 65.65, accB: 65.23, eceA: 0.1139, eceB: 0.1257, bestA: true,  bestB: false },
+        { name: "Gemini 0-Shot",   f1A: 0.5900, f1B: 0.5996, accA: 67.98, accB: 68.41, eceA: 0.1204, eceB: 0.1158, bestA: false, bestB: true, globalWinner: true }
+      ]
+    }
+  ],
+
   // A6-01 Curvas de fiabilidad (exacto de models/llm_api_cache/*_config_b.jsonl)
   a6Calibration: {
     gem: {

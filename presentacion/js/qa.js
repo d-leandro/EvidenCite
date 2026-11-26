@@ -6,9 +6,10 @@
 window.EvidenQA = (function () {
   const D = window.EVIDENCITE_DATA;
   let isOpen = false;
-  let activeTab = "a4-04";
+  let activeTab = "a6-01";
 
   const TABS = [
+    { id: "a6-01", label: "A6-01 Calibración" },
     { id: "a4-04", label: "A4-04 Ablación" },
     { id: "a4-05", label: "A4-05 Confusiones" },
     { id: "a5-04", label: "A5-04 Vecindad/NLL" },
@@ -21,6 +22,15 @@ window.EvidenQA = (function () {
   ];
 
   function renderContent(id) {
+    if (id === "a6-01") {
+      return `
+        <h3 class="qa-heading">A6-01 · Calibración Probabilística y Revisión Selectiva (10 bins · Gold N = 2.798)</h3>
+        <p class="qa-summary">
+          Gemini 0s-B funciona como un semáforo confiable (<strong>0,829 al acertar vs. 0,737 al fallar</strong>, Spearman ρ = +0,4150, p = 6,48×10⁻¹¹⁷), permitiendo automatizar alta confianza y derivar casos inciertos a revisión humana. GPT-4.1-mini sobreestima su confianza incluso al fallar (ECE = 0,3360).
+        </p>
+        <div id="qa-cal-svg" style="width:100%;max-width:750px;margin:0 auto;"></div>`;
+    }
+
     if (id === "a4-04") {
       return `
         <h3 class="qa-heading">A4-04 · Ablación Clasificador vs. Generativo (Qwen3-0.6B) y Costo Local</h3>
@@ -274,6 +284,12 @@ window.EvidenQA = (function () {
     });
 
     body.innerHTML = renderContent(activeTab);
+    if (activeTab === "a6-01") {
+      const mount = document.getElementById("qa-cal-svg");
+      if (mount && window.EvidenCharts) {
+        window.EvidenCharts.renderA6Calibration(mount, D.a6Calibration);
+      }
+    }
     body.scrollTop = 0;
   }
 

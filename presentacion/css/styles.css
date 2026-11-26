@@ -472,6 +472,7 @@ main {
 }
 
 .metric-val.is-primary { color: var(--accent-primary); }
+.metric-val.is-violet  { color: var(--accent-violet); }
 .metric-val.is-gold    { color: var(--accent-gold); }
 .metric-val.is-warn    { color: var(--accent-warn); }
 .metric-val.is-danger  { color: var(--accent-danger); }
