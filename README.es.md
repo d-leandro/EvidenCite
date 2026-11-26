@@ -1,211 +1,191 @@
 # EvidenCite
 
-> **Recomendación Local de Citas y Clasificación de Función Retórica en Literatura Científica mediante Recuperación Densa de Evidencia y Modelos de Lenguaje**  
-> *Grupo de Investigación: FLAG – TICsW (DISC)*
+**Clasificador de funciones retóricas de citas científicas con recuperación de evidencia.** Proyecto de grado de la Maestría en Inteligencia Artificial, Universidad de los Andes.
 
-[![Python 3.14](https://img.shields.io/badge/Python-3.14-blue.svg)](https://www.python.org/)
-[![Package Manager: uv](https://img.shields.io/badge/package%20manager-uv-blueviolet.svg)](https://github.com/astral-sh/uv)
-[![Embeddings: SciBERT](https://img.shields.io/badge/Embeddings-SciBERT-teal.svg)](https://huggingface.co/allenai/scibert_scivocab_uncased)
-[![Tests: 73 passed](https://img.shields.io/badge/Tests-73%20passed-brightgreen.svg)]()
+[![Python 3.12](https://img.shields.io/badge/despliegue-Python%203.12-3776ab)](pyproject.toml) [![Docker Compose](https://img.shields.io/badge/contenedores-Docker%20Compose-2496ed)](compose.aws.yaml) [![Infraestructura](https://img.shields.io/badge/IaC-Terraform-7b42bc)](infra/evidencite/) [![Documentación](https://img.shields.io/badge/manuales-GitHub%20Pages-24964f)](https://d-leandro.github.io/EvidenCite/)
 
-[🇬🇧 Read in English](README.md) | [🇪🇸 Español](README.es.md)
+**[Abrir aplicación](https://evidencite.34-204-10-62.sslip.io)** | **[Repositorio](https://github.com/d-leandro/EvidenCite)** | **[Manual de usuario](https://d-leandro.github.io/EvidenCite/manual-usuario.html)** | **[Manual de despliegue](https://d-leandro.github.io/EvidenCite/manual-instalacion.html)** | [English](README.md)
 
----
+> **Disponibilidad de la demo.** La URL corresponde a la IP pública actual de una EC2 en AWS Academy; puede cambiar si se detiene o recrea. Los clasificadores Granite dependen además del computador del grupo y de Tailscale Funnel. Consulta `/api/v1/models` antes de una demostración. No se ofrece garantía de disponibilidad continua.
 
-## 1. Visión General
+## 1. Problema y propuesta
 
-Si bien los sistemas modernos de búsqueda académica (ej. Google Scholar, Semantic Scholar) destacan en la recuperación de documentos a nivel global, carecen de **resolución local**: no identifican el fragmento textual específico que sustenta una afirmación ni discriminan *por qué* se realizó una cita.
+Una cita científica no solo apunta a otro documento: puede aportar antecedentes, justificar una metodología, comparar resultados o señalar una brecha. EvidenCite recibe el **contexto citante**, identifica la **referencia objetivo** y clasifica su función retórica en nueve categorías. Permite estudiar si la evidencia discursiva del artículo citado mejora la clasificación respecto al uso de sus metadatos globales.
 
-**EvidenCite** investiga la sinergia entre la **recomendación local de citas** y la **clasificación de la función de citas**. Evaluamos la hipótesis científica de que enriquecer la clasificación de citas con **evidencia discursiva local granular**, recuperada mediante codificadores densos de pasajes, supera significativamente a las representaciones convencionales basadas en resúmenes globales bajo paridad experimental estricta.
+![Interfaz de EvidenCite con entrada de texto y configuración B](docs/assets/capturas/01-analisis-config-b.png)
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CONTEXTO CITANTE                               │
-│  "Recent neural architectures rely on self-attention mechanisms             │
-│   <cite>Vaswani et al., 2017</cite> for sequence transduction."             │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │
-            ┌──────────────────────────┴──────────────────────────┐
-            ▼                                                     ▼
-┌───────────────────────────────┐     ┌───────────────────────────────────────┐
-│     CONFIGURACIÓN A (Global)  │     │    CONFIGURACIÓN B (Evidencia Local)  │
-│                               │     │                                       │
-│  • Título del citado          │     │  • Top-3 Chunks discursivos (≤110 p)  │
-│  • Abstract completo citado   │     │  • Recuperación densa coseno SciBERT  │
-│                               │     │  • Preservación de encabezados autor  │
-└───────────────┬───────────────┘     └───────────────────┬───────────────────┘
-                │                                         │
-                └──────────────────────┬──────────────────┘
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CLASIFICACIÓN DE FUNCIÓN DE CITA                         │
-│   [Background, Uses, Comparison, Extends, Motivation, Future Work, ...]     │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+**Configuración A:** contexto citante + título y resumen del artículo citado. **Configuración B:** contexto citante + hasta tres fragmentos discursivos recuperados del artículo citado, con encabezados de sección cuando están disponibles. Ambas configuraciones comparten la misma taxonomía y permiten comparaciones controladas.
 
----
+**Etiquetas:** Background, Gap, Basis, Comparison, Application, Improvement, Evidence, Originator y Further Reading. Las probabilidades son resultados del modelo, **no medidas de veracidad o certeza científica**.
 
-## 2. Diseño Experimental: Configuraciones Duales
+## 2. Aplicación y guía rápida (sin instalar nada)
 
-Para garantizar una comparación científica no sesgada, todas las instancias de evaluación aplican **paridad estricta 1:1**: cada instancia cuenta simultáneamente con metadatos completos de abstract (Configuración A) y fragmentos discursivos estructurados verificados de texto completo (Configuración B).
+1. Abre la [aplicación publicada](https://evidencite.34-204-10-62.sslip.io).
+2. En **Análisis de Citas**, expande **¿Necesitas un ejemplo?** y pulsa **Cargar ejemplo**. El contexto ilustrativo hace referencia a *Attention Is All You Need* (arXiv `1706.03762`).
+3. Verifica la cita objetivo `Vaswani et al. (2017)`. Para A, busca y confirma el artículo (o ingresa el título y resumen manualmente). Para B, recupera los tres fragmentos o procesa el PDF correspondiente.
+4. Elige uno de los modelos que aparezca disponible, pulsa **Clasificar intención de cita** e interpreta la etiqueta y las nueve probabilidades.
+5. Revisa **Tiempos y costos** para latencias registradas y **Entrenamiento** para métricas de los experimentos. Los valores de la pestaña de entrenamiento corresponden al conjunto `test-revisado` y no a las predicciones individuales del navegador.
 
-| Dimensión | Configuración A (Línea Base Global) | Configuración B (Evidencia Local) |
-|---|---|---|
-| **Contexto Citante** | Ventana de $m=3$ oraciones con marcadores enmascarados | Ventana de $m=3$ oraciones con marcadores enmascarados |
-| **Evidencia Objetivo** | Título + Abstract completo del citado | Top-3 chunks discursivos densos ($\le 110$ palabras c/u) |
-| **Codificador / Modelo** | SciBERT / Transformer | SciBERT dense retriever + Chunking consciente de sección |
-| **Presupuesto de Tokens** | Presupuesto estándar de 512 tokens | Acotado a 512 tokens (cero truncamiento forzado) |
-| **Estrategia de Split** | Group-Stratified Split (70/15/15) por paper citante para eliminar fuga de datos |
+**Ejemplo de contexto (texto ilustrativo del equipo, no cita textual de un artículo):**
 
-### Taxonomía Canónica (9 Clases Científicas)
-Derivada de la meta-síntesis empírica de [Lyu et al. (2021)](https://link.springer.com/article/10.1007/s11192-021-03908-z):
-`Background`, `Uses`, `Comparison`, `Extends`, `Motivation`, `Future Work`, `Evidence`, `Originator`, `Further Reading`.
+> Previous sequence-to-sequence architectures relied heavily on recurrent neural networks. Vaswani et al. (2017) introduced the Transformer architecture, replacing recurrence with self-attention mechanisms. Subsequent studies expanded upon this approach.
 
----
+![Selector de modelos, configuración A y menú de ayuda](docs/assets/capturas/02-selector-ayuda-config-a.png)
 
-## 3. Estructura del Repositorio
+## 3. Modelos disponibles
 
-```text
-.
-├── configs/                     # Archivos YAML centralizados de hiperparámetros
-│   ├── data_pipeline.yaml       # Configuración maestra del orquestador de datos
-│   ├── builder.yaml             # Ensamble de dataset, cuotas y ratios de split
-│   └── retrieval.yaml           # Parámetros de recuperación SciBERT y dispositivo
-├── data/                        # Arquitectura desacoplada en 4 capas (.gitkeep)
-│   ├── raw/                     # Fuentes de ingesta (unarXive, MultiCite, s2_cache.db)
-│   ├── structured/              # Corpus canónico filtrado CS (papers.jsonl)
-│   ├── processed/               # Contextos minados y chunks retóricos
-│   └── dataset/                 # Instancias con paridad 1:1 y particiones train/dev/test
-├── models/                      # Checkpoints y pesos de experimentos base
-├── notebooks/                   # Análisis exploratorio e inspección de errores
-├── src/                         # Código fuente modular en Python
-│   ├── data/                    # Pipeline end-to-end de ingeniería de datos
-│   │   ├── ingestion/           # Adaptadores para unarXive, MultiCite y Semantic Scholar
-│   │   ├── structuring.py       # Estructuración de artículos y filtrado CS
-│   │   ├── seminal_resolver.py  # Catálogo seminal (146 papers) y caché S2
-│   │   ├── mining.py            # Extracción de ventanas m=3 y resolución de citas
-│   │   ├── chunking.py          # Chunking discursivo de oraciones (≤110 palabras)
-│   │   ├── retrieval.py         # Motor de recuperación densa SciBERT y ranking Top-k
-│   │   ├── builder.py           # Ensamble 1:1, mapeo de etiquetas y split anti-fuga
-│   │   ├── pipeline.py          # Orquestador maestro con checkpointing automático
-│   │   └── schemas.py           # Contratos estrictos Pydantic para todas las capas
-│   ├── modeling/                # Clasificadores base (Config A vs Config B)
-│   └── visualization/           # Métricas, matrices de confusión y mapas de atención
-└── tests/                       # Suite completa de pruebas con pytest
-    └── unit/                    # 73 pruebas unitarias validando componentes del pipeline
-```
+| Familia | Configuración A | Configuración B | Ejecución en la demo |
+|---|---|---|---|
+| TF-IDF + regresión logística | `tfidf-a` | `tfidf-b` | Contenedor API en EC2, artefactos descargados de S3 |
+| SciBERT | `scibert-a` | `scibert-b` | Contenedor API en EC2, checkpoints descargados de S3 |
+| Gemini 3.5 Flash-Lite | `gemini-a` | `gemini-b` | API externa con credencial protegida en AWS Systems Manager |
+| Granite 4.2 8B + LoRA INT8 | `granite-a` | `granite-b` | CPU del PC del grupo, servicio HTTPS autenticado por Tailscale Funnel |
 
----
+En la sesión de verificación del **26 de noviembre de 2026**, los ocho identificadores devolvieron `available=true` y se probó inferencia real Granite A/B (`is_demo=false`). La disponibilidad es dinámica: no implica que cada servicio permanezca encendido después de la sesión.
 
-## 4. Inicio Rápido
+### Arquitectura de ejecución
 
-### Requisitos Previos
-- Python 3.14+
-- [uv](https://github.com/astral-sh/uv) (gestor rápido de paquetes de Python)
+![Diagrama de infraestructura: AWS Academy, modelos en S3, Gemini y Granite remoto mediante Tailscale](docs/assets/diagramas/arquitectura-hibrida.svg)
 
-### Instalación
+El navegador se comunica con **Caddy (TLS)** y **Nginx (gateway)** en una `t3.large` de AWS Academy. FastAPI atiende `/api/v1/*`; para Granite, crea trabajos en el servicio remoto, consulta su estado y registra la inferencia. El token de acceso es un secreto de SSM y no se expone al navegador. La interfaz jamás llama directamente al PC.
+
+![Diagrama de selección de datos y consulta de los clasificadores A y B](docs/assets/diagramas/flujo-prediccion.svg)
+
+## 4. Organización del repositorio
+
+| Carpeta o archivo | Contenido |
+|---|---|
+| `notebooks/` | Cuadernos de análisis, entrenamiento y evaluación: TF-IDF, SciBERT, LoRA, consolidación de métricas y paneles de jueces |
+| `models/` | Artefactos TF-IDF incluidos si cumplen el límite de GitHub; índice de checkpoints y procedimiento de recuperación de pesos mayores |
+| `data/` | Estructura de datos crudos, procesados y archivos de control DVC; los conjuntos completos requieren acceso autorizado al remoto |
+| `configs/` | Parámetros YAML para preparación, recuperación, clasificación, entrenamiento y evaluación |
+| `src/` | Pipeline, ingeniería de datos, recuperación densa e inferencia |
+| `api/` y `app/` | API FastAPI, frontend web, adaptadores de modelos, métricas y procesamiento de documentos |
+| `infra/evidencite/` | Infraestructura Terraform de la EC2 del laboratorio |
+| `compose.aws.yaml`, `compose.granite-local.yaml` | Servicios en AWS y trabajador Granite en el PC, respectivamente |
+| `tools/`, `.github/workflows/` | Scripts de publicación, validación, despliegue y destrucción controlada |
+| `docs/` | Manuales, capturas, diagramas y documentación GitHub Pages |
+
+No se publican secretos, claves de AWS, tokens de modelos privados ni datos restringidos.
+
+## 5. Dependencias y entornos
+
+| Modalidad | Requisitos principales |
+|---|---|
+| Uso de la demo | Navegador moderno y conectividad a Internet; **sin usuario/clave** |
+| Desarrollo Python | Python `>=3.11` según `pyproject.toml`, gestor `uv` y dependencias de `uv.lock`. Las imágenes de despliegue utilizan **Python 3.12** |
+| Aplicación local en Docker | Docker Engine / Docker Desktop con Compose; para inferencia completa se requieren artefactos y claves privadas |
+| AWS Academy | Cuenta Learner Lab, AWS CLI, Terraform 1.11, permisos EC2/SSM/S3, región `us-east-1`, perfil de instancia `LabInstanceProfile` |
+| Granite local | PC con memoria suficiente, WSL2 + Docker Desktop (Windows), pesos Granite 4.2 8B y adaptadores A/B; Tailscale Funnel para acceso HTTPS externo |
+
+Las dependencias Python están en `pyproject.toml` y `uv.lock`; las dependencias del contenedor web en `api/requirements-docker.txt` y los Dockerfiles. El entrenamiento y la inferencia tienen requisitos diferentes: **no es necesario entrenar para usar la aplicación publicada**.
+
+### Instalación para investigación
+
 ```bash
-# Clonar el repositorio
-git clone https://github.com/leandrojimenez/EvidenCite.git
+git clone https://github.com/d-leandro/EvidenCite.git
 cd EvidenCite
-
-# Instalar dependencias y sincronizar el entorno virtual
+# Recomendado: python y uv compatibles con uv.lock
 uv sync
-```
-
----
-
-## 5. Reproducción del Pipeline de Datos
-
-El ciclo de vida completo de los datos—desde las fuentes crudas hasta las particiones finales con paridad 1:1—está unificado a través de `src.data.pipeline`:
-
-```bash
-# 1. Inspección previa (simulación sin cómputo)
-uv run python -m src.data.pipeline --dry-run
-
-# 2. Ejecución incremental (omite automáticamente etapas completadas)
-uv run python -m src.data.pipeline
-
-# 3. Forzar reconstrucción completa desde cero
-uv run python -m src.data.pipeline --all --force
-
-# 4. Ejecutar una etapa individual (ej. chunking o builder)
-uv run python -m src.data.pipeline --stage chunking
-```
-
-Para consultar la descripción detallada de capas y contratos de datos, revisa la [Guía del Paquete de Datos (`src/data/README.md`)](src/data/README.md).
-
----
-## 5.1 Datos (DVC + Google Drive)
-
-**Antes de empezar:** pide que agreguen tu correo como usuario de prueba y que te compartan la carpeta de Drive. También te deben pasar los valores de las variables por privado.
-
-1. Instala las dependencias:
-   ```bash
-   uv sync
-   ```
-2. Define las variables y configura el remoto:
-
-   **Linux / macOS**
-   ```bash
-   export ID_CARPETA="..."
-   export GDRIVE_CLIENT_ID="..."
-   export GDRIVE_CLIENT_SECRET="..."
-   ./config_dvc.sh
-   ```
-   **Windows (PowerShell)**
-   ```powershell
-   $env:ID_CARPETA="..."
-   $env:GDRIVE_CLIENT_ID="..."
-   $env:GDRIVE_CLIENT_SECRET="..."
-   .\config_dvc.bat
-   ```
-3. Descarga los datos:
-   ```bash
-   uv run dvc pull
-   ```
-   La primera vez se abre el navegador. Si aparece "Google no ha verificado esta app", entra a **Configuración avanzada → Ir a EvidenCite**.
-
-**Corridas en Colab** (`scripts/correr_experimento.sh` y `scripts/probar_variantes.sh`): los datos no se suben desde tu máquina. La sesión clona el repo en el tag de los datos y los baja con DVC usando una cuenta de servicio. El tag tiene que estar en GitHub (`git push origin <tag>`) y la carpeta de Drive compartida con la cuenta de servicio como Lector. Guarda la llave fuera del repo.
-```bash
-export GDRIVE_SA_JSON=~/claves/evidencite-sa.json   # llave JSON de la cuenta de servicio
-export DATOS_TAG=labeled-v1                        # versión de los datos
-export DATOS_DVC=data/labeled                      # opcional: data/dataset por defecto
-scripts/correr_experimento.sh G4 MODELO=Qwen/Qwen3-8B-Base
-```
-`ID_CARPETA` se lee de `.dvc/config.local` si no está definida. Si falta algo, el script falla antes de crear la sesión.
----
-
-## 6. Pruebas Unitarias
-
-Ejecución de la suite completa de pruebas:
-
-```bash
 uv run pytest tests/unit/
 ```
 
-Las 73 pruebas unitarias validan:
-- Estructuración de artículos y clasificación temática en CS.
-- Caché SQLite y control de tasa (*rate-limiting*) del cliente S2.
-- Extracción de ventanas de cita y enmascaramiento de marcadores.
-- Límites de longitud de chunks WordPiece ($\le 110$ palabras) y preservación de encabezados.
-- Recuperación densa y ordenamiento de relevancia Top-k con SciBERT.
-- Paridad estricta 1:1 y agrupación por autor citante sin fuga en train/dev/test.
-- Orquestación del DAG, checkpointing y recuperación ante errores en el pipeline.
+Los artefactos privados no se incluyen en este comando. Para un despliegue local completo, consulta el [manual de instalación](https://d-leandro.github.io/EvidenCite/manual-instalacion.html) y `models/README.md`.
 
----
+## 6. Despliegue (visión operativa)
 
-## 7. Autores y Contexto Académico
+El despliegue **no se activa automáticamente** con un `git push`: se ejecuta con un workflow manual, después de revisar el presupuesto y las credenciales temporales de AWS Academy.
 
-### Equipo de Investigación
-| Autor | Correo Institucional | Afiliación |
+1. Autentica AWS CLI (`AWS_PROFILE=evidencite-lab`, `AWS_REGION=us-east-1`) y verifica los buckets de modelos y estado remoto.
+2. Prepara los parámetros SSM `/evidencite/prod/gemini-api-key` y, para Granite, `/evidencite/prod/granite-url` y `/evidencite/prod/granite-shared-token` (SecureString).
+3. Configura los secretos de GitHub Actions `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN` con credenciales vigentes del laboratorio.
+4. En **Actions → Deploy EvidenCite AWS EC2**, elige la rama publicada y confirma `DEPLOY_EVIDENCITE`. El workflow ejecuta Terraform, despliega por SSM y verifica HTTPS.
+5. Consulta `terraform -chdir=infra/evidencite output -raw public_url`. Para detener y eliminar recursos efímeros, usa **Destroy EvidenCite AWS EC2** con confirmación `DESTROY_EVIDENCITE` y valida primero el estado Terraform.
+
+**Detalles completos, precondiciones, comandos y advertencias:** [Manual de instalación y despliegue](https://d-leandro.github.io/EvidenCite/manual-instalacion.html). El despliegue genera cargos contra el presupuesto del laboratorio; **no ejecutes Apply/Destroy sin comprobar el estado**.
+
+### Variables y parametrización
+
+| Archivo / mecanismo | Parámetros relevantes | Propósito |
 |---|---|---|
-| **Daniel Ricardo Gallo Acevedo** | `dr.gallo@uniandes.edu.co` | Universidad de los Andes |
-| **Dubán Leandro Jiménez Puerta** | `dl.jimenez@uniandes.edu.co` | Universidad de los Andes |
-| **Julián Andrés Malaver Montoya** | `ja.malaverm1@uniandes.edu.co` | Universidad de los Andes |
-| **Javier Mauricio Torres Ortega** | `jm.torreso1@uniandes.edu.co` | Universidad de los Andes |
+| `.env.example` | `GEMINI_API_KEY`, `GOOGLE_GENAI_USE_VERTEXAI`, variables de investigación | Plantilla sin secretos reales |
+| `compose.aws.yaml` | `GRANITE_URL`, `GRANITE_SHARED_TOKEN`, rutas de artefactos TF-IDF/SciBERT, límites CPU/RAM | Configura ejecución de servicios AWS |
+| `compose.granite-local.yaml` | `GRANITE_BASE_DIR`, `GRANITE_A_DIR`, `GRANITE_B_DIR`, `GRANITE_SHARED_TOKEN` | Monta el modelo base y adaptadores en el PC |
+| `infra/evidencite/variables.tf` | `instance_type`, `root_volume_gib`, `allow_paid_resources`, `aws_region` | Instancia, disco, región y control explícito de costos |
+| `configs/*.yaml` | representación A/B, secuencia máxima 512 tokens, recuperación Top-3, parámetros de entrenamiento | Reproducibilidad experimental |
+| AWS SSM Parameter Store | URL HTTPS y token Granite, credencial Gemini | Configuración y secretos remotos, sin publicarlos en Git |
 
-* **Programa Académico:** Maestría en Inteligencia Artificial (MAIA)
-* **Unidad Académica:** Departamento de Ingeniería de Sistemas y Computación (DISC), Universidad de los Andes (Bogotá, Colombia)
-* **Grupo de Investigación:** Grupo FLAG – TICsW
-* **Asesor / Experto de Dominio:** PhD. Juan Camilo Sanguino
+**Credenciales de ejemplo:** `.env.example` contiene **nombres y valores vacíos**, no credenciales reales. Para usar la demo no se requieren credenciales; para reproducir infraestructura deben proporcionarse credenciales propias autorizadas. Nunca uses las credenciales de muestra como contraseñas reales.
+
+## 7. Datos, modelos y reproducibilidad
+
+- **Notebooks:** ocho notebooks versionados en `notebooks/`, incluidos los de modelos A/B y consolidación de métricas.
+- **Datos:** `data/dataset.dvc` y `data/labeled.dvc` apuntan a versiones gestionadas con DVC/Google Drive. El acceso a datos completos se otorga por el equipo. La **muestra pública para evaluación de la rúbrica está pendiente de acuerdo entre integrantes**; no se debe interpretar una carpeta vacía como entrega del dataset completo.
+- **Modelos:** los pequeños artefactos TF-IDF pueden incorporarse en `models/tfidf_A/` y `models/tfidf_B/` utilizando `tools/prepare_delivery_models.sh`. Los checkpoints SciBERT, los adaptadores LoRA y el Granite base se documentan en `models/README.md`; no se finge que estos archivos están incluidos en Git.
+
+Para reconstruir el pipeline de datos (con insumos y acceso al remoto autorizados):
+
+```bash
+uv run python -m src.data.pipeline --dry-run
+uv run python -m src.data.pipeline
+# Evita --all --force salvo que realmente quieras reconstruir todo.
+```
+
+Para DVC se usan `config_dvc.sh` / `config_dvc.bat` y credenciales del remoto compartidas privadamente. No se recomienda publicar claves de servicio ni subir datasets indiscriminadamente.
+
+### Evaluación experimental
+
+![Macro-F1 por modelo en test-revisado](docs/assets/graficos/macro-f1-test-revisado.svg)
+
+Resultados del panel **Entrenamiento y evaluación**, conjunto `test-revisado`, exportado de MLflow el 21 de noviembre de 2026. Estas son métricas del experimento, no del desempeño garantizado en nuevos datos. Los seis runs principales corresponden a los modelos entrenados; Gemini A/B se evalúan por API y no forman parte de esa gráfica de entrenamiento.
+
+![Panel de entrenamiento y evaluación](docs/assets/capturas/03-entrenamiento-test-revisado.png)
+
+![Panel de latencias y costos](docs/assets/capturas/04-tiempos-y-costos.png)
+
+## 8. API y ejemplos reproducibles
+
+```bash
+APP_URL='https://evidencite.34-204-10-62.sslip.io'
+curl -fsS "$APP_URL/health"
+curl -fsS "$APP_URL/api/v1/models"    # disponibilidad en tiempo real
+curl -fsS "$APP_URL/api/v1/labels"
+```
+
+Ejemplo para **Configuración A** con TF-IDF, sin PDF ni cuenta externa (el contexto es ilustrativo):
+
+```bash
+curl -fsS --max-time 180 \
+  "$APP_URL/api/v1/predict" \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "model_id":"tfidf-a",
+    "citing_context":"Our method builds upon the Transformer architecture introduced by Vaswani et al. (2017), using self-attention instead of recurrent sequence models.",
+    "target_citation":"Vaswani et al. (2017)",
+    "cited_title":"Attention Is All You Need",
+    "cited_abstract":"The Transformer is a neural network architecture based solely on attention mechanisms, dispensing with recurrence and convolutions."
+  }'
+```
+
+El esquema de respuesta incluye `predicted_label`, `probabilities`, `confidence`, `model_name`, `configuration`, `run_id` y `server_ms` cuando la inferencia finaliza correctamente. No asumimos que un ejemplo de entrada implique una categoría de salida específica. Para B se requieren `cited_chunks` recuperados y opcionalmente `cited_chunk_sections`.
+
+## 9. Seguridad, disponibilidad y limitaciones
+
+- El endpoint público puede aplicar límites de tasa. No envíes cargas masivas a una infraestructura de demostración.
+- Granite está en un servidor personal con URL Funnel pública, **protegida mediante un token compartido que permanece únicamente en el trabajador y en la API de AWS**. No publiques ese token ni el `.env` local.
+- Los pesos grandes y datos restringidos permanecen fuera de GitHub. La recuperación exige permisos y aceptación de licencias cuando corresponda.
+- La EC2 puede consumir presupuesto de AWS Academy mientras esté encendida; `destroy` elimina EC2/EBS y con ello las métricas locales, pero los artefactos persistentes de S3 se administran separadamente.
+- La predicción no verifica automáticamente que el artículo citado corresponda a la referencia del contexto, ni garantiza que la etiqueta sea correcta.
+
+## 10. Equipo y contexto académico
+
+| Integrante | Correo institucional |
+|---|---|
+| Daniel Ricardo Gallo Acevedo | dr.gallo@uniandes.edu.co |
+| Dubán Leandro Jiménez Puerta | dl.jimenez@uniandes.edu.co |
+| Julián Andrés Malaver Montoya | ja.malaverm1@uniandes.edu.co |
+| Javier Mauricio Torres Ortega | jm.torreso1@uniandes.edu.co |
+
+**Programa:** Maestría en Inteligencia Artificial, Universidad de los Andes, Bogotá, Colombia. **Grupo de investigación:** FLAG - TICsW. **Asesor:** Juan Camilo Sanguino.
+
+**Documentación ampliada:** [Índice](https://d-leandro.github.io/EvidenCite/) · [Manual de usuario](https://d-leandro.github.io/EvidenCite/manual-usuario.html) · [Manual de instalación](https://d-leandro.github.io/EvidenCite/manual-instalacion.html) · [Catálogo de artefactos](models/README.md).

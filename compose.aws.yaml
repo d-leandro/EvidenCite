@@ -11,7 +11,8 @@ services:
       ENABLE_DEMO_MODEL: "false"
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI:-false}
-      GRANITE_URL: http://127.0.0.1:65535
+      GRANITE_URL: ${GRANITE_URL:-}
+      GRANITE_SHARED_TOKEN: ${GRANITE_SHARED_TOKEN:-}
       HF_HOME: /root/.cache/huggingface
       EVIDENCITE_METRICS_DB: /workspace/var/metrics.sqlite3
       EVIDENCITE_TFIDF_ROOT: /opt/evidencite-models

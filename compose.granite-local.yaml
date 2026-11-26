@@ -1,0 +1,39 @@
+# Independent, password-protected Granite worker on the user's own PC.
+# Only loopback 8091 is exposed; cloudflared makes an outbound HTTPS tunnel.
+name: evidencite-granite-local
+services:
+  granite:
+    image: evidencite-granite:local-cpu
+    build:
+      context: .
+      dockerfile: api/Dockerfile.cloud
+    entrypoint: ["uvicorn"]
+    command: ["api.workers.granite_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    environment:
+      GRANITE_SHARED_TOKEN: ${GRANITE_SHARED_TOKEN:?Run python3 tools/granite_prepare_local.py first}
+      HF_HUB_OFFLINE: "1"
+      GRANITE_BASE_PATH: /models/base
+      GRANITE_A_PATH: /models/a
+      GRANITE_B_PATH: /models/b
+      OMP_NUM_THREADS: "8"
+      MKL_NUM_THREADS: "8"
+    volumes:
+      - ${GRANITE_BASE_DIR:?Granite model base directory missing}:/models/base:ro
+      - ${GRANITE_A_DIR:?Granite A adapter missing}:/models/a:ro
+      - ${GRANITE_B_DIR:?Granite B adapter missing}:/models/b:ro
+    ports:
+      - "127.0.0.1:8091:8001"
+    mem_limit: 14g
+    memswap_limit: 17g
+    cpus: 8
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8001/health',headers={'Authorization':'Bearer '+os.environ['GRANITE_SHARED_TOKEN']}); urllib.request.urlopen(r,timeout=10).close()"
+      interval: 20s
+      timeout: 12s
+      retries: 6
+      start_period: 900s
+    restart: unless-stopped

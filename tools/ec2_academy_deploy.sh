@@ -28,6 +28,24 @@ GEMINI_API_KEY="$(aws ssm get-parameter \
   --query Parameter.Value --output text)"
 [[ -n "$GEMINI_API_KEY" && "$GEMINI_API_KEY" != 'None' ]] || { echo '[STOP] Gemini key unavailable'; exit 2; }
 export GEMINI_API_KEY
+# Optional Granite worker on user's PC via authenticated Cloudflare HTTPS.
+# Fetch values on EC2 from SSM, never put them into Terraform or SSM command arguments.
+GRANITE_URL="$(aws ssm get-parameter --region us-east-1 \
+  --name /evidencite/prod/granite-url \
+  --query Parameter.Value --output text 2>/dev/null || true)"
+GRANITE_SHARED_TOKEN="$(aws ssm get-parameter --region us-east-1 \
+  --name /evidencite/prod/granite-shared-token --with-decryption \
+  --query Parameter.Value --output text 2>/dev/null || true)"
+if [[ "$GRANITE_URL" == None || "$GRANITE_SHARED_TOKEN" == None ]]; then
+  GRANITE_URL='' GRANITE_SHARED_TOKEN=''
+fi
+if [[ ! "$GRANITE_URL" =~ ^https://[A-Za-z0-9.-]+$ || ${#GRANITE_SHARED_TOKEN} -lt 32 ]]; then
+  GRANITE_URL='' GRANITE_SHARED_TOKEN=''
+  echo '[INFO] Granite Cloudflare not configured, keeping six models available'
+else
+  echo '[INFO] Granite Cloudflare remote configured (credentials hidden)'
+fi
+export GRANITE_URL GRANITE_SHARED_TOKEN
 python3 - "$ENV_FILE" "$DOMAIN" <<'PYENV'
 import os
 import sys
@@ -49,12 +67,14 @@ try:
         file.write(f'EVIDENCITE_DOMAIN={domain}\n')
         file.write('GOOGLE_GENAI_USE_VERTEXAI=false\n')
         file.write('GEMINI_API_KEY=' + quote(key) + '\n')
+        file.write('GRANITE_URL=' + quote(os.getenv('GRANITE_URL', '')) + '\n')
+        file.write('GRANITE_SHARED_TOKEN=' + quote(os.getenv('GRANITE_SHARED_TOKEN', '')) + '\n')
     os.replace(tmp, path)
 finally:
     if os.path.exists(tmp):
         os.unlink(tmp)
 PYENV
-unset GEMINI_API_KEY
+unset GEMINI_API_KEY GRANITE_SHARED_TOKEN
 
 cd /srv/evidencite/repo
 for model in tfidf_A tfidf_B scibert_A scibert_B; do

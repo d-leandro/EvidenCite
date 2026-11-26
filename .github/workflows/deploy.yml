@@ -49,3 +49,21 @@ jobs:
           aws s3api head-bucket --bucket "evidencite-demo-${ACCOUNT}-models"
       - name: Crear o reutilizar EC2, desplegar via SSM y comprobar HTTPS
         run: bash tools/academy_rebuild.sh --approve-costs
+
+      - name: Publicar URL de EvidenCite
+        if: always()
+        shell: bash
+        run: |
+          URL="$(terraform -chdir=infra/evidencite output -raw public_url 2>/dev/null || true)"
+          if [[ "$URL" =~ ^https://evidencite\.[0-9-]+\.sslip\.io$ ]]; then
+            {
+              echo "## 🚀 EvidenCite — URL pública"
+              echo ""
+              echo "**[Abrir aplicación]($URL)**"
+              echo ""
+              echo "Si el despliegue falló, verifica el estado de la aplicación."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=URL de EvidenCite::$URL"
+          else
+            echo "No hay URL pública disponible en Terraform." >> "$GITHUB_STEP_SUMMARY"
+          fi

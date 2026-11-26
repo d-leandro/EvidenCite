@@ -1,48 +1,63 @@
 ---
 layout: default
-title: Documentación de EvidenCite
+title: EvidenCite | Documentación
 ---
 
-# EvidenCite — Documentación
+# EvidenCite: documentación de la aplicación
 
-**Clasificador de funciones retóricas de citas científicas**, con dos representaciones del artículo citado: **Configuración A** (título y resumen) y **Configuración B** (fragmentos de evidencia recuperados del texto completo).
+**Proyecto de grado MAIA, Universidad de los Andes.** EvidenCite clasifica funciones retóricas de citas científicas en nueve categorías, comparando **Configuración A** (título y resumen del artículo citado) y **Configuración B** (fragmentos de evidencia recuperados mediante SciBERT).
 
-Este sitio acompaña a la aplicación para que evaluadores y desarrolladores puedan reproducir un análisis, comprender las limitaciones de cada modelo e instalar el sistema.
+[**Abrir aplicación**](https://evidencite.34-204-10-62.sslip.io) | [**Repositorio GitHub**](https://github.com/d-leandro/EvidenCite) | [**README en español**](https://github.com/d-leandro/EvidenCite/blob/main/README.es.md)
+
+> La dirección de la aplicación corresponde a la IP pública actual de AWS Academy. Puede cambiar al detener o recrear la EC2. La disponibilidad de Granite A/B depende del servicio remoto del equipo y de Tailscale Funnel.
 
 ## Manuales
 
-- **[Manual de usuario](manual-usuario.html):** ejemplo guiado, búsqueda de artículos, selección de modelos, carga de PDF, interpretación de resultados, métricas y solución de problemas.
-- **[Manual de instalación y despliegue](manual-instalacion.html):** arquitectura, Docker Compose, Terraform, AWS EC2, S3, Systems Manager, GitHub Actions, validaciones y destrucción segura.
+- **[Manual de usuario](manual-usuario.html):** selección de modelos, ejemplo guiado, entrada de citas en modos A/B, carga de PDF, interpretaciones, capturas reales, métricas, errores frecuentes y buenas prácticas.
+- **[Manual de instalación y despliegue](manual-instalacion.html):** arquitectura híbrida, variables y archivos de configuración, Docker Compose, AWS Academy, Terraform, S3, SSM, GitHub Actions, Tailscale Funnel y respaldos.
+- **[Catálogo de artefactos](https://github.com/d-leandro/EvidenCite/blob/main/models/README.md):** artefactos TF-IDF y ubicación autorizada de checkpoints grandes.
 
-## Inicio rápido para evaluadores
+## Arquitectura de la aplicación
 
-1. Abre la aplicación EvidenCite que te haya facilitado el equipo del proyecto.
-2. En **Análisis de Citas**, despliega **¿Necesitas un ejemplo?** y selecciona **Cargar ejemplo**.
-3. Confirma el artículo *Attention Is All You Need* (Vaswani et al., 2017; arXiv:1706.03762) después de recuperarlo con la búsqueda.
-4. Selecciona un modelo disponible en Configuración A o B. En B, recupera los tres fragmentos de evidencia antes de clasificar.
-5. Ejecuta **Clasificar intención de cita**, revisa las nueve probabilidades y compara resultados si lo deseas.
+![Arquitectura híbrida actual: AWS Academy y Granite remoto por Tailscale Funnel](assets/diagramas/arquitectura-hibrida.svg)
 
-El ejemplo contiene un **contexto ilustrativo redactado para esta demostración**, no una cita textual de otra publicación. [PDF oficial del artículo de referencia](https://arxiv.org/pdf/1706.03762).
+El frontend y la API están publicados en AWS. Los clasificadores TF-IDF y SciBERT se ejecutan en EC2, Gemini utiliza la API externa y Granite 4.2 8B con adaptadores LoRA A/B se ejecuta por CPU en el computador del grupo a través de un servicio HTTPS autenticado.
 
-## Modelos
+## Inicio rápido
 
-| Familia | Configuración A | Configuración B | Estado en despliegue EC2 actual |
+1. Abre la aplicación y expande **¿Necesitas un ejemplo?**.
+2. Pulsa **Cargar ejemplo** y verifica la referencia a *Attention Is All You Need*, arXiv `1706.03762`.
+3. Selecciona A o B. Para A, introduce o busca título y resumen; para B, recupera tres fragmentos del artículo.
+4. Elige uno de los clasificadores disponibles y pulsa **Clasificar intención de cita**.
+5. Interpreta las nueve probabilidades y, si te interesa, consulta **Tiempos y costos** o **Entrenamiento**.
+
+El contexto del ejemplo fue redactado para ilustrar el flujo de la aplicación; no es una cita textual de otro artículo científico.
+
+![Interfaz y selector de modelos con Configuración A](assets/capturas/02-selector-ayuda-config-a.png)
+
+## Estado de los modelos
+
+| Familia | Configuración A | Configuración B | Tipo de ejecución |
 |---|---|---|---|
-| TF-IDF + Regresión logística | Sí | Sí | Disponible |
-| SciBERT | Sí | Sí | Disponible |
-| Gemini 3.5 Flash-Lite | Sí | Sí | Disponible con API key válida |
-| Granite 4.2 8B + LoRA | Previsto | Previsto | No desplegado en EC2 de 8 GiB |
+| TF-IDF + Regresión logística | Sí | Sí | AWS EC2 |
+| SciBERT | Sí | Sí | AWS EC2 |
+| Gemini 3.5 Flash-Lite | Sí | Sí | Servicio API externo |
+| Granite 4.2 8B + LoRA INT8 | Sí | Sí | PC del equipo mediante Tailscale Funnel |
 
-La disponibilidad exacta depende del estado de la API: `GET /api/v1/models`. La aplicación solo ofrece al usuario modelos marcados como disponibles.
+El 26 de noviembre de 2026 se verificó inferencia real en los ocho modelos. El estado operativo actual se consulta desde `GET /api/v1/models`.
 
-## Taxonomía
+## Resultados experimentales
 
-EvidenCite utiliza nueve etiquetas: **Background, Gap, Basis, Comparison, Application, Improvement, Evidence, Originator y Further Reading**. Consulta el manual de usuario para sus definiciones y limitaciones.
+![Comparación Macro-F1 en test-revisado](assets/graficos/macro-f1-test-revisado.svg)
 
-## Arquitectura publicada en AWS
+Estos valores corresponden a los seis runs principales de los modelos entrenados, sobre el conjunto `test-revisado`; no miden la exactitud de cualquier consulta arbitraria en producción.
 
-`Navegador → Caddy (HTTPS) → Nginx (gateway) → Frontend / FastAPI → modelos locales o Gemini`. El host es una EC2 administrada con Terraform y SSM; los artefactos TF-IDF y SciBERT se conservan en S3. **No utiliza ECS, ECR ni ALB** en el despliegue de evaluación actual.
+## Declaración de uso de inteligencia artificial generativa
 
-## Repositorio
+| Transparencia sobre el desarrollo de EvidenCite |
+|:---|
+| Para la elaboración de **EvidenCite** se utilizaron herramientas de **inteligencia artificial generativa** en la creación de la mayor parte del código y la documentación. Asimismo, una parte significativa del proyecto proviene de desarrollos realizados previamente en los cursos **Desarrollo de Soluciones** y **Aplicaciones Nativas en la Nube**, cuyos componentes fueron reutilizados, adaptados y ampliados. **Todo el código y la documentación resultantes fueron revisados y corregidos por Julián Andrés Malaver Montoya**, con el propósito de garantizar su coherencia, pertinencia y correspondencia con la solución implementada. |
 
-[Código fuente de EvidenCite](https://github.com/d-leandro/EvidenCite) · [Artículo de ejemplo en arXiv](https://arxiv.org/abs/1706.03762)
+## Autores
+
+Daniel Ricardo Gallo Acevedo, Dubán Leandro Jiménez Puerta, Julián Andrés Malaver Montoya y Javier Mauricio Torres Ortega. Maestría en Inteligencia Artificial, Universidad de los Andes.

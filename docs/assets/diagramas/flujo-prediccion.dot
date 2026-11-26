@@ -1,0 +1,18 @@
+digraph Prediccion {
+ graph [label="Del contexto citante a la función retórica", labelloc=t, fontsize=22, fontname="DejaVu Sans", fontcolor="#eaf4ff", bgcolor="#0d1422", pad="0.45", nodesep="0.5", ranksep="0.65", rankdir=TB, splines=polyline];
+ node [shape=box, style="rounded,filled", fontcolor="#eaf4ff", fontname="DejaVu Sans", fontsize=14, color="#355072", fillcolor="#15253a", penwidth=1.3, margin="0.24,0.16"];
+ edge [color="#46b6de", penwidth=1.7, arrowsize=0.85, fontname="DejaVu Sans", fontsize=11, fontcolor="#d1e7fa"];
+ context [label="Contexto científico en inglés\n+ referencia objetivo",fillcolor="#19425c", color="#38bdf8"];
+ a [label="CONFIGURACIÓN A\nTítulo + resumen del artículo citado",fillcolor="#21395b", color="#38bdf8"];
+ b [label="CONFIGURACIÓN B\nHasta 3 fragmentos del texto completo\nrecuperados mediante SciBERT",fillcolor="#283558", color="#a78bfa"];
+ model [label="Seleccionar familia: TF-IDF, SciBERT, Gemini o Granite\nCada familia tiene variante A y B",fillcolor="#29384d"];
+ pred [label="Función principal + 9 probabilidades + confianza",fillcolor="#1e4b42", color="#34d399"];
+ metrics [label="Registrar latencia, modelo y resultado\nPanel: Tiempos y costos",fillcolor="#1e4b42", color="#34d399"];
+ context -> a [label="A"];
+ context -> b [label="B"];
+ {rank=same;a;b}
+ a -> model;
+ b -> model;
+ model -> pred;
+ pred -> metrics;
+}
