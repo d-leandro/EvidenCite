@@ -1,124 +1,177 @@
 ---
 layout: default
-title: Manual de usuario — EvidenCite
+title: Manual de usuario | EvidenCite
 ---
 
-# Manual de usuario — EvidenCite
+# Manual de usuario
 
-## 1. Propósito y alcance
+**EvidenCite: clasificación de funciones retóricas de citas científicas**
 
-EvidenCite identifica la **función retórica que cumple una referencia académica** en el contexto de un texto científico en inglés. Distingue nueve clases y permite comparar modelos usando distintas fuentes de información sobre el artículo citado.
+[Aplicación en línea](https://evidencite.34-204-10-62.sslip.io) | [Repositorio GitHub](https://github.com/d-leandro/EvidenCite) | [Manual de instalación](manual-instalacion.html)
 
-La predicción es una **herramienta de apoyo**, no una comprobación de la veracidad de un artículo ni un sustituto de la interpretación de un experto. Las probabilidades mostradas no deben interpretarse automáticamente como garantías de exactitud.
+> **Versión del manual:** 26 de noviembre de 2026. Es una demostración académica; la URL se basa en la IP de una EC2 de AWS Academy y puede cambiar. Los modelos Granite A/B requieren que el trabajador externo del equipo esté encendido.
 
-## 2. Interfaz
+## 1. ¿Qué hace EvidenCite?
 
-La pantalla principal dispone de un selector de configuración (A/B), selector de modelo, entrada de contexto, cita objetivo, métodos para identificar o cargar el artículo citado y un botón de clasificación. También incluye:
+A partir de un **contexto citante en inglés** y la referencia que deseas analizar, EvidenCite predice una de las **nueve funciones retóricas** de la cita. Puedes comparar cuatro familias de modelos en dos configuraciones de evidencia, A y B, para un total de ocho clasificadores.
 
-- **Análisis de Citas:** entrada y resultado de una predicción.
-- **Tiempos y costos:** mediciones de inferencia disponibles.
-- **Entrenamiento:** registros y visualizaciones experimentales publicados en la aplicación.
-- **Ayuda:** acceso a los manuales de usuario e instalación.
+**EvidenCite no verifica la veracidad de un artículo ni reemplaza la evaluación de expertos.** La confianza y las probabilidades expresan el comportamiento matemático del modelo ante la entrada.
 
-La disponibilidad de modelos se consulta en `GET /api/v1/models`; los que no estén disponibles no pueden utilizarse.
+## 2. Conoce la interfaz
 
-## 3. Prueba rápida: ejemplo guiado
+![Pantalla principal: configuración B, contexto de cita y herramientas de entrada](assets/capturas/01-analisis-config-b.png)
 
-1. En la sección de entrada despliega **¿Necesitas un ejemplo?**.
-2. Lee el contexto ilustrativo relacionado con *Attention Is All You Need* (Vaswani et al., 2017).
-3. Pulsa **Cargar ejemplo**. Se completan el contexto y la cita objetivo, y se coloca el identificador `1706.03762` en la búsqueda del artículo.
-4. Pulsa **Buscar** y, cuando aparezcan los metadatos, selecciona **Confirmar artículo**.
-5. Selecciona Configuración A o B y sigue las instrucciones correspondientes.
-6. Presiona **Clasificar intención de cita** y revisa la etiqueta y el desglose de probabilidades.
+*Figura 1. Vista real de EvidenCite con Configuración B y contexto de ejemplo cargado.*
 
-El texto de contexto se redactó para demostrar el flujo; **no procede de un artículo citante real**. Puedes abrir el [PDF original de Vaswani et al. (2017)](https://arxiv.org/pdf/1706.03762) para comprobar el procesamiento de documentos.
+La interfaz se divide en cuatro áreas principales:
 
-### 3.1 Contexto de muestra
+| Sección | Qué permite hacer |
+|---|---|
+| **Análisis de Citas** | Seleccionar A/B, elegir modelo, ingresar la cita y ejecutar la clasificación |
+| **Tiempos y costos** | Consultar latencia, registros históricos, costos cuando se conocen y exportar CSV |
+| **Entrenamiento** | Explorar las métricas y visualizaciones de los experimentos de referencia |
+| **Ayuda** | Abrir este manual y el manual de instalación |
+
+![Selector de modelo, Configuración A y menú Ayuda](assets/capturas/02-selector-ayuda-config-a.png)
+
+*Figura 2. Selector de modelo y accesos a los dos manuales desde la aplicación publicada.*
+
+La lista de modelos refleja su estado actual. Si un servicio deja de estar disponible, podría desaparecer de las opciones seleccionables hasta que se recupere.
+
+## 3. Flujo guiado en cinco pasos
+
+1. **Preparar el ejemplo.** Abre [EvidenCite](https://evidencite.34-204-10-62.sslip.io), expande **¿Necesitas un ejemplo?** y pulsa **Cargar ejemplo**.
+2. **Verificar la cita.** Debe aparecer el contexto ilustrativo sobre `Vaswani et al. (2017)` y la referencia objetivo correspondiente.
+3. **Obtener el artículo citado.** Busca el ID arXiv `1706.03762` o el título *Attention Is All You Need*. Revisa y confirma los metadatos. Como alternativa, proporciona el artículo manualmente (A) o sube el PDF correspondiente.
+4. **Elegir modo y modelo.** Para A, completa título y resumen. Para B, pulsa **Recuperar los 3 fragmentos** o utiliza la carga de PDF para preparar evidencia textual. Selecciona uno de los modelos disponibles.
+5. **Clasificar e interpretar.** Pulsa **Clasificar intención de cita**. Observa la etiqueta principal, la confianza y la distribución entre las nueve clases.
+
+### Texto de ejemplo
 
 > Previous sequence-to-sequence architectures relied heavily on recurrent neural networks. Vaswani et al. (2017) introduced the Transformer architecture, replacing recurrence with self-attention mechanisms. Subsequent studies expanded upon this approach.
 
-**Cita objetivo:** `Vaswani et al. (2017)`  
-**Artículo citado:** *Attention Is All You Need*  
-**arXiv:** `1706.03762`
+- **Cita objetivo:** `Vaswani et al. (2017)`.
+- **Artículo citado:** *Attention Is All You Need*.
+- **Identificador arXiv:** `1706.03762`.
+- **Nota:** el texto es **ilustrativo y elaborado para el prototipo**, no fue extraído de una publicación citante real.
 
 ## 4. Configuraciones A y B
 
-### Configuración A — Título y resumen
+![Flujo de preparación de entrada y clasificación por familia de modelos](assets/diagramas/flujo-prediccion.svg)
 
-La clasificación utiliza el contexto citante, la referencia objetivo y **título + resumen** del artículo citado. Puedes buscar el artículo por título exacto o identificador de arXiv y confirmarlo; también puedes proporcionar los metadatos manualmente o extraerlos mediante el PDF.
+*Figura 3. Datos necesarios para A y B, y elección de familia de modelo.*
 
-Antes de clasificar, comprueba que el título y el resumen correspondan al artículo realmente citado.
+| | Configuración A | Configuración B |
+|---|---|---|
+| Contexto citante y cita objetivo | Sí | Sí |
+| Evidencia del artículo citado | Título y resumen | Tres fragmentos relevantes de texto, con sus secciones cuando existan |
+| Preparación desde la interfaz | Buscar artículo, ingresar manualmente o extraer metadatos del PDF | Confirmar artículo y recuperar fragmentos, o procesar PDF |
+| Ventaja de uso | Rápida cuando existen metadatos | Puede aportar información local más específica |
+| Consideración | Puede omitir detalles del texto completo | Requiere recuperar evidencia útil y del artículo correcto |
 
-### Configuración B — Evidencia local
+**A:** si faltan título y resumen, el formulario no estará listo para la clasificación. **B:** si faltan fragmentos, primero ejecuta la recuperación y verifica que pertenezcan al artículo citado. No cambies a B esperando que el título y resumen sean suficientes.
 
-Además del contexto y la referencia objetivo, requiere **tres fragmentos relevantes** del texto del artículo citado. Tras buscar y confirmar un artículo con identificador arXiv, utiliza **Recuperar los 3 fragmentos**. El sistema recupera el texto y ordena fragmentos con SciBERT. Otra opción es subir el PDF del artículo para extraer la evidencia.
+### Procesar un PDF
 
-La Configuración B no se completa únicamente con el título y resumen; es necesario obtener fragmentos válidos antes de predecir. La recuperación puede tardar dependiendo del documento y del servicio.
+El formulario permite cargar un PDF del artículo citado de hasta **20 MB**. Antes de extraer datos, confirma que corresponde a la referencia objetivo, porque el sistema no puede verificar esa relación automáticamente. Un PDF escaneado o con estructura inusual puede producir una extracción incompleta. No envíes documentos restringidos o confidenciales sin autorización.
 
-## 5. Cómo analizar una cita propia
+## 5. Seleccionar el clasificador
 
-1. Elige **A** o **B** según la evidencia que quieras utilizar.
-2. Selecciona un modelo **disponible** en la lista superior.
-3. Introduce un contexto escrito en inglés, con al menos 20 caracteres, que contenga claramente la referencia objetivo.
-4. Verifica la **cita objetivo** que detecta el formulario, o corrígela manualmente.
-5. Busca y confirma el artículo citado, completa sus metadatos (A) o recupera fragmentos (B).
-6. Pulsa **Clasificar intención de cita**. Espera el resultado antes de repetir la operación.
+| Familia | Modelos disponibles | Descripción breve |
+|---|---|---|
+| TF-IDF y regresión logística | `tfidf-a`, `tfidf-b` | Modelo estadístico ligero para una línea base interpretable |
+| SciBERT | `scibert-a`, `scibert-b` | Modelo especializado en textos científicos, ajustado para la clasificación |
+| Gemini 3.5 Flash-Lite | `gemini-a`, `gemini-b` | Modelo de lenguaje consultado mediante API externa |
+| Granite 4.2 8B + LoRA INT8 | `granite-a`, `granite-b` | Modelo ajustado con adaptadores LoRA, ejecutado en CPU en el PC del equipo |
 
-### Búsqueda por arXiv
+**Granite está integrado de verdad.** La API de AWS invoca su servicio remoto por HTTPS y consulta el estado del trabajo hasta recibir el resultado. La inferencia puede tardar decenas de segundos o algunos minutos, según tamaño de la entrada y carga de CPU. No recargues la página innecesariamente.
 
-Para el artículo de ejemplo, escribe `1706.03762` o `Attention Is All You Need` y pulsa **Buscar**. Verifica los resultados y confirma el documento. En modo B, después recupera los tres fragmentos.
+## 6. Interpretación de las nueve clases
 
-### Procesar PDF
-
-Usa **Sube el PDF del artículo** para cargar un archivo de hasta **20 MB**. Antes de procesarlo confirma la casilla que indica que el PDF corresponde a la cita objetivo: **EvidenCite no verifica automáticamente esa correspondencia**.
-
-En A se obtienen título y resumen; en B se buscan fragmentos de evidencia. La extracción de texto puede tomar varios minutos y depende de la calidad del PDF. No subas documentos restringidos o confidenciales sin autorización.
-
-## 6. Interpretación de resultados
-
-La aplicación muestra la función principal predicha, un indicador de confianza y la distribución de probabilidades entre las nueve clases. Estas cantidades son **salidas del modelo**, no un dictamen definitivo de corrección. Las diferentes familias pueden producir resultados distintos ante el mismo contexto.
-
-| Etiqueta | Interpretación |
+| Clase | Significado práctico |
 |---|---|
-| **Background** | Antecedentes, definiciones o contextualización general del problema. |
-| **Gap** | Limitación, problema pendiente o necesidad de investigación. |
-| **Basis** | Fundamento teórico o metodológico sobre el que se construye el trabajo citante. |
-| **Comparison** | Contraste de enfoques, métodos, resultados o rendimiento. |
-| **Application** | Uso directo de una herramienta, dato, método o algoritmo del trabajo citado. |
-| **Improvement** | Extensión, modificación, refinamiento u optimización de un trabajo previo. |
-| **Evidence** | Hechos o resultados empíricos citados para sustentar una afirmación. |
-| **Originator** | Reconocimiento de quien introdujo un concepto o método original. |
-| **Further Reading** | Orientación hacia materiales adicionales para profundizar. |
+| **Background** | La referencia aporta antecedentes o contexto general |
+| **Gap** | Se describe una brecha, limitación o problema pendiente |
+| **Basis** | La investigación citada fundamenta el enfoque actual |
+| **Comparison** | Se comparan enfoques, resultados o metodologías |
+| **Application** | Se utiliza directamente un recurso, herramienta o método citado |
+| **Improvement** | Se modifica, extiende o mejora el trabajo citado |
+| **Evidence** | La cita sustenta una afirmación con evidencia |
+| **Originator** | Se reconoce a quien introdujo una idea o método |
+| **Further Reading** | Se remite al lector a referencias para ampliar información |
 
-## 7. Modelos y disponibilidad
+La clase con mayor probabilidad determina la predicción principal. Es posible que distintas familias devuelvan etiquetas diferentes para la misma entrada. No se debe comparar la confianza de modelos distintos como si estuviera automáticamente calibrada.
 
-La API registra `tfidf-a/b`, `scibert-a/b`, `gemini-a/b` y `granite-a/b`. La instancia AWS actual se preparó para **TF-IDF, SciBERT y Gemini** en A/B. **Granite se incorporará posteriormente** y no debe interpretarse como disponible mientras la API no lo confirme.
+![Resultado de clasificación real con Granite A, etiqueta y distribución de probabilidades](assets/capturas/05-resultado-granite-a.png)
 
-Gemini necesita comunicación con un proveedor externo, por lo que su latencia y disponibilidad pueden diferir de las de los modelos locales. La selección de modelo no altera automáticamente las entradas de A/B que exige la aplicación.
+*Figura 4. Ejemplo de resultado real de Granite A con etiqueta principal, confianza y probabilidades de las nueve clases. Corresponde a una entrada de demostración, no a una métrica de evaluación.*
 
-## 8. Métricas y entrenamiento
+## 7. Métricas de inferencia, tiempos y costos
 
-**Tiempos y costos** muestra ejecuciones registradas, latencias y costos estimados cuando existe una tarifa configurada. Los datos pueden depender de si la sesión utiliza caché y de qué componente haya medido la latencia. Las métricas registradas no garantizan capacidad ni costo idénticos bajo carga elevada.
+![Panel de tiempos y costos, con resumen e historial de predicciones](assets/capturas/04-tiempos-y-costos.png)
 
-La sección **Entrenamiento** presenta información de los experimentos y modelos cuando se encuentra integrada. No equivale a entrenar modelos desde el navegador.
+*Figura 5. Ejecuciones reales, latencias por modelo y exportación CSV.*
 
-## 9. Preguntas frecuentes y errores
+El panel distingue **duración medida por la API**, **duración reportada por el predictor** y, cuando existe una medición desde el navegador, **duración observada por el usuario**. Estas cantidades pueden diferir por red, recuperación de datos, cola de Granite o caché. Un tiempo reportado por un predictor puede proceder de caché y no equivaler al tiempo de la petición actual; el panel indica esa condición.
 
-- **No aparecen modelos:** puede que la API o sus artefactos no estén disponibles. Recarga la página y comprueba el estado del servidor.
-- **No deja clasificar en A:** verifica que haya título y resumen.
-- **No deja clasificar en B:** primero recupera los tres fragmentos.
-- **No encuentra el artículo:** utiliza el ID de arXiv o el título completo y confirma los metadatos antes de continuar.
-- **El PDF no se procesa:** comprueba que sea PDF válido, que pese menos de 20 MB y que el servidor esté disponible.
-- **Error HTTP 429:** existe un límite de solicitudes de predicción para proteger el servicio. Espera antes de intentar nuevamente; varios usuarios pueden compartir la misma IP pública.
-- **La URL dejó de responder:** la EC2 puede haberse detenido o cambiado de dirección IP. Solicita la URL actual al equipo del proyecto.
-- **El resultado parece incorrecto:** revisa el contexto, la cita objetivo y que los metadatos o fragmentos realmente pertenezcan al artículo citado.
+La columna de costo muestra **N/D** cuando no existe una tarifa validada. No significa que el uso de API, EC2 o electricidad tenga costo cero.
 
-## 10. Uso directo de la API
+Los registros de inferencia de la EC2 se guardan en un volumen local. **Pueden perderse si se destruye la instancia** sin respaldarlos antes.
 
-Si el despliegue es accesible, consulta `GET /health`, `GET /api/v1/models` y `GET /api/v1/labels` para comprobar el servicio. La documentación interactiva de FastAPI y las demás rutas dependen de la configuración pública del gateway.
+## 8. Entrenamiento y evaluación experimental
 
-## 11. Limitaciones y buenas prácticas
+![Panel de entrenamiento sobre test-revisado](assets/capturas/03-entrenamiento-test-revisado.png)
 
-El prototipo trabaja principalmente con citas científicas en inglés. El rendimiento depende de la calidad del contexto, de la correspondencia entre referencia y documento citado, de la distribución de clases y del modelo. Los ejemplos inventados solo demuestran el funcionamiento del sistema: **no constituyen evidencia cuantitativa de su desempeño**. Evita consultas automatizadas masivas durante las jornadas de evaluación.
+*Figura 6. Panel de los seis runs principales de modelos entrenados y sus métricas.*
 
-[Volver al índice](index.html) · [Manual de instalación](manual-instalacion.html)
+![Comparación de macro-F1 de los seis runs principales](assets/graficos/macro-f1-test-revisado.svg)
+
+*Figura 7. Macro-F1 sobre el conjunto `test-revisado`, según el panel exportado de MLflow el 21 de noviembre de 2026.*
+
+El panel muestra métricas de los modelos entrenados (TF-IDF, SciBERT y Granite, A/B), no un entrenamiento que se ejecute al hacer clic. Gemini A/B se evalúan como servicios externos y no están incluidos en esos seis runs. **No mezcles métricas de conjuntos de datos diferentes** al interpretar resultados.
+
+## 9. Uso de la API (opcional)
+
+```bash
+APP_URL='https://evidencite.34-204-10-62.sslip.io'
+curl -fsS "$APP_URL/health"
+curl -fsS "$APP_URL/api/v1/models"
+curl -fsS "$APP_URL/api/v1/labels"
+```
+
+Ejemplo de predicción TF-IDF A:
+
+```bash
+curl -fsS --max-time 180 "$APP_URL/api/v1/predict" \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "model_id":"tfidf-a",
+    "citing_context":"Our approach builds on the Transformer architecture introduced by Vaswani et al. (2017), making attention central to the sequence processing method.",
+    "target_citation":"Vaswani et al. (2017)",
+    "cited_title":"Attention Is All You Need",
+    "cited_abstract":"The Transformer is an architecture based entirely on attention, rather than recurrence and convolution."
+  }'
+```
+
+Una respuesta correcta incluye `predicted_label`, `probabilities`, `confidence`, `model_name` y datos de medición. Para B se añaden `cited_chunks` y, opcionalmente, `cited_chunk_sections`. No se promete una etiqueta concreta para una entrada de prueba.
+
+## 10. Solución de problemas
+
+| Problema | Acción sugerida |
+|---|---|
+| El modelo no aparece | Recarga la página; consulta `/api/v1/models`. Puede haberse detenido un servicio externo |
+| No puedes analizar en modo A | Completa la cita objetivo y el título/resumen del artículo |
+| No puedes analizar en modo B | Primero recupera o proporciona fragmentos válidos |
+| El artículo no aparece en la búsqueda | Busca por ID arXiv o título exacto y confirma el resultado |
+| El PDF falla | Comprueba formato, límite de 20 MB y correspondencia con la cita |
+| HTTP 429 | La aplicación limita consultas por IP; espera antes de repetir |
+| Granite tarda más de lo esperado | Puede estar procesando otra predicción, cargando pesos o usando CPU intensivamente |
+| Granite figura como no disponible | Comprueba disponibilidad del PC, Docker Desktop y Tailscale Funnel; informa al equipo |
+| La URL no abre | La EC2 puede estar detenida o tener una IP pública nueva |
+| La predicción parece incorrecta | Revisa contexto, referencia y evidencia; la salida es una estimación del modelo |
+
+## 11. Alcances y privacidad
+
+Este prototipo fue diseñado principalmente para textos científicos en inglés. No está destinado a decisiones de alto impacto ni a evaluación automática de calidad científica. La infraestructura tiene límites de cómputo, tasa y presupuesto; evita consultas automatizadas masivas. No cargues documentos confidenciales, datos personales innecesarios o textos para los que no tengas permiso.
+
+[Volver al índice](index.html) | [Manual de instalación](manual-instalacion.html) | [Repositorio](https://github.com/d-leandro/EvidenCite)

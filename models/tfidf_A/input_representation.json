@@ -1,0 +1,10 @@
+{
+  "configuration": "A",
+  "include_citing_section": false,
+  "include_cited_section": true,
+  "max_seq_length": null,
+  "enforce_per_chunk_budget": true,
+  "top_k_chunks": 3,
+  "strip_cite_tags": false,
+  "explicit_segments": false
+}

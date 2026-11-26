@@ -1,0 +1,35 @@
+digraph EvidenCite {
+  graph [label="EvidenCite | Arquitectura híbrida de inferencia", labelloc=t, fontsize=22, fontname="DejaVu Sans", fontcolor="#eaf4ff", bgcolor="#0d1422", pad="0.45", nodesep="0.38", ranksep="0.78", splines=polyline, rankdir=LR];
+  node [shape=box, style="rounded,filled", color="#355072", fillcolor="#15253a", fontcolor="#eaf4ff", fontname="DejaVu Sans", fontsize=13, penwidth=1.4, margin="0.20,0.16"];
+  edge [color="#48bfdf", penwidth=1.7, arrowsize=0.8, fontname="DejaVu Sans", fontcolor="#b8d6e7", fontsize=11];
+  browser [label="Navegador\nInterfaz EvidenCite", fillcolor="#173957", color="#38bdf8"];
+  subgraph cluster_ec2 {
+    label="AWS Academy | EC2 t3.large (8 GiB RAM)";
+    fontname="DejaVu Sans"; fontsize=15; fontcolor="#c1e5ff"; color="#32618b"; bgcolor="#101c30"; style="rounded";
+    caddy [label="Caddy\nHTTPS :443", fillcolor="#19314a"];
+    nginx [label="Nginx gateway\n/ y /api/", fillcolor="#19314a"];
+    web [label="Frontend\nHTML/CSS/JS"];
+    api [label="FastAPI\nClasificación y métricas", fillcolor="#123548", color="#2dd4bf"];
+    tfidf [label="TF-IDF + LogReg\nA y B"];
+    scibert [label="SciBERT\nA y B"];
+    caddy -> nginx; nginx -> web; nginx -> api; api -> tfidf; api -> scibert;
+  }
+  subgraph cluster_provider {
+    label="Proveedor externo"; fontname="DejaVu Sans"; fontsize=15; fontcolor="#d7c5ff"; color="#6348a7"; bgcolor="#171629"; style="rounded";
+    gemini [label="Gemini 3.5 Flash-Lite\nA y B", fillcolor="#302650", color="#a78bfa"];
+  }
+  subgraph cluster_local {
+    label="PC del equipo | Windows + WSL2 + Docker"; fontname="DejaVu Sans"; fontsize=15; fontcolor="#c9f7e8"; color="#2b8876"; bgcolor="#0e2326"; style="rounded";
+    funnel [label="Tailscale Funnel\nURL pública HTTPS", fillcolor="#17463e", color="#34d399"];
+    granite [label="Granite 4.2 8B INT8\nLoRA A y B (CPU)\ncola + token", fillcolor="#17463e", color="#34d399"];
+    funnel -> granite [label="127.0.0.1:8091"];
+  }
+  ssm [label="AWS SSM\nParámetros y secretos", fillcolor="#44321e", color="#f59e0b"];
+  s3 [label="AWS S3\nCheckpoints + TF state", fillcolor="#44321e", color="#f59e0b"];
+  browser -> caddy [label="TLS"];
+  api -> gemini [label="HTTPS (API)",color="#a78bfa"];
+  api -> funnel [label="HTTPS + token\n/jobs y polling",color="#34d399"];
+  ssm -> api [label="variables privadas",style=dashed,color="#f59e0b"];
+  s3 -> scibert [label="sync antes de iniciar",style=dashed,color="#f59e0b"];
+  s3 -> tfidf [style=dashed,color="#f59e0b"];
+}

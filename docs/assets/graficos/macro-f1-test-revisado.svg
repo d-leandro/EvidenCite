@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="575" viewBox="0 0 1180 575" role="img" aria-label="Macro-F1 de seis clasificadores sobre test-revisado">
+<rect width="1180" height="575" rx="20" fill="#0d1422"/>
+<text x="50" y="60" font-family="DejaVu Sans,Arial,sans-serif" font-size="27" font-weight="bold" fill="#f1f8ff">Macro-F1 en test-revisado</text>
+<text x="50" y="94" font-family="DejaVu Sans,Arial,sans-serif" font-size="16" fill="#9eb9d3">Seis runs principales | Panel MLflow exportado el 21/11/2026 | Mayor es mejor</text>
+<text x="50" y="159" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">SciBERT A</text>
+<rect x="285" y="139" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="139" width="637" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="159" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">46.23 %</text>
+<text x="50" y="220" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">Granite + LoRA B</text>
+<rect x="285" y="200" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="200" width="608" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="220" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">44.12 %</text>
+<text x="50" y="281" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">Granite + LoRA A</text>
+<rect x="285" y="261" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="261" width="600" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="281" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">43.48 %</text>
+<text x="50" y="342" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">SciBERT B</text>
+<rect x="285" y="322" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="322" width="597" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="342" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">43.31 %</text>
+<text x="50" y="403" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">TF-IDF + LogReg A</text>
+<rect x="285" y="383" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="383" width="505" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="403" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">36.61 %</text>
+<text x="50" y="464" fill="#e5f0ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="17">TF-IDF + LogReg B</text>
+<rect x="285" y="444" width="690" height="24" rx="10" fill="#24384e"/>
+<rect x="285" y="444" width="457" height="24" rx="10" fill="#39bdd8"/>
+<text x="1010" y="464" fill="#f6faff" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" font-weight="bold">33.17 %</text>
+<text x="50" y="541" font-family="DejaVu Sans,Arial,sans-serif" font-size="14" fill="#9eb9d3">La gráfica no contiene Gemini A/B: son configuraciones de evaluación por API, no runs de entrenamiento.</text></svg>
