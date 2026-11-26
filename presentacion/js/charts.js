@@ -27,6 +27,45 @@ window.EvidenCharts = (function () {
     return Number(num).toFixed(dec).replace(".", ",");
   }
 
+  // Smooth 60fps requestAnimationFrame tween (cubic ease-out) with clean cancellation
+  function tween(durationMs, onFrame, delayMs) {
+    const delay = delayMs || 0;
+    let rafId = null;
+    let timerId = null;
+    let cancelled = false;
+
+    function start() {
+      if (cancelled) return;
+      if (durationMs <= 0) {
+        onFrame(1);
+        return;
+      }
+      const t0 = performance.now();
+      function tick(now) {
+        if (cancelled) return;
+        const raw = Math.min(1, (now - t0) / durationMs);
+        const eased = 1 - Math.pow(1 - raw, 3);
+        onFrame(eased);
+        if (raw < 1) {
+          rafId = requestAnimationFrame(tick);
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    if (delay > 0) {
+      timerId = setTimeout(start, delay);
+    } else {
+      rafId = requestAnimationFrame(start);
+    }
+
+    return function cancel() {
+      cancelled = true;
+      if (timerId !== null) clearTimeout(timerId);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }
+
   // Tooltip controller clamped inside viewport
   const Tooltip = {
     node: null,
@@ -383,40 +422,62 @@ window.EvidenCharts = (function () {
       const preW = (r.prePct / maxPct) * chartW;
       el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "none", stroke: "var(--line-strong)", "stroke-dasharray": "4 3", "stroke-width": 1.2 }, g);
 
-      // Animated active bar
-      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--accent-secondary)", class: "svg-anim" }, g);
+      // Animated active bar (driven smoothly at 60fps by tween)
+      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--accent-secondary)" }, g);
+      rect.style.transition = "fill 500ms ease";
       const lbl = txt(`${fmtComma(r.prePct, 1)}% (${r.preN})`, { x: marginL + preW + 10, y: y + 20, class: "svg-mono", "font-size": 12.5, "font-weight": 700 }, g);
-      lbl.classList.add("svg-anim");
 
       bindTip(g, r.cls, [
         `Test Pre-A3: ${r.preN} citas (${fmtComma(r.prePct, 2)}%)`,
         `Test Gold A3: ${r.goldN} citas (${fmtComma(r.goldPct, 2)}%)`,
         `Cambio: ${r.deltaPct > 0 ? "+" : ""}${fmtComma(r.deltaPct, 2)} pp`
       ]);
-      barEls.push({ r, rect, lbl });
+      barEls.push({ r, rect, lbl, curPct: r.prePct, curN: r.preN });
     });
+
+    let activeCancel = null;
+    let lastGoldState = null;
 
     return {
       update(isGold) {
+        banner.style.transition = "opacity 900ms ease";
         banner.style.opacity = isGold ? "1" : "0.08";
-        barEls.forEach(({ r, rect, lbl }) => {
-          const pct = isGold ? r.goldPct : r.prePct;
-          const n = isGold ? r.goldN : r.preN;
-          const w = (pct / maxPct) * chartW;
-          rect.setAttribute("width", String(w));
+
+        if (lastGoldState === isGold) return;
+        const firstPaint = lastGoldState === null;
+        lastGoldState = isGold;
+
+        if (activeCancel) activeCancel();
+
+        const snapshots = barEls.map((item) => {
+          const targetPct = isGold ? item.r.goldPct : item.r.prePct;
+          const targetN = isGold ? item.r.goldN : item.r.preN;
           let color = "var(--accent-secondary)";
           if (isGold) {
-            if (r.cls === "Background") color = "var(--accent-gold)";
-            else if (r.cls === "Application") color = "var(--accent-primary)";
-            else if (r.cls === "Gap" || r.cls === "Improvement") color = "var(--accent-danger)";
+            if (item.r.cls === "Background") color = "var(--accent-gold)";
+            else if (item.r.cls === "Application") color = "var(--accent-primary)";
+            else if (item.r.cls === "Gap" || item.r.cls === "Improvement") color = "var(--accent-danger)";
             else color = "var(--ink-3)";
           }
-          rect.setAttribute("fill", color);
-          lbl.setAttribute("x", String(marginL + w + 10));
-          lbl.textContent = isGold
-            ? `${fmtComma(pct, 2)}% (${n.toLocaleString("es-CO")})`
-            : `${fmtComma(pct, 1)}% (${n})`;
+          item.rect.setAttribute("fill", color);
+          return { item, fromPct: item.curPct, toPct: targetPct, fromN: item.curN, toN: targetN };
         });
+
+        const dur = firstPaint ? 0 : 1300;
+        activeCancel = tween(dur, (t) => {
+          snapshots.forEach((s) => {
+            const p = s.fromPct + (s.toPct - s.fromPct) * t;
+            const n = Math.round(s.fromN + (s.toN - s.fromN) * t);
+            s.item.curPct = p;
+            s.item.curN = n;
+            const w = (p / maxPct) * chartW;
+            s.item.rect.setAttribute("width", String(w));
+            s.item.lbl.setAttribute("x", String(marginL + w + 10));
+            s.item.lbl.textContent = isGold
+              ? `${fmtComma(p, 2)}% (${n.toLocaleString("es-CO")})`
+              : `${fmtComma(p, 1)}% (${n})`;
+          });
+        }, firstPaint ? 0 : 120);
       }
     };
   }
@@ -512,32 +573,33 @@ window.EvidenCharts = (function () {
       const xAuto = xScale(r.autoF1);
       const xGold = xScale(r.goldF1);
 
-      const bar = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: "var(--accent-danger)", "stroke-width": 3, "stroke-linecap": "round", class: "svg-anim" }, g);
+      const bar = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: "var(--accent-danger)", "stroke-width": 3, "stroke-linecap": "round" }, g);
       el("circle", { cx: xAuto, cy: y, r: 6.5, fill: "var(--bg)", stroke: "var(--ink-3)", "stroke-width": 2.2 }, g);
       txt(fmtComma(r.autoF1, 3), { x: xAuto + 12, y: y + 4, class: "svg-mono svg-muted", "font-size": 11.5 }, g);
 
-      const dotGold = el("circle", { cx: xAuto, cy: y, r: 7.2, fill: "var(--accent-danger)", stroke: "var(--bg)", "stroke-width": 1.6, class: "svg-anim" }, g);
+      const dotGold = el("circle", { cx: xAuto, cy: y, r: 7.2, fill: "var(--accent-danger)", stroke: "var(--bg)", "stroke-width": 1.6, opacity: 0 }, g);
       const lblGold = txt(fmtComma(r.goldF1, 3), { x: xGold - 12, y: y + 4, "text-anchor": "end", class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-danger)", opacity: 0 }, g);
-      lblGold.classList.add("svg-anim");
 
       bindTip(g, `${r.name} (${r.params})`, [
         `Test automático: ${fmtComma(r.autoF1, 3)}`,
         `Gold humano A3 (Tabla III): ${fmtComma(r.goldF1, 3)}`,
         `Caída: ${fmtComma(r.goldF1 - r.autoF1, 3)} Macro-F1`
       ]);
-      animRefs.push({ bar, dotGold, lblGold, xGold });
+      animRefs.push({ bar, dotGold, lblGold, xAuto, xGold });
     });
 
-    // Trigger slide animation on next frame
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        animRefs.forEach(({ bar, dotGold, lblGold, xGold }) => {
-          bar.setAttribute("x1", String(xGold));
-          dotGold.setAttribute("cx", String(xGold));
-          lblGold.setAttribute("opacity", "1");
-        });
+    // Brief 260ms hold so smooth scroll settles and audience sees ~0,74 first, then 1,3s glide
+    tween(1300, (t) => {
+      const dotOp = Math.min(1, t * 4);
+      const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
+      animRefs.forEach(({ bar, dotGold, lblGold, xAuto, xGold }) => {
+        const curX = xAuto + (xGold - xAuto) * t;
+        bar.setAttribute("x1", String(curX));
+        dotGold.setAttribute("cx", String(curX));
+        dotGold.setAttribute("opacity", String(dotOp));
+        lblGold.setAttribute("opacity", String(lblOp));
       });
-    });
+    }, 260);
   }
 
   /* ========================================================================
@@ -617,8 +679,8 @@ window.EvidenCharts = (function () {
       const xHum = xCorr(r.hum);
       const rowB = el("g", {}, gB);
 
-      // Connector line (starts zero-length at xAuto, slides to xHum in step 2)
-      const line = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: colSlide, "stroke-width": 3.2, "stroke-linecap": "round", class: "svg-anim" }, rowB);
+      // Connector line (starts zero-length at xAuto, glides smoothly at 60fps to xHum in step 2)
+      const line = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: colSlide, "stroke-width": 3.2, "stroke-linecap": "round" }, rowB);
 
       // Hollow marker (old automatic label)
       const hollow = isA5
@@ -626,8 +688,8 @@ window.EvidenCharts = (function () {
         : el("circle", { cx: xAuto, cy: y, r: 6.8, fill: "var(--bg)", stroke: colSlide, "stroke-width": 2.4 }, rowB);
       const lblAuto = txt(`${fmtComma(r.auto, 1)}%`, { x: isA5 ? xAuto - 12 : xAuto + 12, y: y + 4, "text-anchor": isA5 ? "end" : "start", class: "svg-mono svg-muted", "font-size": 11.5 }, rowB);
 
-      // Solid marker (human Gold label — starts at xAuto hidden, slides to xHum in step 2)
-      const solidGroup = el("g", { class: "svg-anim", transform: `translate(${xAuto}, ${y})`, opacity: 0 }, rowB);
+      // Solid marker (human Gold label — starts at xAuto hidden, glides smoothly to xHum in step 2)
+      const solidGroup = el("g", { transform: `translate(${xAuto}, ${y})`, opacity: 0 }, rowB);
       if (isA5) {
         el("polygon", { points: "0,-7.5 7.5,0 0,7.5 -7.5,0", fill: colSlide, stroke: "var(--bg)", "stroke-width": 1.6 }, solidGroup);
       } else {
@@ -644,7 +706,6 @@ window.EvidenCharts = (function () {
         fill: colSlide,
         opacity: 0
       }, rowB);
-      lblHum.classList.add("svg-anim");
 
       const lblDelta = txt(`${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`, {
         x: deltaX,
@@ -655,7 +716,6 @@ window.EvidenCharts = (function () {
         fill: colSlide,
         opacity: 0
       }, rowB);
-      lblDelta.classList.add("svg-anim");
 
       bindTip(rowB, `${r.name} — Corregidas (n = 1.520)`, [
         `Repite etiqueta automática (○): ${fmtComma(r.auto, 1)}%`,
@@ -663,7 +723,7 @@ window.EvidenCharts = (function () {
         `Brecha Δ (hum − auto): ${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`
       ]);
 
-      dynRows.push({ line, solidGroup, lblHum, lblDelta, lblAuto, hollow, xAuto, xHum, y });
+      dynRows.push({ isA5, line, solidGroup, lblHum, lblDelta, lblAuto, hollow, xAuto, xHum, y });
     });
 
     // Bottom clean legend
@@ -673,28 +733,53 @@ window.EvidenCharts = (function () {
     el("circle", { cx: 420, cy: legY - 4, r: 5.5, fill: "var(--ink-2)" }, svg);
     txt("acierta etiqueta humana Gold (●)", { x: 432, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
 
+    let cancelA4 = null;
+    let cancelA5 = null;
+    let lastStep = null;
+
+    function applyRowProgress(row, t) {
+      const curX = row.xAuto + (row.xHum - row.xAuto) * t;
+      row.line.setAttribute("x2", String(curX));
+      row.solidGroup.setAttribute("transform", `translate(${curX}, ${row.y})`);
+      row.solidGroup.setAttribute("opacity", String(Math.min(1, t * 4)));
+      const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
+      row.lblHum.setAttribute("opacity", String(lblOp));
+      row.lblDelta.setAttribute("opacity", String(lblOp));
+    }
+
     return {
       update(step) {
-        // step 0: Panel A only; step 1: Panel B hollow markers; step 2: slide solid markers + delta
+        // step 0: Panel A only; step 1: Panel B hollow markers; step 2: A4 glides left, +350ms later A5 launches right
         gA.style.opacity = step === 0 ? "1" : "0.78";
         gB.style.opacity = step === 0 ? "0.06" : "1";
-        gDeltaHead.setAttribute("opacity", step >= 2 ? "1" : "0");
 
-        dynRows.forEach(({ line, solidGroup, lblHum, lblDelta, xAuto, xHum, y }) => {
-          if (step < 2) {
-            line.setAttribute("x2", String(xAuto));
-            solidGroup.setAttribute("transform", `translate(${xAuto}, ${y})`);
-            solidGroup.setAttribute("opacity", "0");
-            lblHum.setAttribute("opacity", "0");
-            lblDelta.setAttribute("opacity", "0");
-          } else {
-            line.setAttribute("x2", String(xHum));
-            solidGroup.setAttribute("transform", `translate(${xHum}, ${y})`);
-            solidGroup.setAttribute("opacity", "1");
-            lblHum.setAttribute("opacity", "1");
-            lblDelta.setAttribute("opacity", "1");
-          }
-        });
+        if (lastStep === step) return;
+        lastStep = step;
+
+        if (cancelA4) { cancelA4(); cancelA4 = null; }
+        if (cancelA5) { cancelA5(); cancelA5 = null; }
+
+        if (step < 2) {
+          gDeltaHead.setAttribute("opacity", "0");
+          dynRows.forEach((row) => applyRowProgress(row, 0));
+          return;
+        }
+
+        gDeltaHead.setAttribute("opacity", "1");
+        const a4Rows = dynRows.filter((r) => !r.isA5);
+        const a5Rows = dynRows.filter((r) => r.isA5);
+        a4Rows.forEach((row) => applyRowProgress(row, 0));
+        a5Rows.forEach((row) => applyRowProgress(row, 0));
+
+        // 1. First the 4 fine-tuned A4 models fall leftwards (1,25s)
+        cancelA4 = tween(1250, (t) => {
+          a4Rows.forEach((row) => applyRowProgress(row, t));
+        }, 120);
+
+        // 2. 350ms later, GPT and Gemini launch rightwards toward human Gold (1,25s)
+        cancelA5 = tween(1250, (t) => {
+          a5Rows.forEach((row) => applyRowProgress(row, t));
+        }, 470);
       }
     };
   }
