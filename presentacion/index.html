@@ -418,7 +418,7 @@
           <article class="beat-step" data-beat="20" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Antes de A3: empate. Después de A3: no.</h2>
-            <p class="beat-lead">0,441 vs 0,449 en el test automático. <strong>0,4664 vs 0,5996</strong> en el Gold humano.</p>
+            <p class="beat-lead">En 22.384 inferencias API (<strong>99,991% JSON válido</strong>), GPT 0s-B y Gemini 0s-B empataban en test automático (0,441 vs. 0,449). En Gold, <strong>Gemini salta a 0,5996 (+0,1331 Macro-F1)</strong>.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">0,5996</span><span class="metric-lbl">Gemini 0s-B Macro-F1</span></div>
               <div class="metric-item"><span class="metric-val is-gold">+0,1331</span><span class="metric-lbl">brecha vs. GPT (p &lt; 10⁻⁴)</span></div>
@@ -428,7 +428,7 @@
           <article class="beat-step" data-beat="21" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="1">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 2/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Gemini gana 9 de 9 clases</h2>
-            <p class="beat-lead"><strong>Basis +0,302</strong> · <strong>Further Reading +0,246</strong> · <strong>Gap +0,173</strong>.</p>
+            <p class="beat-lead">Supera a GPT 0s-B en todas las funciones; las mayores brechas están en clases difíciles: <strong>Basis (+0,302)</strong>, <strong>Further Reading (+0,246)</strong> y <strong>Gap (+0,173)</strong>.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">9 / 9</span><span class="metric-lbl">clases ganadas por Gemini</span></div>
               <div class="metric-item"><span class="metric-val">68,41%</span><span class="metric-lbl">exactitud global Gemini 0s-B</span></div>
@@ -437,8 +437,8 @@
 
           <article class="beat-step" data-beat="22" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="2">
             <div class="beat-tag">A5-02 · Respuesta a PI1 <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Config B no ayuda siempre, pero sí cambia cosas importantes</h2>
-            <p class="beat-lead">GPT 0-Shot: <strong>+2,86 pp globales</strong> y <strong>+10,28 pp</strong> en Related Work. Gemini: misma calidad, <strong>−19,4%</strong> pensamiento latente.</p>
+            <h2 class="beat-heading">Config B aporta mejoras focalizadas según modelo y sección</h2>
+            <p class="beat-lead">GPT 0-Shot: <strong>+2,86 pp globales</strong> y <strong>+10,28 pp</strong> en Related Work. Gemini: misma calidad, <strong>−19,4% pensamiento latente</strong>.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-secondary">+10,28 pp</span><span class="metric-lbl">GPT en Related Work</span></div>
               <div class="metric-item"><span class="metric-val is-primary">−19,4%</span><span class="metric-lbl">pensamientos en Gemini</span></div>
@@ -448,7 +448,7 @@
           <article class="beat-step" data-beat="23" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="3">
             <div class="beat-tag">A5-03 · Por qué cayó 9-Shot <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">El 9-Shot se contaminó desde el prompt</h2>
-            <p class="beat-lead"><strong>4 / 9</strong> ejemplos venían del estrato más ruidoso. Ese estrato fallaba <strong>66,06%</strong>.</p>
+            <p class="beat-lead">0-Shot venció a 9-Shot porque <strong>4 de 9 ejemplos</strong> salieron de empates 1-1-1 en <strong>train</strong>, donde el error real fue <strong>66,06%</strong>.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-danger">4 / 9</span><span class="metric-lbl">ejemplos desde empate 1-1-1</span></div>
               <div class="metric-item"><span class="metric-val is-warn">66,06%</span><span class="metric-lbl">error de ese estrato en test</span></div>
@@ -477,7 +477,7 @@
 
           <article class="beat-step" data-beat="26" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="6">
             <div class="beat-tag">A7-01 · Precisión–Costo (2/2) <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Solo quedaron dos opciones racionales</h2>
+            <h2 class="beat-heading">Dos opciones claras en producción</h2>
             <p class="beat-lead"><strong>GPT 0s-B</strong> si importa costo y velocidad. <strong>Gemini 0s-B</strong> si importa calidad y calibración.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">$17,68 / 10k</span><span class="metric-lbl">Gemini 0s-B (0,5996 F1)</span></div>
