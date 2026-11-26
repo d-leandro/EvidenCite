@@ -1385,48 +1385,582 @@ window.EvidenCharts = (function () {
   }
 
 
-  // A8 — a controlled, progressive explanation of the actual inference pipeline.
-  // The example's retrieved scores are real; no prediction probabilities are invented.
-  function renderA8ConfigNarrative(container) {
+  /* ========================================================================
+     15. A8 — Flujo continuo de inferencia en tiempo real por scroll (3 pasos)
+     Paso 0 (Beat 27): Entrada única -> caja EvidenCite
+     Paso 1 (Beat 28): Contenedor gris se expande -> Config A arriba || Config B abajo (k chunks -> SciBERT -> Coseno -> R1/R2/R3)
+     Paso 2 (Beat 29): Acordeón compacta recuperación -> 2 Clasificadores (dentro del gris) -> 2×9 barras Δ⁸ (afuera a la derecha)
+     ======================================================================== */
+  function createA8ScrollFlow(container) {
+    container.innerHTML = "";
     const ex = window.EVIDENCITE_DATA.inst04783;
-    const steps = [
-      { name: 'Entrada', title: '01 · Una cita, un artículo citado', note: 'Normalizar la ventana citante y resolver el artículo referenciado.' },
-      { name: 'Config A', title: '02 · A: representación global', note: 'El modelo recibe la ventana citante y el título + resumen.' },
-      { name: 'Config B', title: '03 · B: recuperar antes de clasificar', note: 'SciBERT codifica consulta y fragmentos; la similitud coseno ordena el Top-3.' },
-      { name: 'Inferencia', title: '04 · Dos entradas, una misma tarea', note: 'Se comparan A y B manteniendo la ventana citante y el modelo fijos.' }
-    ];
-    let step = 0;
-    const escape = s => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-    const T = (x,y,s,cls='f-label',extra='') => `<text x="${x}" y="${y}" class="${cls}" ${extra}>${escape(s)}</text>`;
-    const lines = (x,y,ss,cls='f-label',dy=22) => ss.map((s,i)=>T(x,y+i*dy,s,cls)).join('');
-    const R = (x,y,w,h,cls='f-card',rx=12) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" class="${cls}"/>`;
-    const path = (d,kind='neutral',delay=0) => `<path d="${d}" class="f-link ${kind}" marker-end="url(#f-arrow-${kind})"/>` + `<circle r="5" class="f-packet ${kind}" opacity="0"><animateMotion path="${d}" dur="0.85s" begin="${delay}s" fill="freeze"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.8;1" dur="0.85s" begin="${delay}s" fill="freeze"/></circle>`;
-    const reveal = (content,delay=0) => `<g class="f-reveal" style="--delay:${delay}s">${content}</g>`;
-    const center = 'text-anchor="middle"';
-    const doc = (x,y,w,h) => R(x,y,w,h,'f-card') + T(x+15,y+25,'ARTÍCULO CITADO','f-kicker') + T(x+15,y+49,ex.citedId,'f-mono') + [0,1,2,3,4].map((i)=>`<rect x="${x+15}" y="${y+64+i*11}" width="${w-30-(i%3)*18}" height="4" rx="2" class="f-docline"/>`).join('');
-    const citation = (x,y,w,h,compact=false) => R(x,y,w,h,'f-fixed') + T(x+16,y+25,'CONTEXTO CITANTE · FIJO','f-kicker') + (compact ? lines(x+16,y+49,['3 oraciones · '+ex.citingId,'Cita objetivo marcada'], 'f-small',20) : lines(x+16,y+52,['“The procedure builds upon the','recent work by Hopkins, Kamath','and Majid…”'], 'f-text',24) + T(x+16,y+130,'3 oraciones · '+ex.citingId,'f-mono'));
-    const model = (x,y,w,h) => R(x,y,w,h,'f-model')+T(x+w/2,y+27,'CLASIFICADOR','f-kicker',center)+T(x+w/2,y+52,'Modelo seleccionado','f-label',center);
-    const defs = `<defs>${['neutral','a','b','out'].map(k=>`<marker id="f-arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 Z" class="f-arrow ${k}"/></marker>`).join('')}</defs>`;
-    function graphic(i){
-      if(i===0){return citation(38,72,330,168)+doc(38,308,330,151)+path('M368 154 H444 V230 H485','neutral',0.1)+path('M368 382 H444 V254 H485','neutral',0.3)+reveal(R(485,185,440,125,'f-model')+T(705,219,'EvidenCite','f-title',center)+T(705,252,'Normalización + resolución','f-label',center)+T(705,280,'Una referencia identificada','f-small',center),0.9)+reveal(T(705,363,'A / B','f-big',center)+T(705,395,'Dos formas de representar el citado','f-small',center),1.1);}
-      if(i===1){return citation(34,36,400,145)+doc(34,286,245,151)+path('M279 361 H326','a',0.1)+reveal(R(326,270,350,180,'f-a')+T(343,298,'CONFIG A · GLOBAL','f-kicker')+lines(343,326,['Efficient mean estimation','with pure differential privacy…'],'f-text',22)+T(343,386,'Título + resumen','f-label')+T(343,411,'Representación del documento','f-small'),0.6)+path('M434 105 H780 V199','neutral',0.5)+path('M676 359 H683 V245 H690','a',1.0)+reveal(model(690,199,245,93),1.4)+reveal(path('M812 292 V352','out',1.6)+R(708,352,210,78,'f-out')+T(813,382,'9 funciones','f-title',center)+T(813,407,'Puntajes normalizados','f-small',center),1.9);}
-      if(i===2){
-        const chunks = ex.chunks;
-        const candidate = [0,1,2,3,4].map((j)=>reveal(R(40,204+j*51,174,40,'f-candidate',6)+T(53,229+j*51, j<3?`Fragmento ${j+1}`:'Otros fragmentos','f-small'),.55+j*.09));
-        const wholeDoc = `<g class="f-split-doc">${R(40,204,174,244,'f-card',8)}${T(53,228,'Texto completo','f-small')}${[0,1,2,3,4].map(j=>R(53,245+j*35,148,23,'f-class',3)).join('')}</g>`;
-        const vector = (x,y,seed)=>Array.from({length:10},(_,j)=>`<rect x="${x+j*8}" y="${y}" width="5" height="${8+((j*7+seed*11)%15)}" rx="1" class="f-vector" opacity="${0.45+(j%3)*0.2}"/>`).join('');
-        const rows=chunks.map((ch,j)=>{const y=206+j*83;return reveal(R(685,y,265,72,'f-b',8)+T(698,y+21,`R${ch.rank}  ·  cos ${ch.score}`,'f-mono')+T(698,y+42,j===0?'2.2.1 Private mean estimation…':ch.heading,'f-small')+T(698,y+59,j===0?'“our algorithm draws heavily…”':j===1?'“These properties of the SDP…”':'“Our goal is to privately estimate…”','f-tiny'),1.75+j*.24)}).join('');
-        return citation(35,20,300,102,true)+path('M335 72 H382','neutral',0.1)+reveal(R(382,29,250,86,'f-model')+T(507,54,'SciBERT · consulta','f-label',center)+vector(427,74,3)+T(520,90,'768 dim.','f-tiny'),.3)+T(35,155,'CUERPO DEL CITADO','f-kicker')+T(35,180,'Segmentación por sección','f-label')+wholeDoc+candidate.join('')+reveal(T(40,481,'≤110 palabras por chunk*','f-small'),0.35)+[0,1,2,3,4].map((j)=>path(`M214 ${224+j*51} H245`, 'b',.75+j*.12)).join('')+reveal(R(245,195,190,250,'f-model')+T(340,223,'SciBERT','f-label',center)+T(340,245,'Embeddings','f-small',center)+[0,1,2,3,4].map(j=>vector(280,268+j*31,j)).join('')+T(340,426,'768 dim. · L2','f-small',center),.65)+path('M632 72 H555 V195','neutral',.8)+path('M435 320 H482','b',1.05)+reveal(R(482,195,155,250,'f-card')+T(559,224,'Coseno','f-label',center)+T(559,247,'Consulta × chunks','f-tiny',center)+[0,1,2,3,4].map(j=>`<rect x="504" y="${269+j*29}" width="${[109,108.4,108.3,61,44][j]}" height="12" rx="4" class="${j<3?'f-sim-hi':'f-sim-lo'}"/>`).join('')+T(559,427,'Ordenar ↓','f-small',center),1.15)+T(685,157,'CONFIG B · TOP-3','f-kicker')+T(685,181,'Pasajes + encabezados','f-label')+[0,1,2].map(j=>path(`M637 ${283+j*29} H658 V${242+j*83} H685`,'b',1.35+j*.22)).join('')+rows+reveal(T(685,486,'El resto no entra al clasificador.','f-small'),2.4)+T(35,525,'* Una oración individual puede superar el límite. Candidatos y vectores: esquema ilustrativo.','f-tiny');
-      }
-      return citation(35,15,915,87,true)+path('M220 102 V142','neutral',0.1)+path('M766 102 V142','neutral',0.15)+reveal(R(35,142,435,107,'f-a')+T(52,170,'CONFIG A · GLOBAL','f-kicker')+T(52,199,'Contexto + título + resumen','f-label')+T(52,226,'Sin recuperación de pasajes','f-small'),.25)+reveal(R(515,142,435,107,'f-b')+T(532,170,'CONFIG B · LOCAL','f-kicker')+T(532,199,'Contexto + Top-3 + encabezados','f-label')+T(532,226,'Recuperación densa intra-documento','f-small'),.4)+path('M252 249 V276 H480 V304','a',.7)+path('M732 249 V276 H505 V304','b',.9)+reveal(R(323,304,340,70,'f-model')+T(493,328,'MISMA FAMILIA DE MODELO','f-kicker',center)+T(493,353,'Dos inferencias independientes','f-label',center),1.25)+path('M493 374 V405','out',1.55)+reveal(R(35,405,915,93,'f-out')+T(53,430,'SALIDA POR CONFIGURACIÓN · 9 PUNTAJES','f-kicker')+['Background','Gap','Basis','Comparison','Application','Improvement','Evidence','Originator','Further Reading'].map((s,j)=>{const widths=[108,50,58,105,104,115,79,91,125];const x=53+widths.slice(0,j).reduce((a,b)=>a+b+7,0);return R(x,448,widths[j],30,'f-class',5)+T(x+widths[j]/2,468,s,'f-tiny',center);}).join(''),1.85)+reveal(T(493,529,'Etiqueta de referencia del ejemplo: Basis · Predicción real en la demo','f-small',center),2.1);
+    const svg = el("svg", {
+      viewBox: "0 0 1000 590",
+      class: "a8-flow-svg",
+      role: "img",
+      "aria-label": "Flujo interactivo de inferencia en tiempo real de EvidenCite en 3 pasos"
+    }, container);
+
+    // Arrow markers
+    const defs = el("defs", {}, svg);
+    [
+      { id: "a8-m-n", col: "var(--ink-3)" },
+      { id: "a8-m-a", col: "var(--accent-secondary)" },
+      { id: "a8-m-b", col: "var(--accent-primary)" },
+      { id: "a8-m-v", col: "var(--accent-violet)" }
+    ].forEach((m) => {
+      const mk = el("marker", { id: m.id, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6.5, markerHeight: 6.5, orient: "auto" }, defs);
+      el("path", { d: "M 0 1 L 9 5 L 0 9 z", fill: m.col }, mk);
+    });
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function setBox(rect, b) {
+      rect.setAttribute("x", String(b.x));
+      rect.setAttribute("y", String(b.y));
+      rect.setAttribute("width", String(b.w));
+      rect.setAttribute("height", String(b.h));
     }
-    container.innerHTML = `<div class="a8-v3"><div class="f-stepbar" role="group" aria-label="Pasos del flujo">${steps.map((s,j)=>`<button type="button" data-flow-step="${j}"><span>0${j+1}</span> ${s.name}</button>`).join('')}</div><div class="f-graphic" aria-live="polite"></div><div class="f-bottom"><span class="f-note"></span><div class="f-nav"><button type="button" data-dir="-1" aria-label="Paso anterior">←</button><button type="button" data-dir="1" aria-label="Siguiente paso">→</button></div></div></div>`;
-    const root=container.querySelector('.a8-v3'), graph=root.querySelector('.f-graphic');
-    function show(i){ step=Math.max(0,Math.min(3,i));root.querySelectorAll('[data-flow-step]').forEach((b,j)=>{b.classList.toggle('active',j===step);b.setAttribute('aria-pressed',String(j===step));});graph.innerHTML=`<svg viewBox="0 0 985 548" role="img" aria-label="${steps[step].title}">${defs}${graphic(step)}</svg>`;root.querySelector('.f-note').textContent=steps[step].note;root.querySelector('[data-dir="-1"]').disabled=step===0;root.querySelector('[data-dir="1"]').disabled=step===3;}
-    root.querySelectorAll('[data-flow-step]').forEach(b=>b.addEventListener('click',()=>show(Number(b.dataset.flowStep))));
-    root.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>show(step+Number(b.dataset.dir))));
-    show(0);
-    return { show, advance(dir){if(step+dir<0||step+dir>3)return false;show(step+dir);return true;}, get step(){return step;} };
+
+    // ------------------------------------------------------------------
+    // LAYER 1: Pale-gray EvidenCite outer container (morphs across S0 -> S1 -> S2)
+    // ------------------------------------------------------------------
+    const gEvid = el("g", {}, svg);
+    const evidRect = el("rect", {
+      x: 492, y: 162, width: 438, height: 250, rx: 16,
+      fill: "var(--surface-tint)",
+      stroke: "var(--line-strong)",
+      "stroke-width": 1.8
+    }, gEvid);
+
+    const evidHeader = txt("EVIDENCITE · PIPELINE DE REPRESENTACIÓN", {
+      x: 224, y: 48, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700, opacity: 0
+    }, gEvid);
+
+    // S0 centered intake content inside evidRect
+    const gS0Intake = el("g", {}, gEvid);
+    txt("EvidenCite", { x: 711, y: 222, "text-anchor": "middle", "font-size": 27, "font-weight": 700 }, gS0Intake);
+    txt("Normalización + resolución de referencia", { x: 711, y: 254, "text-anchor": "middle", "font-size": 15.5, "font-weight": 600, fill: "var(--ink-2)" }, gS0Intake);
+    el("line", { x1: 556, y1: 278, x2: 866, y2: 278, stroke: "var(--line-strong)", "stroke-dasharray": "4 4" }, gS0Intake);
+    // Two preview badges inside S0 intake box
+    el("rect", { x: 528, y: 298, width: 174, height: 48, rx: 8, fill: "var(--accent-secondary-soft)", stroke: "var(--accent-secondary)", "stroke-width": 1.3 }, gS0Intake);
+    txt("CONFIG A · GLOBAL", { x: 615, y: 318, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, "font-weight": 700, fill: "var(--accent-secondary)" }, gS0Intake);
+    txt("Título + resumen", { x: 615, y: 336, "text-anchor": "middle", "font-size": 12, fill: "var(--ink-2)" }, gS0Intake);
+
+    el("rect", { x: 718, y: 298, width: 174, height: 48, rx: 8, fill: "var(--accent-primary-soft)", stroke: "var(--accent-primary)", "stroke-width": 1.3 }, gS0Intake);
+    txt("CONFIG B · LOCAL", { x: 805, y: 318, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, "font-weight": 700, fill: "var(--accent-primary)" }, gS0Intake);
+    txt("Top-3 por SciBERT", { x: 805, y: 336, "text-anchor": "middle", "font-size": 12, fill: "var(--ink-2)" }, gS0Intake);
+
+    txt("Misma cita, dos formas de representar el citado", { x: 711, y: 382, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, gS0Intake);
+
+    // ------------------------------------------------------------------
+    // LAYER 2: Config A top lane (morphs from S1 wide -> S2 compact)
+    // ------------------------------------------------------------------
+    const gLaneA = el("g", { opacity: 0 }, svg);
+    const rectA = el("rect", {
+      x: 228, y: 66, width: 732, height: 114, rx: 12,
+      fill: "var(--accent-secondary-soft)",
+      stroke: "var(--accent-secondary)",
+      "stroke-width": 1.6
+    }, gLaneA);
+
+    const gAFull = el("g", { opacity: 0 }, gLaneA);
+    txt("CONFIG A · REPRESENTACIÓN GLOBAL (SIN RECUPERACIÓN)", { x: 248, y: 92, class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-secondary)" }, gAFull);
+    txt("Contexto citante (fijo)  +  Título y Resumen del artículo citado", { x: 248, y: 122, "font-size": 16, "font-weight": 700 }, gAFull);
+    txt("“Efficient mean estimation with pure differential privacy…” · vista global estática para toda mención", { x: 248, y: 150, "font-size": 12.5, fill: "var(--ink-2)" }, gAFull);
+
+    const gACompact = el("g", { opacity: 0 }, gLaneA);
+    txt("CONFIG A · GLOBAL", { x: 176, y: 100, class: "svg-mono", "font-size": 11, "font-weight": 700, fill: "var(--accent-secondary)" }, gACompact);
+    txt("Contexto citante +", { x: 176, y: 132, "font-size": 15, "font-weight": 700 }, gACompact);
+    txt("Título + Resumen", { x: 176, y: 156, "font-size": 15, "font-weight": 700 }, gACompact);
+    txt("Vista global estática (sin pasajes)", { x: 176, y: 192, "font-size": 12, fill: "var(--ink-2)" }, gACompact);
+
+    // ------------------------------------------------------------------
+    // LAYER 3: Config B bottom lane (frame + detailed retrieval + compact pill + persistent Top-3)
+    // ------------------------------------------------------------------
+    const gLaneB = el("g", { opacity: 0 }, svg);
+    const frameB = el("rect", {
+      x: 228, y: 202, width: 732, height: 332, rx: 12,
+      fill: "var(--surface)",
+      stroke: "var(--accent-primary)",
+      "stroke-width": 1.3,
+      "stroke-dasharray": "5 4"
+    }, gLaneB);
+    const frameBKicker = txt("CONFIG B · RECUPERACIÓN DENSA", {
+      x: 246, y: 224, class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-primary)"
+    }, gLaneB);
+
+    // 3A. Detailed dense retrieval blocks (visible in S1, smoothly compress left & fade in S2)
+    const gRetFull = el("g", { opacity: 0 }, gLaneB);
+
+    // Column 1: k chunks (x=246, y=254, w=118, h=258)
+    el("rect", { x: 246, y: 254, width: 118, height: 258, rx: 10, fill: "var(--surface-tint)", stroke: "var(--line-strong)", "stroke-width": 1.3 }, gRetFull);
+    txt("k chunks", { x: 305, y: 277, "text-anchor": "middle", "font-size": 13.5, "font-weight": 700 }, gRetFull);
+    txt("≤110 pal./chunk", { x: 305, y: 295, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10 }, gRetFull);
+    ["Chunk 1", "Chunk 2", "Chunk 3", "…", "Chunk k"].forEach((lbl, idx) => {
+      const cy = 310 + idx * 38;
+      el("rect", { x: 258, y: cy, width: 94, height: 28, rx: 5, fill: "var(--surface)", stroke: idx < 3 ? "var(--accent-primary)" : "var(--line-strong)", "stroke-width": idx < 3 ? 1.2 : 1 }, gRetFull);
+      txt(lbl, { x: 305, y: cy + 18, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, fill: idx < 3 ? "var(--ink)" : "var(--ink-3)" }, gRetFull);
+    });
+
+    // Arrow k chunks -> SciBERT
+    el("path", { d: "M 364 383 H 388", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.8, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gRetFull);
+
+    // Column 2: SciBERT Embeddings (x=392, y=254, w=146, h=258)
+    el("rect", { x: 392, y: 254, width: 146, height: 258, rx: 10, fill: "var(--surface)", stroke: "var(--accent-violet)", "stroke-width": 1.6 }, gRetFull);
+    txt("SciBERT", { x: 465, y: 277, "text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: "var(--accent-violet)" }, gRetFull);
+    txt("Embeddings 768-d", { x: 465, y: 295, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10 }, gRetFull);
+
+    // Query vector mini strip
+    el("rect", { x: 404, y: 306, width: 122, height: 34, rx: 5, fill: "var(--surface-tint)", stroke: "var(--line)", "stroke-width": 1 }, gRetFull);
+    txt("v(consulta)", { x: 412, y: 320, class: "svg-mono svg-muted", "font-size": 9.5 }, gRetFull);
+    for (let j = 0; j < 11; j++) {
+      el("rect", { x: 412 + j * 9.5, y: 325, width: 6, height: 6 + ((j * 5 + 3) % 7), rx: 1.5, fill: "var(--ink-2)", opacity: 0.45 + (j % 3) * 0.2 }, gRetFull);
+    }
+    // Chunk vectors
+    for (let r = 0; r < 4; r++) {
+      const vy = 354 + r * 32;
+      for (let j = 0; j < 11; j++) {
+        el("rect", { x: 412 + j * 9.5, y: vy, width: 6, height: 8 + ((j * 7 + r * 11) % 13), rx: 1.5, fill: "var(--accent-violet)", opacity: 0.38 + ((j + r) % 3) * 0.22 }, gRetFull);
+      }
+    }
+    txt("Normalización L2", { x: 465, y: 498, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10 }, gRetFull);
+
+    // Arrow SciBERT -> Coseno
+    el("path", { d: "M 538 383 H 562", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.8, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gRetFull);
+
+    // Column 3: Coseno ranking (x=566, y=254, w=120, h=258)
+    el("rect", { x: 566, y: 254, width: 120, height: 258, rx: 10, fill: "var(--surface-tint)", stroke: "var(--line-strong)", "stroke-width": 1.3 }, gRetFull);
+    txt("Coseno", { x: 626, y: 277, "text-anchor": "middle", "font-size": 14, "font-weight": 700 }, gRetFull);
+    txt("Consulta × chunks", { x: 626, y: 295, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 9.8 }, gRetFull);
+    const cosBars = [
+      { w: 92, hi: true, y: 318 },
+      { w: 90, hi: true, y: 348 },
+      { w: 89, hi: true, y: 378 },
+      { w: 50, hi: false, y: 412 },
+      { w: 34, hi: false, y: 440 }
+    ];
+    cosBars.forEach((cb) => {
+      el("rect", { x: 580, y: cb.y, width: cb.w, height: 15, rx: 4, fill: cb.hi ? "var(--accent-primary)" : "var(--ink-3)", opacity: cb.hi ? 0.88 : 0.35 }, gRetFull);
+    });
+    txt("Top-3 ↓", { x: 626, y: 498, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, "font-weight": 700, fill: "var(--accent-primary)" }, gRetFull);
+
+    // 3 branching arrows Coseno -> R1, R2, R3
+    [
+      "M 686 325 H 699 V 292 H 712",
+      "M 686 355 H 701 V 383 H 712",
+      "M 686 385 H 699 V 474 H 712"
+    ].forEach((d) => {
+      el("path", { d, fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.7, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gRetFull);
+    });
+
+    // 3B. Compact accordion pill for S2 (replaces k chunks + SciBERT + Coseno cleanly)
+    const gRetCompact = el("g", { opacity: 0 }, gLaneB);
+    el("rect", { x: 174, y: 296, width: 112, height: 212, rx: 10, fill: "var(--surface-tint)", stroke: "var(--accent-violet)", "stroke-width": 1.4 }, gRetCompact);
+    txt("k chunks", { x: 230, y: 326, "text-anchor": "middle", class: "svg-mono", "font-size": 11, "font-weight": 600 }, gRetCompact);
+    txt("↓", { x: 230, y: 348, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 13 }, gRetCompact);
+    el("rect", { x: 184, y: 358, width: 92, height: 50, rx: 7, fill: "var(--surface)", stroke: "var(--accent-violet)", "stroke-width": 1.2 }, gRetCompact);
+    txt("SciBERT", { x: 230, y: 380, "text-anchor": "middle", "font-size": 12.5, "font-weight": 700, fill: "var(--accent-violet)" }, gRetCompact);
+    txt("768-dim", { x: 230, y: 398, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 9.8 }, gRetCompact);
+    txt("↓", { x: 230, y: 428, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 13 }, gRetCompact);
+    txt("Coseno", { x: 230, y: 452, "text-anchor": "middle", "font-size": 12, "font-weight": 700 }, gRetCompact);
+    txt("Ordenar Top-3", { x: 230, y: 472, "text-anchor": "middle", class: "svg-mono", "font-size": 9.8, fill: "var(--accent-primary)" }, gRetCompact);
+    el("path", { d: "M 286 402 H 306", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.8, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gRetCompact);
+
+    // 3C. Persistent Top-3 blue boxes (R1, R2, R3) — glide smoothly from S1 right -> S2 center!
+    const gTop3 = el("g", { opacity: 0 }, gLaneB);
+    const shortHeads = ["2.2.1 Private mean…", "2.1 Preliminaries", "1 Introduction"];
+    const shortQuotes = [
+      "“our algorithm draws heavily…”",
+      "“These properties of the SDP…”",
+      "“Our goal is to privately…”"
+    ];
+    const top3Cards = ex.chunks.map((ch, idx) => {
+      const gCard = el("g", {}, gTop3);
+      const rect = el("rect", {
+        x: 714, y: 254 + idx * 91, width: 226, height: 76, rx: 9,
+        fill: "var(--accent-primary-soft)", stroke: "var(--accent-primary)", "stroke-width": 1.6
+      }, gCard);
+      const tScore = txt(`R${ch.rank} · cos ${ch.score}`, {
+        x: 726, y: 275 + idx * 91, class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-primary)"
+      }, gCard);
+      const tHeadFull = txt(shortHeads[idx], {
+        x: 726, y: 296 + idx * 91, "font-size": 12, "font-weight": 600
+      }, gCard);
+      const tQuoteFull = txt(shortQuotes[idx], {
+        x: 726, y: 315 + idx * 91, "font-size": 10.8, fill: "var(--ink-2)"
+      }, gCard);
+      const tHeadMini = txt(shortHeads[idx], {
+        x: 322, y: 340 + idx * 74, "font-size": 11, fill: "var(--ink-2)", opacity: 0
+      }, gCard);
+
+      bindTip(gCard, `Top-3 · R${ch.rank} (cos ${ch.score})`, [
+        `Sección: ${ch.heading}`,
+        `Pasaje: “${ch.text.slice(0, 110)}…”`
+      ]);
+      return { rect, tScore, tHeadFull, tQuoteFull, tHeadMini };
+    });
+
+    // ------------------------------------------------------------------
+    // LAYER 4: Step 2 Inference — 2 Independent Classifiers (inside gray) + 2×9-bar Δ⁸ charts (outside right)
+    // ------------------------------------------------------------------
+    const gInfer = el("g", { opacity: 0 }, svg);
+
+    // Connectors from Config A / Config B to their independent Classifiers
+    el("path", { d: "M 486 149 H 520", fill: "none", stroke: "var(--accent-secondary)", "stroke-width": 2, "marker-end": "url(#a8-m-a)", class: "a8-flow-dash" }, gInfer);
+    el("path", { d: "M 486 389 H 520", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 2, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gInfer);
+
+    // Classifier A (independent box inside pale-gray EvidenCite container)
+    const gClfA = el("g", {}, gInfer);
+    el("rect", { x: 524, y: 88, width: 168, height: 122, rx: 12, fill: "var(--surface)", stroke: "var(--accent-violet)", "stroke-width": 1.7 }, gClfA);
+    txt("CLASIFICADOR A", { x: 608, y: 116, "text-anchor": "middle", class: "svg-mono", "font-size": 10.8, "font-weight": 700, fill: "var(--accent-violet)" }, gClfA);
+    txt("Modelo elegido", { x: 608, y: 146, "text-anchor": "middle", "font-size": 15, "font-weight": 700 }, gClfA);
+    txt("Llamada independiente", { x: 608, y: 170, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ink-2)" }, gClfA);
+    txt("Entrada: Config A", { x: 608, y: 192, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, fill: "var(--accent-secondary)" }, gClfA);
+    bindTip(gClfA, "Clasificador independiente (Config A)", [
+      "Recibe contexto citante + título y resumen del citado.",
+      "Puede ejecutarse con TF-IDF, SciBERT o LLM API."
+    ]);
+
+    // Classifier B (independent box inside pale-gray EvidenCite container)
+    const gClfB = el("g", {}, gInfer);
+    el("rect", { x: 524, y: 328, width: 168, height: 122, rx: 12, fill: "var(--surface)", stroke: "var(--accent-violet)", "stroke-width": 1.7 }, gClfB);
+    txt("CLASIFICADOR B", { x: 608, y: 356, "text-anchor": "middle", class: "svg-mono", "font-size": 10.8, "font-weight": 700, fill: "var(--accent-violet)" }, gClfB);
+    txt("Modelo elegido", { x: 608, y: 386, "text-anchor": "middle", "font-size": 15, "font-weight": 700 }, gClfB);
+    txt("Llamada independiente", { x: 608, y: 410, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ink-2)" }, gClfB);
+    txt("Entrada: Config B", { x: 608, y: 432, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, fill: "var(--accent-primary)" }, gClfB);
+    bindTip(gClfB, "Clasificador independiente (Config B)", [
+      "Recibe contexto citante + pasajes Top-3 (R1–R3) con encabezados.",
+      "Inferencia separada sobre la misma familia de modelo."
+    ]);
+
+    // Arrows crossing the pale-gray border (x=714) out to the two 9-class charts
+    el("path", { d: "M 692 149 H 740", fill: "none", stroke: "var(--accent-secondary)", "stroke-width": 2.2, "marker-end": "url(#a8-m-a)", class: "a8-flow-dash" }, gInfer);
+    el("path", { d: "M 692 389 H 740", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 2.2, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gInfer);
+
+    // Two 9-class probability bar charts (OUTSIDE right of EvidenCite box: x=744..988)
+    const clsCodes = ["Bg", "Ga", "Ba", "Cm", "Ap", "Im", "Ev", "Or", "FR"];
+    const clsFull = ["Background", "Gap", "Basis", "Comparison", "Application", "Improvement", "Evidence", "Originator", "Further Reading"];
+    // Schematic illustrative probability profiles (varied heights, clearly labeled illustrative)
+    const distA = [0.42, 0.14, 0.62, 0.25, 0.20, 0.12, 0.08, 0.07, 0.06];
+    const distB = [0.16, 0.07, 0.94, 0.11, 0.24, 0.14, 0.06, 0.05, 0.05];
+
+    const animBars = [];
+    function buildDistChart(yTop, title, accent, profile, tag) {
+      const gOut = el("g", {}, gInfer);
+      el("rect", {
+        x: 744, y: yTop, width: 244, height: 196, rx: 12,
+        fill: "var(--surface)", stroke: accent, "stroke-width": 1.6
+      }, gOut);
+      txt(title, { x: 758, y: yTop + 24, class: "svg-mono", "font-size": 11, "font-weight": 700, fill: accent }, gOut);
+      txt("Probabilidad en 9 clases (Δ⁸)", { x: 758, y: yTop + 42, "font-size": 11.5, fill: "var(--ink-2)" }, gOut);
+
+      const baseY = yTop + 158;
+      const maxH = 96;
+      el("line", { x1: 758, y1: baseY, x2: 974, y2: baseY, stroke: "var(--line-strong)", "stroke-width": 1.2 }, gOut);
+      el("line", { x1: 758, y1: baseY - maxH * 0.5, x2: 974, y2: baseY - maxH * 0.5, class: "svg-grid" }, gOut);
+
+      const startX = 762;
+      const pitch = 23.5;
+      const barW = 16;
+      const maxVal = Math.max(...profile);
+
+      profile.forEach((v, idx) => {
+        const bx = startX + idx * pitch;
+        const targetH = Math.max(4, v * maxH);
+        const isPeak = v === maxVal;
+        const bar = el("rect", {
+          x: bx, y: baseY, width: barW, height: 0, rx: 3,
+          fill: accent, opacity: isPeak ? 0.96 : 0.44
+        }, gOut);
+        txt(clsCodes[idx], {
+          x: bx + barW / 2, y: baseY + 16, "text-anchor": "middle",
+          class: "svg-mono", "font-size": 9.5, "font-weight": isPeak ? 700 : 500,
+          fill: isPeak ? accent : "var(--ink-3)"
+        }, gOut);
+
+        bindTip(bar, `${tag} · ${clsFull[idx]}`, [
+          "Esquema ilustrativo de distribución sobre las 9 funciones (Δ⁸).",
+          "La predicción numérica real se inspecciona en la demo en vivo."
+        ]);
+        animBars.push({ bar, baseY, targetH, idx });
+      });
+
+      txt("Esquema ilustrativo · ∑ p = 1", { x: 866, y: yTop + 188, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 9.5 }, gOut);
+    }
+
+    buildDistChart(52,  "SALIDA A · 9 FUNCIONES", "var(--accent-secondary)", distA, "Salida A");
+    buildDistChart(292, "SALIDA B · 9 FUNCIONES", "var(--accent-primary)",   distB, "Salida B");
+
+    // ------------------------------------------------------------------
+    // LAYER 5: Input cards (persistent across S0 -> S1 -> S2) + Step-specific routing arrows
+    // ------------------------------------------------------------------
+    // S0 arrows (Inputs -> EvidenCite intake)
+    const gArrS0 = el("g", {}, svg);
+    el("path", { d: "M 366 177 H 428 V 256 H 488", fill: "none", stroke: "var(--ink-3)", "stroke-width": 2, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS0);
+    el("path", { d: "M 366 397 H 428 V 318 H 488", fill: "none", stroke: "var(--ink-3)", "stroke-width": 2, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS0);
+
+    // S1 arrows (Inputs -> Config A top + Config B bottom: citing query -> SciBERT, cited body -> k chunks)
+    const gArrS1 = el("g", { opacity: 0 }, svg);
+    // Citing -> Config A
+    el("path", { d: "M 158 112 H 224", fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.9, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS1);
+    // Citing -> SciBERT query (clean top band inside frameB, zero overlap!)
+    el("path", { d: "M 158 156 H 176 V 236 H 465 V 250", fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.6, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS1);
+    txt("consulta", { x: 474, y: 232, class: "svg-mono svg-muted", "font-size": 10 }, gArrS1);
+    // Cited -> Config A (title + abstract)
+    el("path", { d: "M 158 354 H 190 V 148 H 224", fill: "none", stroke: "var(--accent-secondary)", "stroke-width": 1.8, "marker-end": "url(#a8-m-a)", class: "a8-flow-dash" }, gArrS1);
+    // Cited -> Config B (k chunks)
+    el("path", { d: "M 158 396 H 242", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.9, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gArrS1);
+
+    // S2 arrows (Mini inputs -> Config A + Config B)
+    const gArrS2 = el("g", { opacity: 0 }, svg);
+    el("path", { d: "M 114 134 H 156", fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.7, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS2);
+    el("path", { d: "M 114 166 H 124 V 352 H 156", fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.4, "marker-end": "url(#a8-m-n)", class: "a8-flow-dash" }, gArrS2);
+    el("path", { d: "M 114 378 H 132 V 176 H 156", fill: "none", stroke: "var(--accent-secondary)", "stroke-width": 1.5, "marker-end": "url(#a8-m-a)", class: "a8-flow-dash" }, gArrS2);
+    el("path", { d: "M 114 408 H 156", fill: "none", stroke: "var(--accent-primary)", "stroke-width": 1.7, "marker-end": "url(#a8-m-b)", class: "a8-flow-dash" }, gArrS2);
+
+    // Card 1: Contexto Citante
+    const gCiting = el("g", {}, svg);
+    const rectCiting = el("rect", {
+      x: 46, y: 92, width: 320, height: 170, rx: 12,
+      fill: "var(--surface-tint)", stroke: "var(--ink-3)", "stroke-width": 1.6
+    }, gCiting);
+
+    const citingFull = el("g", {}, gCiting);
+    txt("CONTEXTO CITANTE · FIJO", { x: 64, y: 120, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, citingFull);
+    txt("“The procedure builds upon the", { x: 64, y: 150, "font-size": 14.5 }, citingFull);
+    txt("recent work by Hopkins, Kamath", { x: 64, y: 173, "font-size": 14.5 }, citingFull);
+    txt("and Majid <cite>…</cite>”", { x: 64, y: 196, "font-size": 14.5 }, citingFull);
+    txt(`3 oraciones · ${ex.citingId}`, { x: 64, y: 236, class: "svg-mono", "font-size": 12.5, "font-weight": 700, fill: "var(--accent-gold)" }, citingFull);
+
+    const citingMed = el("g", { opacity: 0 }, gCiting);
+    txt("CITANTE · FIJO", { x: 26, y: 98, class: "svg-mono svg-muted", "font-size": 10.5, "font-weight": 700 }, citingMed);
+    txt("3 oraciones", { x: 26, y: 126, "font-size": 13.5, "font-weight": 700 }, citingMed);
+    txt(ex.citingId, { x: 26, y: 148, class: "svg-mono", "font-size": 11.5, fill: "var(--ink-2)" }, citingMed);
+    txt("Cita marcada", { x: 26, y: 168, "font-size": 11, fill: "var(--ink-3)" }, citingMed);
+
+    const citingMini = el("g", { opacity: 0 }, gCiting);
+    txt("CITANTE", { x: 63, y: 130, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10.5, "font-weight": 700 }, citingMini);
+    txt("3 oraciones", { x: 63, y: 156, "text-anchor": "middle", "font-size": 12, "font-weight": 700 }, citingMini);
+    txt("fijo", { x: 63, y: 176, "text-anchor": "middle", class: "svg-mono", "font-size": 10.5, fill: "var(--accent-gold)" }, citingMini);
+
+    // Card 2: Artículo Citado
+    const gCited = el("g", {}, svg);
+    const rectCited = el("rect", {
+      x: 46, y: 312, width: 320, height: 170, rx: 12,
+      fill: "var(--surface)", stroke: "var(--line-strong)", "stroke-width": 1.6
+    }, gCited);
+
+    const citedFull = el("g", {}, gCited);
+    txt("ARTÍCULO CITADO", { x: 64, y: 340, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, citedFull);
+    txt(ex.citedId, { x: 64, y: 366, class: "svg-mono", "font-size": 14, "font-weight": 700 }, citedFull);
+    txt("Efficient mean estimation with pure DP", { x: 64, y: 392, "font-size": 13.5, fill: "var(--ink-2)" }, citedFull);
+    [0, 1, 2, 3].forEach((j) => {
+      el("rect", { x: 64, y: 410 + j * 13, width: 256 - (j % 3) * 38, height: 5, rx: 2.5, fill: "var(--ink-3)", opacity: 0.32 }, citedFull);
+    });
+
+    const citedMed = el("g", { opacity: 0 }, gCited);
+    txt("CITADO", { x: 26, y: 350, class: "svg-mono svg-muted", "font-size": 10.5, "font-weight": 700 }, citedMed);
+    txt(ex.citedId, { x: 26, y: 374, class: "svg-mono", "font-size": 12.5, "font-weight": 700 }, citedMed);
+    txt("Texto completo", { x: 26, y: 396, "font-size": 11.5, fill: "var(--ink-2)" }, citedMed);
+    [0, 1, 2].forEach((j) => {
+      el("rect", { x: 26, y: 410 + j * 12, width: 110 - (j % 2) * 26, height: 4.5, rx: 2, fill: "var(--ink-3)", opacity: 0.35 }, citedMed);
+    });
+
+    const citedMini = el("g", { opacity: 0 }, gCited);
+    txt("CITADO", { x: 63, y: 378, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10.5, "font-weight": 700 }, citedMini);
+    txt(ex.citedId, { x: 63, y: 404, "text-anchor": "middle", class: "svg-mono", "font-size": 11, "font-weight": 700 }, citedMini);
+    txt("documento", { x: 63, y: 424, "text-anchor": "middle", "font-size": 10.5, fill: "var(--ink-3)" }, citedMini);
+
+    // Bottom subtle note inside SVG
+    const svgFoot = txt("Normalización de etiquetas (<cite>, [OTHERCIT]) y resolución jerárquica del artículo citado.", {
+      x: 500, y: 576, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 10.8
+    }, svg);
+
+    // ------------------------------------------------------------------
+    // Target state keyframes (S0, S1, S2)
+    // ------------------------------------------------------------------
+    const STATES = [
+      {
+        citing: { x: 46, y: 92, w: 320, h: 170 },
+        cited:  { x: 46, y: 312, w: 320, h: 170 },
+        evid:   { x: 492, y: 162, w: 438, h: 250 },
+        boxA:   { x: 520, y: 186, w: 380, h: 96 },
+        frameB: { x: 520, y: 292, w: 380, h: 106 },
+        top3:   { x: 714, y: 254, w: 226, h: 76, gap: 91 },
+        s0: 1, s1: 0, s2: 0, laneOp: 0, retFullOp: 0, retFullTx: 80, retCompactOp: 0, inferOp: 0, inferTx: 36, barP: 0
+      },
+      {
+        citing: { x: 14, y: 74, w: 144, h: 110 },
+        cited:  { x: 14, y: 326, w: 144, h: 132 },
+        evid:   { x: 204, y: 24, w: 780, h: 530 },
+        boxA:   { x: 228, y: 66, w: 732, h: 114 },
+        frameB: { x: 228, y: 202, w: 732, h: 332 },
+        top3:   { x: 714, y: 254, w: 226, h: 76, gap: 91 },
+        s0: 0, s1: 1, s2: 0, laneOp: 1, retFullOp: 1, retFullTx: 0, retCompactOp: 0, inferOp: 0, inferTx: 36, barP: 0
+      },
+      {
+        citing: { x: 12, y: 102, w: 102, h: 92 },
+        cited:  { x: 12, y: 350, w: 102, h: 92 },
+        evid:   { x: 138, y: 28, w: 576, h: 518 },
+        boxA:   { x: 160, y: 74, w: 326, h: 150 },
+        frameB: { x: 160, y: 254, w: 326, h: 270 },
+        top3:   { x: 310, y: 296, w: 162, h: 62, gap: 75 },
+        s0: 0, s1: 0, s2: 1, laneOp: 1, retFullOp: 0, retFullTx: -70, retCompactOp: 1, inferOp: 1, inferTx: 0, barP: 1
+      }
+    ];
+
+    function cloneState(s) {
+      return {
+        citing: { ...s.citing }, cited: { ...s.cited }, evid: { ...s.evid },
+        boxA: { ...s.boxA }, frameB: { ...s.frameB }, top3: { ...s.top3 },
+        s0: s.s0, s1: s.s1, s2: s.s2, laneOp: s.laneOp,
+        retFullOp: s.retFullOp, retFullTx: s.retFullTx,
+        retCompactOp: s.retCompactOp, inferOp: s.inferOp, inferTx: s.inferTx, barP: s.barP
+      };
+    }
+
+    let cur = cloneState(STATES[0]);
+    let activeStep = -1;
+    let cancelTween = null;
+
+    function applyState(st) {
+      setBox(rectCiting, st.citing);
+      setBox(rectCited, st.cited);
+      setBox(evidRect, st.evid);
+      setBox(rectA, st.boxA);
+      setBox(frameB, st.frameB);
+
+      evidHeader.setAttribute("x", String(st.evid.x + 20));
+      evidHeader.setAttribute("y", String(st.evid.y + 24));
+      evidHeader.setAttribute("opacity", String(st.laneOp));
+
+      frameBKicker.setAttribute("x", String(st.frameB.x + 18));
+      frameBKicker.setAttribute("y", String(st.frameB.y + 22));
+
+      gS0Intake.setAttribute("opacity", String(st.s0));
+      gArrS0.setAttribute("opacity", String(st.s0));
+      citingFull.setAttribute("opacity", String(st.s0));
+      citedFull.setAttribute("opacity", String(st.s0));
+
+      gArrS1.setAttribute("opacity", String(st.s1));
+      citingMed.setAttribute("opacity", String(st.s1));
+      citedMed.setAttribute("opacity", String(st.s1));
+      gAFull.setAttribute("opacity", String(st.s1));
+
+      gArrS2.setAttribute("opacity", String(st.s2));
+      citingMini.setAttribute("opacity", String(st.s2));
+      citedMini.setAttribute("opacity", String(st.s2));
+      gACompact.setAttribute("opacity", String(st.s2));
+
+      gLaneA.setAttribute("opacity", String(st.laneOp));
+      gLaneB.setAttribute("opacity", String(st.laneOp));
+
+      gRetFull.setAttribute("opacity", String(st.retFullOp));
+      gRetFull.setAttribute("transform", `translate(${st.retFullTx}, 0)`);
+      gRetCompact.setAttribute("opacity", String(st.retCompactOp));
+
+      gTop3.setAttribute("opacity", String(st.laneOp));
+      top3Cards.forEach((c, idx) => {
+        const cy = st.top3.y + idx * st.top3.gap;
+        c.rect.setAttribute("x", String(st.top3.x));
+        c.rect.setAttribute("y", String(cy));
+        c.rect.setAttribute("width", String(st.top3.w));
+        c.rect.setAttribute("height", String(st.top3.h));
+
+        c.tScore.setAttribute("x", String(st.top3.x + 12));
+        c.tScore.setAttribute("y", String(cy + 23));
+
+        c.tHeadFull.setAttribute("x", String(st.top3.x + 12));
+        c.tHeadFull.setAttribute("y", String(cy + 43));
+        c.tHeadFull.setAttribute("opacity", String(st.s1));
+
+        c.tQuoteFull.setAttribute("x", String(st.top3.x + 12));
+        c.tQuoteFull.setAttribute("y", String(cy + 61));
+        c.tQuoteFull.setAttribute("opacity", String(st.s1));
+
+        c.tHeadMini.setAttribute("x", String(st.top3.x + 12));
+        c.tHeadMini.setAttribute("y", String(cy + 45));
+        c.tHeadMini.setAttribute("opacity", String(st.s2));
+      });
+
+      gInfer.setAttribute("opacity", String(st.inferOp));
+      gInfer.setAttribute("transform", `translate(${st.inferTx}, 0)`);
+
+      animBars.forEach(({ bar, baseY, targetH, idx }) => {
+        // Gentle left-to-right stagger across the 9 bars as barP moves 0 -> 1
+        const localP = Math.max(0, Math.min(1, (st.barP - idx * 0.03) / 0.73));
+        const h = targetH * localP;
+        bar.setAttribute("y", String(baseY - h));
+        bar.setAttribute("height", String(h));
+      });
+    }
+
+    function lerpBox(a, b, t) {
+      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t) };
+    }
+
+    applyState(cur);
+
+    return {
+      update(step) {
+        const targetIdx = Math.max(0, Math.min(2, Number(step) || 0));
+        if (activeStep === targetIdx) return;
+        const firstPaint = activeStep === -1;
+        activeStep = targetIdx;
+
+        evidHeader.textContent = targetIdx === 2
+          ? "EVIDENCITE · REPRESENTACIÓN E INFERENCIA"
+          : "EVIDENCITE · PIPELINE DE REPRESENTACIÓN";
+        svgFoot.textContent = targetIdx === 0
+          ? "Normalización de etiquetas (<cite>, [OTHERCIT]) y resolución jerárquica del artículo citado."
+          : targetIdx === 1
+            ? "Recuperación densa sobre inst_04783 · cosenos reales: 0,894 / 0,889 / 0,888 · resto descartado."
+            : "Esquema ilustrativo de distribuciones en Δ⁸ (9 funciones retóricas) · predicción real en la demo.";
+
+        if (cancelTween) { cancelTween(); cancelTween = null; }
+        const from = cloneState(cur);
+        const to = STATES[targetIdx];
+
+        if (firstPaint) {
+          cur = cloneState(to);
+          applyState(cur);
+          return;
+        }
+
+        cancelTween = tween(1180, (t) => {
+          // Slightly delayed phase for fading-in new layers so geometry settles cleanly first
+          const tIn = Math.max(0, Math.min(1, (t - 0.22) / 0.78));
+          const tOut = Math.max(0, Math.min(1, t / 0.55));
+          const tBars = Math.max(0, Math.min(1, (t - 0.32) / 0.68));
+
+          cur = {
+            citing: lerpBox(from.citing, to.citing, t),
+            cited:  lerpBox(from.cited, to.cited, t),
+            evid:   lerpBox(from.evid, to.evid, t),
+            boxA:   lerpBox(from.boxA, to.boxA, t),
+            frameB: lerpBox(from.frameB, to.frameB, t),
+            top3: {
+              x: lerp(from.top3.x, to.top3.x, t),
+              y: lerp(from.top3.y, to.top3.y, t),
+              w: lerp(from.top3.w, to.top3.w, t),
+              h: lerp(from.top3.h, to.top3.h, t),
+              gap: lerp(from.top3.gap, to.top3.gap, t)
+            },
+            s0: to.s0 > from.s0 ? lerp(from.s0, to.s0, tIn) : lerp(from.s0, to.s0, tOut),
+            s1: to.s1 > from.s1 ? lerp(from.s1, to.s1, tIn) : lerp(from.s1, to.s1, tOut),
+            s2: to.s2 > from.s2 ? lerp(from.s2, to.s2, tIn) : lerp(from.s2, to.s2, tOut),
+            laneOp: to.laneOp > from.laneOp ? lerp(from.laneOp, to.laneOp, tIn) : lerp(from.laneOp, to.laneOp, tOut),
+            retFullOp: to.retFullOp > from.retFullOp ? lerp(from.retFullOp, to.retFullOp, tIn) : lerp(from.retFullOp, to.retFullOp, tOut),
+            retFullTx: lerp(from.retFullTx, to.retFullTx, t),
+            retCompactOp: to.retCompactOp > from.retCompactOp ? lerp(from.retCompactOp, to.retCompactOp, tIn) : lerp(from.retCompactOp, to.retCompactOp, tOut),
+            inferOp: to.inferOp > from.inferOp ? lerp(from.inferOp, to.inferOp, tIn) : lerp(from.inferOp, to.inferOp, tOut),
+            inferTx: lerp(from.inferTx, to.inferTx, t),
+            barP: to.barP > from.barP ? lerp(from.barP, to.barP, tBars) : lerp(from.barP, to.barP, tOut)
+          };
+          applyState(cur);
+        }, 90);
+      }
+    };
   }
 
   return {
@@ -1447,6 +1981,6 @@ window.EvidenCharts = (function () {
     renderA6Calibration,
     createCostQualityChart,
     renderA8Architecture,
-    renderA8ConfigNarrative
+    createA8ScrollFlow
   };
 })();

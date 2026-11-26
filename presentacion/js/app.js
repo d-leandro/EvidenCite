@@ -122,9 +122,6 @@
     });
 
     const el = beats[clamped];
-    if (el.dataset.scene === "a8" && previousBeat !== clamped) {
-      Scenes.resetA8(previousBeat > clamped ? 3 : 0);
-    }
     if (el.dataset.scene) {
       Scenes.activateScene(el.dataset.scene, Number(el.dataset.step || 0));
     }
@@ -221,11 +218,9 @@
 
       if (key === "ArrowRight" || key === "ArrowDown" || key === "PageDown" || key === " ") {
         e.preventDefault();
-        if (beats[currentBeat]?.dataset.scene === "a8" && Scenes.advanceA8(1)) return;
         activateBeat(currentBeat + 1, true);
       } else if (key === "ArrowLeft" || key === "ArrowUp" || key === "PageUp") {
         e.preventDefault();
-        if (beats[currentBeat]?.dataset.scene === "a8" && Scenes.advanceA8(-1)) return;
         activateBeat(currentBeat - 1, true);
       } else if (key === "Home") {
         e.preventDefault();

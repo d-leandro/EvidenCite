@@ -16,7 +16,8 @@ window.EvidenScenes = (function () {
     a4Mode: null,
     fig11: null,
     a5a7Mode: null,
-    costChart: null
+    costChart: null,
+    a8Flow: null
   };
 
   function setHeader(prefix, title, caption, foot) {
@@ -372,14 +373,32 @@ window.EvidenScenes = (function () {
     }
   }
 
-  /* ---- A8 (Beat 27) ---- */
-  let a8Controller = null;
-  function renderA8() {
+  /* ---- A8 (Beats 27–29: Flujo continuo por scroll) ---- */
+  function renderA8(step) {
     const canvas = document.getElementById("stage-a8-canvas");
-    if (canvas && !a8Controller) a8Controller = C.renderA8ConfigNarrative(canvas);
+    if (!canvas) return;
+    if (!controllers.a8Flow) {
+      controllers.a8Flow = C.createA8ScrollFlow(canvas);
+    }
+    controllers.a8Flow.update(step);
+    const titles = [
+      "A8 (Paso 1/3) — Entrada única: cita y artículo citado hacia EvidenCite",
+      "A8 (Paso 2/3) — Construcción paralela: Config A (global) vs. Config B (Top-3)",
+      "A8 (Paso 3/3) — Dos clasificadores independientes y distribuciones en Δ⁸"
+    ];
+    const captions = [
+      "Ejemplo real · inst_04783 · Normalización y resolución",
+      "Ejemplo real · inst_04783 · SciBERT 768-dim + cosenos reales (0,894 / 0,889 / 0,888)",
+      "Esquema ilustrativo en Δ⁸ (9 funciones) · Predicción real en la demo"
+    ];
+    const foots = [
+      "Una misma ventana citante fija (m = 3) y un artículo citado entran al motor EvidenCite.",
+      "Arriba: título y resumen global. Abajo: segmentación ≤110 pal., embeddings SciBERT y Top-3 por coseno.",
+      "Dos inferencias independientes (A y B) producen sus distribuciones sobre las 9 funciones retóricas."
+    ];
+    const idx = Math.max(0, Math.min(2, step || 0));
+    setHeader("a8", titles[idx], captions[idx], foots[idx]);
   }
-  function advanceA8(dir) { return a8Controller ? a8Controller.advance(dir) : false; }
-  function resetA8(step=0) { renderA8(); if(a8Controller) a8Controller.show(step); }
 
   function activateScene(sceneName, step) {
     if (sceneName === "ctx") renderCtx(step);
@@ -387,7 +406,7 @@ window.EvidenScenes = (function () {
     else if (sceneName === "a2a3") renderA2A3(step);
     else if (sceneName === "a4") renderA4(step);
     else if (sceneName === "a5a7") renderA5A7(step);
-    else if (sceneName === "a8") renderA8();
+    else if (sceneName === "a8") renderA8(step);
   }
 
   function initAllDefaults() {
@@ -396,7 +415,8 @@ window.EvidenScenes = (function () {
     renderA2A3(0);
     renderA4(0);
     renderA5A7(0);
+    renderA8(0);
   }
 
-  return { activateScene, initAllDefaults, advanceA8, resetA8 };
+  return { activateScene, initAllDefaults };
 })();

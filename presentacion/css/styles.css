@@ -1377,30 +1377,20 @@ svg .svg-axis {
   }
 }
 
-/* A8 v3 · flow, not spotlight */
-.a8-v3{width:100%;height:100%;min-height:0;display:flex;flex-direction:column;gap:10px;justify-content:center}
-.f-stepbar{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.f-stepbar button,.f-nav button{font:600 .8rem var(--font-sans);color:var(--ink-2);background:var(--surface-tint);border:1px solid var(--line);border-radius:8px;padding:9px 8px;cursor:pointer}
-.f-stepbar button span{font-family:var(--font-mono);color:var(--ink-3);margin-right:4px}
-.f-stepbar button.active{color:var(--accent-primary);background:var(--accent-primary-soft);border-color:var(--accent-primary)}
-.f-stepbar button.active span{color:var(--accent-primary)}
-.f-graphic{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
-.f-graphic svg{width:100%;height:100%;max-height:100%;overflow:visible}
-.f-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--ink-2);font-size:.83rem;min-height:38px}
-.f-nav{display:flex;gap:6px;flex:none}.f-nav button{font-size:1.05rem;padding:4px 13px}.f-nav button:disabled{opacity:.3;cursor:default}
-.f-card,.f-candidate,.f-class{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.3}
-.f-fixed{fill:var(--surface-tint);stroke:var(--ink-3);stroke-width:1.4}
-.f-a{fill:var(--accent-secondary-soft);stroke:var(--accent-secondary);stroke-width:1.5}
-.f-b{fill:var(--accent-primary-soft);stroke:var(--accent-primary);stroke-width:1.5}
-.f-model{fill:var(--surface);stroke:var(--accent-violet);stroke-width:1.5}
-.f-out{fill:var(--accent-gold-soft);stroke:var(--accent-gold);stroke-width:1.5}
-.f-kicker{font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.6px;fill:var(--ink-2)}
-.f-label{font-size:18px;font-weight:650;fill:var(--ink)}.f-text{font-size:17px;fill:var(--ink)}.f-title{font-size:26px;font-weight:750;fill:var(--ink)}.f-big{font-size:56px;font-weight:750;fill:var(--accent-primary)}
-.f-small{font-size:14px;fill:var(--ink-2)}.f-tiny{font-size:12px;fill:var(--ink-2)}.f-mono{font-family:var(--font-mono);font-size:15px;font-weight:700;fill:var(--ink)}
-.f-docline{fill:var(--ink-3);opacity:.55}.f-vector{fill:var(--accent-violet)}.f-sim-hi{fill:var(--accent-primary)}.f-sim-lo{fill:var(--ink-3);opacity:.45}
-.f-link{fill:none;stroke-width:2.1;stroke-linejoin:round}.f-link.neutral{stroke:var(--ink-3)}.f-link.a{stroke:var(--accent-secondary)}.f-link.b{stroke:var(--accent-primary)}.f-link.out{stroke:var(--accent-gold)}
-.f-arrow.neutral,.f-packet.neutral{fill:var(--ink-3)}.f-arrow.a,.f-packet.a{fill:var(--accent-secondary)}.f-arrow.b,.f-packet.b{fill:var(--accent-primary)}.f-arrow.out,.f-packet.out{fill:var(--accent-gold)}
-.f-reveal{animation:f-appear .45s ease both;animation-delay:var(--delay)}@keyframes f-appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){.f-reveal{animation:none}.f-packet{display:none}}
-.f-split-doc{animation:f-split .7s ease both;transform-origin:center;pointer-events:none}@keyframes f-split{0%,35%{opacity:1}100%{opacity:0;transform:scale(.96)}}
-@media(prefers-reduced-motion:reduce){.f-split-doc{display:none}}
+/* A8 · Flujo continuo por scroll (acordeón progresivo en 3 beats) */
+.a8-flow-svg {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.a8-flow-dash {
+  stroke-dasharray: 6 5;
+  animation: a8-dash-flow 1.4s linear infinite;
+}
+
+@keyframes a8-dash-flow {
+  from { stroke-dashoffset: 22; }
+  to { stroke-dashoffset: 0; }
+}

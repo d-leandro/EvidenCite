@@ -28,7 +28,7 @@
       <button class="phase-pill" data-goto-beat="20" data-phase="A5">A5</button>
       <button class="phase-pill" data-goto-beat="24" data-phase="A6/A7">A6/A7</button>
       <button class="phase-pill" data-goto-beat="27" data-phase="A8">A8</button>
-      <button class="phase-pill" data-goto-beat="29" data-phase="CONC">CONC</button>
+      <button class="phase-pill" data-goto-beat="31" data-phase="CONC">CONC</button>
     </nav>
 
     <div class="topbar-right">
@@ -36,7 +36,7 @@
         <span class="speaker-dot"></span>
         <span id="speaker-name">Leandro</span>
       </div>
-      <span class="beat-counter" id="beat-counter">00 / 30</span>
+      <span class="beat-counter" id="beat-counter">00 / 32</span>
     </div>
 
     <div class="progress-track">
@@ -501,32 +501,57 @@
     </section>
 
     <!-- ==================================================================
-         CAPÍTULO 6 — A8-01: ARQUITECTURA CLOUD AWS EC2 (Beat 27)
+         CAPÍTULO 6 — A8-01: FLUJO DE INFERENCIA EN TIEMPO REAL (Beats 27–29)
          Expositor: Julián
          ================================================================== -->
     <section class="chapter" id="chapter-a8">
       <div class="scrolly-grid">
         <div class="narrative-col">
           <article class="beat-step" data-beat="27" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="0">
-            <div class="beat-tag">A8-01 · Inferencia en tiempo real <span class="beat-speaker-chip">· Julián</span></div>
-            <h2 class="beat-heading">De una cita a nueve funciones.</h2>
-            <p class="beat-lead">A: título + resumen.<br>B: recuperación de pasajes.</p>
+            <div class="beat-tag">A8-01 · Paso 1 / 3 <span class="beat-speaker-chip">· Julián</span></div>
+            <h2 class="beat-heading">Entrada única: una cita, un citado</h2>
+            <p class="beat-lead">
+              La ventana citante fija (3 oraciones) y el artículo referenciado ingresan a <strong>EvidenCite</strong> para normalización y resolución única.
+            </p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-gold">1 cita</span><span class="metric-lbl">entrada idéntica</span></div>
-              <div class="metric-item"><span class="metric-val">Top-3</span><span class="metric-lbl">pasajes en Config B</span></div>
-              <div class="metric-item"><span class="metric-val is-primary">9 clases</span><span class="metric-lbl">distribución de salida</span></div>
+              <div class="metric-item"><span class="metric-val is-gold">1 cita</span><span class="metric-lbl">ventana fija (m = 3)</span></div>
+              <div class="metric-item"><span class="metric-val">1 citado</span><span class="metric-lbl">resolución jerárquica</span></div>
+            </div>
+          </article>
+
+          <article class="beat-step" data-beat="28" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="1">
+            <div class="beat-tag">A8-01 · Paso 2 / 3 <span class="beat-speaker-chip">· Julián</span></div>
+            <h2 class="beat-heading">Dos evidencias en paralelo: Config A y Config B</h2>
+            <p class="beat-lead">
+              Arriba, <strong>Config A</strong> toma título y resumen global. Abajo, <strong>Config B</strong> segmenta en <em>k chunks</em>, codifica con <strong>SciBERT</strong> y ordena por coseno el <strong>Top-3</strong> (R1–R3).
+            </p>
+            <div class="beat-metrics">
+              <div class="metric-item"><span class="metric-val">Config A</span><span class="metric-lbl">título + resumen</span></div>
+              <div class="metric-item"><span class="metric-val is-primary">Top-3</span><span class="metric-lbl">pasajes (0,894–0,888)</span></div>
+            </div>
+          </article>
+
+          <article class="beat-step" data-beat="29" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="2">
+            <div class="beat-tag">A8-01 · Paso 3 / 3 <span class="beat-speaker-chip">· Julián</span></div>
+            <h2 class="beat-heading">Inferencia independiente en 9 clases</h2>
+            <p class="beat-lead">
+              Dos <strong>clasificadores independientes</strong> evalúan A y B sobre la misma cita y entregan su distribución de probabilidad sobre las 9 funciones en <strong>Δ⁸</strong>.
+            </p>
+            <div class="beat-metrics">
+              <div class="metric-item"><span class="metric-val is-violet">2 llamadas</span><span class="metric-lbl">inferencia paralela A / B</span></div>
+              <div class="metric-item"><span class="metric-val is-primary">9 clases</span><span class="metric-lbl">distribución en Δ⁸</span></div>
             </div>
           </article>
         </div>
 
         <div class="visual-stage">
           <div class="stage-header">
-            <h3 class="stage-title">Del documento a la predicción</h3>
-            <p class="stage-caption">Ejemplo real · inst_04783</p>
+            <h3 class="stage-title" id="stage-a8-title">Del documento a la predicción en tiempo real</h3>
+            <p class="stage-caption" id="stage-a8-caption">Ejemplo real · inst_04783 · AWS EC2 / FastAPI</p>
           </div>
           <div class="stage-canvas" id="stage-a8-canvas"></div>
           <div class="stage-footnote">
-            <span>Flujo esquemático · ← → para avanzar · AWS EC2 / FastAPI</span>
+            <span id="stage-a8-foot">Flujo continuo guiado por scroll · Normalización, recuperación densa e inferencia en Δ⁸.</span>
             <span class="mono">A8</span>
           </div>
         </div>
@@ -534,10 +559,10 @@
     </section>
 
     <!-- ==================================================================
-         BEAT 28 — A8-02: PAUSA LIMPIA PARA DEMOSTRACIÓN EXTERNA (3:00 MIN)
+         BEAT 30 — A8-02: PAUSA LIMPIA PARA DEMOSTRACIÓN EXTERNA (3:00 MIN)
          Expositor: Julián (Sin video embebido ni enlaces)
          ================================================================== -->
-    <section class="full-beat" data-beat="28" data-phase="A8" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="30" data-phase="A8" data-speaker="Julián" data-block="5">
       <div class="demo-pause-beat">
         <div class="demo-badge">
           <span class="demo-pulse"></span>
@@ -569,10 +594,10 @@
     </section>
 
     <!-- ==================================================================
-         BEAT 29 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
+         BEAT 31 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="29" data-phase="CONC" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="31" data-phase="CONC" data-speaker="Julián" data-block="5">
       <div class="closing-inner">
         <div class="hero-kicker">CONC-01 · Síntesis Empírica · Julián</div>
         <h2 class="hero-title" style="max-width: 30ch;">Respuesta directa a las tres preguntas de investigación</h2>
@@ -606,10 +631,10 @@
     </section>
 
     <!-- ==================================================================
-         BEAT 30 — CONC-02: LIMITACIONES HONESTAS Y TRABAJO FUTURO
+         BEAT 32 — CONC-02: LIMITACIONES HONESTAS Y TRABAJO FUTURO
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="30" data-phase="CONC" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="32" data-phase="CONC" data-speaker="Julián" data-block="5">
       <div class="closing-inner">
         <div class="hero-kicker">CONC-02 · Alcance y Proyección · Julián</div>
         <h2 class="hero-title" style="max-width: 30ch;">Limitaciones declaradas y próximos pasos</h2>
