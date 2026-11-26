@@ -20,13 +20,67 @@ window.EvidenScenes = (function () {
     a8Flow: null
   };
 
+  function pulseText(node, nextText) {
+    if (!node || !nextText || node.textContent === nextText) return;
+    const hadText = Boolean(node.dataset.hydrated);
+    node.textContent = nextText;
+    node.dataset.hydrated = "1";
+    if (!hadText) return;
+    node.classList.remove("stage-text-swap");
+    void node.offsetWidth;
+    node.classList.add("stage-text-swap");
+  }
+
   function setHeader(prefix, title, caption, foot) {
-    const t = document.getElementById(`stage-${prefix}-title`);
-    const c = document.getElementById(`stage-${prefix}-caption`);
-    const f = document.getElementById(`stage-${prefix}-foot`);
-    if (t && title) t.textContent = title;
-    if (c && caption) c.textContent = caption;
-    if (f && foot) f.textContent = foot;
+    pulseText(document.getElementById(`stage-${prefix}-title`), title);
+    pulseText(document.getElementById(`stage-${prefix}-caption`), caption);
+    pulseText(document.getElementById(`stage-${prefix}-foot`), foot);
+  }
+
+  const lastSteps = {};
+  let currentDir = "next";
+
+  // Smooth directional Cross-fade + Scroll-Lift when switching between distinct visuals inside a chapter.
+  // Keeps persistent SVG controllers intact whenever the sceneKey stays the same.
+  function swapStage(canvas, sceneKey, renderFn) {
+    if (!canvas) return null;
+    const existing = canvas.querySelector(":scope > .stage-layer.is-active");
+    if (canvas.dataset.sceneKey === sceneKey && existing) {
+      return existing;
+    }
+
+    const isFirstPaint = !canvas.dataset.sceneKey;
+    canvas.dataset.sceneKey = sceneKey;
+
+    if (canvas._leaveTimer) {
+      clearTimeout(canvas._leaveTimer);
+      canvas._leaveTimer = null;
+    }
+    canvas.querySelectorAll(":scope > .stage-layer.is-leaving").forEach((n) => n.remove());
+
+    if (existing && !isFirstPaint) {
+      existing.classList.remove("is-active", "is-entering");
+      existing.dataset.dir = currentDir;
+      existing.classList.add("is-leaving");
+      existing.setAttribute("aria-hidden", "true");
+      // Strip HTML ids on leaving ghost so queries never collide with the incoming layer
+      existing.querySelectorAll("[id]").forEach((el) => {
+        if (!el.closest("defs")) el.removeAttribute("id");
+      });
+      canvas._leaveTimer = setTimeout(() => {
+        existing.remove();
+        canvas._leaveTimer = null;
+      }, 390);
+    } else if (existing) {
+      existing.remove();
+    }
+
+    const nextLayer = document.createElement("div");
+    nextLayer.className = isFirstPaint ? "stage-layer is-active" : "stage-layer is-active is-entering";
+    if (!isFirstPaint) nextLayer.dataset.dir = currentDir;
+    canvas.appendChild(nextLayer);
+    if (renderFn) renderFn(nextLayer);
+    return nextLayer;
   }
 
   /* ---- CTX (Beats 1–3) ---- */
@@ -41,7 +95,8 @@ window.EvidenScenes = (function () {
         "Ejemplo real · inst_04783",
         "La taxonomía de Lyu et al. (2021) distingue 9 funciones retóricas no evaluativas en Δ⁸."
       );
-      canvas.innerHTML = `
+      swapStage(canvas, "ctx-0", (layer) => {
+        layer.innerHTML = `
         <div class="editorial-panel">
           <div class="quote-showcase">
             <div class="quote-meta">ARTÍCULO CITANTE (2212.08018) · VENTANA m = 3 ORACIONES</div>
@@ -70,6 +125,7 @@ window.EvidenScenes = (function () {
             </div>
           </div>
         </div>`;
+      });
     } else if (step === 1) {
       setHeader(
         "ctx",
@@ -77,7 +133,8 @@ window.EvidenScenes = (function () {
         "Síntesis de Tabla I · 4 referencias ancla",
         "EvidenCite es el único banco que reúne 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
       );
-      canvas.innerHTML = `
+      swapStage(canvas, "ctx-1", (layer) => {
+        layer.innerHTML = `
         <div class="editorial-panel">
           <table class="sota-table">
             <thead>
@@ -128,6 +185,7 @@ window.EvidenScenes = (function () {
             </tbody>
           </table>
         </div>`;
+      });
     } else {
       setHeader(
         "ctx",
@@ -135,7 +193,8 @@ window.EvidenScenes = (function () {
         "Diseño experimental en 8 actividades",
         "Al cierre de la sustentación volveremos a estas tres tarjetas con su veredicto empírico."
       );
-      canvas.innerHTML = `
+      swapStage(canvas, "ctx-2", (layer) => {
+        layer.innerHTML = `
         <div class="editorial-panel">
           <div class="pi-grid">
             <div class="pi-item">
@@ -165,16 +224,14 @@ window.EvidenScenes = (function () {
             <div class="roadmap-node"><strong>A8</strong><span>AWS + Demo</span></div>
           </div>
         </div>`;
+      });
     }
   }
 
   /* ---- A1 (Beats 4–8) ---- */
-  function ensureA1AB(canvas) {
-    if (controllers.a1Mode === "ab") return;
-    controllers.a1Mode = "ab";
-    controllers.a1Dag = null;
+  function buildA1AB(layer) {
     const ex = D.inst04783;
-    canvas.innerHTML = `
+    layer.innerHTML = `
       <div class="ab-container">
         <div class="ab-citing">
           <div class="ab-label-row">
@@ -226,25 +283,33 @@ window.EvidenScenes = (function () {
     if (!canvas) return;
 
     if (step <= 1) {
-      ensureA1AB(canvas);
-      const viewA = document.getElementById("ab-view-a");
-      const viewB = document.getElementById("ab-view-b");
+      const layer = swapStage(canvas, "a1-ab", (el) => {
+        controllers.a1Mode = "ab";
+        controllers.a1Dag = null;
+        buildA1AB(el);
+      });
+      const viewA = layer.querySelector("#ab-view-a");
+      const viewB = layer.querySelector("#ab-view-b");
       if (step === 0) {
         setHeader("a1", "Paridad 1:1 — Configuración A (Global)", "Fig. 1 · inst_04783", "Misma ventana citante fija (m = 3 oraciones); varía únicamente la evidencia del artículo citado.");
-        viewA.className = "ab-view is-visible";
-        viewB.className = "ab-view is-hidden";
+        if (viewA && viewB) {
+          viewA.className = "ab-view is-visible";
+          viewB.className = "ab-view is-hidden";
+        }
       } else {
         setHeader("a1", "Paridad 1:1 — Transformación a Configuración B (Local Top-3)", "Fig. 1 · Encabezados autorales preservados", "Encabezados exactos (Nearest Enclosing Scope) sin colapsar a IMRaD · cosenos 0,894 / 0,889 / 0,888.");
-        viewA.className = "ab-view is-hidden";
-        viewB.className = "ab-view is-visible";
+        if (viewA && viewB) {
+          viewA.className = "ab-view is-hidden";
+          viewB.className = "ab-view is-visible";
+        }
       }
       return;
     }
 
-    if (controllers.a1Mode !== "dag") {
+    swapStage(canvas, "a1-dag", (el) => {
       controllers.a1Mode = "dag";
-      controllers.a1Dag = C.createMedallionDAG(canvas);
-    }
+      controllers.a1Dag = C.createMedallionDAG(el);
+    });
     const dagStage = step - 2; // 0, 1, 2
     controllers.a1Dag.update(dagStage);
 
@@ -263,10 +328,10 @@ window.EvidenScenes = (function () {
     if (!canvas) return;
 
     if (step <= 1) {
-      if (controllers.a2a3Mode !== "a2panel") {
+      swapStage(canvas, "a2-panel", (el) => {
         controllers.a2a3Mode = "a2panel";
-        controllers.a2Panel = C.createA2Panel(canvas, D.a2Panel);
-      }
+        controllers.a2Panel = C.createA2Panel(el, D.a2Panel);
+      });
       controllers.a2Panel.update(step === 1);
       setHeader(
         "a2a3",
@@ -275,18 +340,22 @@ window.EvidenScenes = (function () {
         step === 0 ? "Ejecución en A100-40GB, temperatura 0, cegados al artículo citado." : "El sesgo de sobre-atribución metodológica impidió confiar en la mayoría simple."
       );
     } else if (step === 2) {
-      controllers.a2a3Mode = "a2strata";
-      C.renderA2Strata(canvas, D.a2Panel);
+      swapStage(canvas, "a2-strata", (el) => {
+        controllers.a2a3Mode = "a2strata";
+        C.renderA2Strata(el, D.a2Panel);
+      });
       setHeader("a2a3", "Balance del corpus tras la regla conservadora (Ec. 3)", "18.658 instancias · Casos A–F", "El 40,7% (7.590 citas) quedó sin consenso del panel y entró con etiqueta débil a train.jsonl.");
     } else if (step === 3) {
-      controllers.a2a3Mode = "a3wf";
-      C.renderA3Waterfall(canvas, D.a3Waterfall);
+      swapStage(canvas, "a3-wf", (el) => {
+        controllers.a2a3Mode = "a3wf";
+        C.renderA3Waterfall(el, D.a3Waterfall);
+      });
       setHeader("a2a3", "Curaduría humana doble ciega del 100% del test (A3)", "N = 2.798 citas · κ = 0,509", "Javier y Julián revisaron de forma independiente las 2.798 citas; 68% directo + 32% desempate acotado.");
     } else {
-      if (controllers.a2a3Mode !== "a3morph") {
+      swapStage(canvas, "a3-morph", (el) => {
         controllers.a2a3Mode = "a3morph";
-        controllers.a3Morph = C.createA3Morph(canvas, D.a3Distribution);
-      }
+        controllers.a3Morph = C.createA3Morph(el, D.a3Distribution);
+      });
       const isGold = step === 5;
       controllers.a3Morph.update(isGold);
       setHeader(
@@ -304,18 +373,22 @@ window.EvidenScenes = (function () {
     if (!canvas) return;
 
     if (step === 0) {
-      controllers.a4Mode = "r2";
-      C.renderA4R2(canvas, D.a4R2Models);
+      swapStage(canvas, "a4-r2", (el) => {
+        controllers.a4Mode = "r2";
+        C.renderA4R2(el, D.a4R2Models);
+      });
       setHeader("a4", "Embudo de 92 corridas y banda plana en R2 (~0,74)", "Fig. 10b · 10 modelos 2B–4B × 3 semillas", "Ni tamaño (|ρ| < 0,2) ni arquitectura rompen el techo automático; Granite-4.2 se elige para escalar a 8B.");
     } else if (step === 1) {
-      controllers.a4Mode = "collapse";
-      C.renderA4Collapse(canvas, D.a4Definitives);
+      swapStage(canvas, "a4-collapse", (el) => {
+        controllers.a4Mode = "collapse";
+        C.renderA4Collapse(el, D.a4Definitives);
+      });
       setHeader("a4", "Desplome de A4 al pasar del test automático al Gold humano", "Fig. 4 · Tabla III (N = 2.798)", "Escalar 70× (110M → 8B) no evita la caída a 0,43–0,46 Macro-F1; Config B empeora o es neutra.");
     } else {
-      if (controllers.a4Mode !== "fig11") {
+      swapStage(canvas, "a4-fig11", (el) => {
         controllers.a4Mode = "fig11";
-        controllers.fig11 = C.createFig11ThreeStep(canvas, D.fig11Diagnosis);
-      }
+        controllers.fig11 = C.createFig11ThreeStep(el, D.fig11Diagnosis);
+      });
       const subStep = step - 2; // 0, 1, 2
       controllers.fig11.update(subStep);
       const titles = [
@@ -338,30 +411,40 @@ window.EvidenScenes = (function () {
     if (!canvas) return;
 
     if (step === 0) {
-      controllers.a5a7Mode = "parity";
-      C.renderA5ParityBreak(canvas, D.a5ParityBreak);
+      swapStage(canvas, "a5-parity", (el) => {
+        controllers.a5a7Mode = "parity";
+        C.renderA5ParityBreak(el, D.a5ParityBreak);
+      });
       setHeader("a5a7", "Clímax #2 (Paso 1/2) — Empate aparente vs. ventaja real en Gold", "22.384 inferencias API · 99,991% validez JSON", "Antes de A3 empataban (p = 0,436); sobre el Gold humano Gemini 0s-B abre +0,1331 Macro-F1.");
     } else if (step === 1) {
-      controllers.a5a7Mode = "byclass";
-      C.renderA5ByClass(canvas, D.a5ByClass);
+      swapStage(canvas, "a5-byclass", (el) => {
+        controllers.a5a7Mode = "byclass";
+        C.renderA5ByClass(el, D.a5ByClass);
+      });
       setHeader("a5a7", "Clímax #2 (Paso 2/2) — Gemini 0s-B supera a GPT en las 9 clases", "Tabla IV · F1-Score por clase ordenadas por soporte", "Mayores brechas en Basis (+0,302), Further Reading (+0,246) y Gap (+0,173).");
     } else if (step === 2) {
-      controllers.a5a7Mode = "sections";
-      C.renderA5MacroSections(canvas, D.a5MacroSections);
+      swapStage(canvas, "a5-sections", (el) => {
+        controllers.a5a7Mode = "sections";
+        C.renderA5MacroSections(el, D.a5MacroSections);
+      });
       setHeader("a5a7", "Efecto de Config B por macro-sección citante (0-Shot)", "Fig. 6 · Respuesta a PI1", "GPT gana +10,28 pp en Related Work y +4,71 pp en Intro/Prelim; Gemini reduce −19,4% sus pensamientos.");
     } else if (step === 3) {
-      controllers.a5a7Mode = "chips";
-      C.renderA5NineChips(canvas, D.a5NineShotChips);
+      swapStage(canvas, "a5-chips", (el) => {
+        controllers.a5a7Mode = "chips";
+        C.renderA5NineChips(el, D.a5NineShotChips);
+      });
       setHeader("a5a7", "Diagnóstico de 9-Shot: 4 de 9 fichas contaminadas", "seed = 42 en train.jsonl · Tabla VI", "Cuatro ejemplares provinieron de empates 1-1-1 donde el error previo en test fue 66,06% (288/436).");
     } else if (step === 4) {
-      controllers.a5a7Mode = "board";
-      C.renderA6GlobalBoard(canvas, D.a6GlobalBoard);
+      swapStage(canvas, "a6-board", (el) => {
+        controllers.a5a7Mode = "board";
+        C.renderA6GlobalBoard(el, D.a6GlobalBoard);
+      });
       setHeader("a5a7", "Tablero global A6: las 14 variantes de Tabla III (Config A vs. B)", "A4 locales (6) · GPT (4) · Gemini (4) · Gold N = 2.798", "Verde/rojo en el conector indica si Config B mejora o cae; curvas de fiabilidad detalladas disponibles en Q&A (tecla Q).");
     } else {
-      if (controllers.a5a7Mode !== "cost") {
+      swapStage(canvas, "a7-cost", (el) => {
         controllers.a5a7Mode = "cost";
-        controllers.costChart = C.createCostQualityChart(canvas, D.a7CostQuality);
-      }
+        controllers.costChart = C.createCostQualityChart(el, D.a7CostQuality);
+      });
       const showOpt = step === 6;
       controllers.costChart.update(showOpt);
       setHeader(
@@ -401,6 +484,10 @@ window.EvidenScenes = (function () {
   }
 
   function activateScene(sceneName, step) {
+    const prev = lastSteps[sceneName];
+    currentDir = prev !== undefined && step < prev ? "prev" : "next";
+    lastSteps[sceneName] = step;
+
     if (sceneName === "ctx") renderCtx(step);
     else if (sceneName === "a1") renderA1(step);
     else if (sceneName === "a2a3") renderA2A3(step);

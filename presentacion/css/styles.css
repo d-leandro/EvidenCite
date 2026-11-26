@@ -539,6 +539,67 @@ main {
   overflow: visible;
 }
 
+/* Smooth directional Cross-fade + Scroll-Lift for intra-chapter transitions */
+.stage-layer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: opacity, transform;
+}
+
+.stage-layer.is-leaving {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: stageLiftOutNext 360ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.stage-layer.is-leaving[data-dir="prev"] {
+  animation-name: stageLiftOutPrev;
+}
+
+.stage-layer.is-entering {
+  position: relative;
+  z-index: 2;
+  animation: stageLiftInNext 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.stage-layer.is-entering[data-dir="prev"] {
+  animation-name: stageLiftInPrev;
+}
+
+@keyframes stageLiftOutNext {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-20px); }
+}
+
+@keyframes stageLiftInNext {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes stageLiftOutPrev {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(20px); }
+}
+
+@keyframes stageLiftInPrev {
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stage-text-swap {
+  animation: stageTextFade 320ms ease both;
+}
+
+@keyframes stageTextFade {
+  from { opacity: 0.16; }
+  to   { opacity: 1; }
+}
+
 .stage-footnote {
   font-size: 0.76rem;
   color: var(--ink-3);

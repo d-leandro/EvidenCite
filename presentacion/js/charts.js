@@ -588,7 +588,7 @@ window.EvidenCharts = (function () {
       animRefs.push({ bar, dotGold, lblGold, xAuto, xGold });
     });
 
-    // Brief 260ms hold so smooth scroll settles and audience sees ~0,74 first, then 1,3s glide
+    // Brief 420ms hold so cross-dissolve settles and audience sees ~0,74 first, then 1,3s glide
     tween(1300, (t) => {
       const dotOp = Math.min(1, t * 4);
       const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
@@ -599,7 +599,7 @@ window.EvidenCharts = (function () {
         dotGold.setAttribute("opacity", String(dotOp));
         lblGold.setAttribute("opacity", String(lblOp));
       });
-    }, 260);
+    }, 420);
   }
 
   /* ========================================================================
