@@ -1,11 +1,15 @@
 """Servicio aislado de inferencia Granite A/B en CPU."""
 
 from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from time import monotonic
+from uuid import uuid4
+import hmac
 import os
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from peft import PeftModel
 from torchao.quantization import Int8WeightOnlyConfig
 from transformers import (
@@ -35,10 +39,25 @@ ADAPTER_PATHS = {
 
 state = {}
 inference_lock = Lock()
+job_lock = Lock()
+job_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="granite-infer")
+jobs = {}
+GRANITE_SHARED_TOKEN = os.getenv("GRANITE_SHARED_TOKEN", "")
+
+
+def require_auth(authorization: str | None = Header(default=None)):
+    """Constant-time Bearer validation for all externally reachable routes."""
+    if len(GRANITE_SHARED_TOKEN) < 32 or not authorization or not hmac.compare_digest(
+        authorization, f"Bearer {GRANITE_SHARED_TOKEN}"
+    ):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if len(GRANITE_SHARED_TOKEN) < 32:
+        raise RuntimeError("GRANITE_SHARED_TOKEN debe tener al menos 32 caracteres")
     print("Cargando Granite 4.2 8B INT8...", flush=True)
 
     torch.set_num_threads(8)
@@ -125,7 +144,7 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
+@app.get("/health", dependencies=[Depends(require_auth)])
 def health():
     return {
         "status": "ready",
@@ -135,7 +154,7 @@ def health():
     }
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(require_auth)])
 def predict(request: PredictionRequest):
     mode = {
         "granite-a": "A",
@@ -168,3 +187,38 @@ def predict(request: PredictionRequest):
             **result.model_dump(),
             "is_demo": False,
         }
+
+
+# Cloudflare's read timeout can be shorter than CPU inference.
+# Submit quickly and poll for completion; the computation stays in a bounded queue.
+@app.post("/jobs", dependencies=[Depends(require_auth)], status_code=202)
+def submit_job(request: PredictionRequest):
+    if request.model_id not in ("granite-a", "granite-b"):
+        raise HTTPException(status_code=422, detail="Modelo Granite desconocido")
+    with job_lock:
+        now = monotonic()
+        for job_id, entry in list(jobs.items()):
+            if entry["future"].done() and now - entry["created"] > 900:
+                del jobs[job_id]
+        if sum(not entry["future"].done() for entry in jobs.values()) >= 3:
+            raise HTTPException(status_code=429, detail="Granite está ocupado; intenta nuevamente")
+        job_id = uuid4().hex
+        jobs[job_id] = {"created": now, "future": job_pool.submit(predict, request)}
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/jobs/{job_id}", dependencies=[Depends(require_auth)])
+def get_job(job_id: str):
+    with job_lock:
+        entry = jobs.get(job_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado o expirado")
+    future = entry["future"]
+    if not future.done():
+        return {"job_id": job_id, "status": "running" if future.running() else "queued"}
+    try:
+        result = future.result()
+    except Exception:
+        # Avoid leaking internal errors or model context to the public Internet.
+        return {"job_id": job_id, "status": "error", "detail": "Granite no pudo completar la inferencia"}
+    return {"job_id": job_id, "status": "done", "result": result}
