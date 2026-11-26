@@ -1,3 +1,4 @@
+# REFERENCE ONLY: previous single-host Granite 22-GiB prototype; NOT deployed to AWS Academy.
 # Use only on EC2 with /srv/evidencite/models populated from private S3.
 # Local compose.yaml is not modified.
 name: evidencite-cloud

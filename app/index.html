@@ -7,7 +7,7 @@
 
     <title>EvidenCite</title>
 
-    <link rel="stylesheet" href="/static/styles.css?v=18">
+    <link rel="stylesheet" href="/static/styles.css?v=19">
     <link rel="stylesheet" href="/static/metrics.css?v=1">
     <link rel="stylesheet" href="/static/training.css?v=4">
 </head>
@@ -129,6 +129,23 @@
 
                 </div>
 
+
+                <!-- Ejemplo guiado opcional: no ejecuta una prediccion automaticamente. -->
+                <details class="guided-sample">
+                    <summary>¿Necesitas un ejemplo? <span>Prueba con un artículo científico real</span></summary>
+                    <div class="guided-sample-content">
+                        <strong>Attention Is All You Need</strong>
+                        <p class="guided-sample-meta">Vaswani et al. (2017) · arXiv:1706.03762</p>
+                        <p class="guided-sample-label">Contexto de demostración</p>
+                        <blockquote>Previous sequence-to-sequence architectures relied heavily on recurrent neural networks. Vaswani et al. (2017) introduced the Transformer architecture, replacing recurrence with self-attention mechanisms. Subsequent studies expanded upon this approach.</blockquote>
+                        <p class="guided-sample-note">Contexto ilustrativo redactado para la demostración; no es una cita textual de otra publicación.</p>
+                        <div class="guided-sample-actions">
+                            <button type="button" id="guided-sample-load">Cargar ejemplo</button>
+                            <a href="https://arxiv.org/pdf/1706.03762" target="_blank" rel="noopener noreferrer">Abrir / descargar PDF oficial</a>
+                        </div>
+                        <p id="guided-sample-status" role="status" aria-live="polite"></p>
+                    </div>
+                </details>
 
                 <form id="prediction-form">
 
@@ -403,7 +420,7 @@
 </div>
 
 
-<script src="/static/app.js?v=14"></script>
+<script src="/static/app.js?v=15"></script>
 
 <script src="/static/readiness.js?v=1"></script>
 <script src="/static/source-method.js?v=1"></script>

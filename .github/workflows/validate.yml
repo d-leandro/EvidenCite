@@ -1,4 +1,4 @@
-name: Validate EvidenCite EC2 Demo
+name: Validate EvidenCite AWS
 
 on:
   push:
@@ -6,26 +6,32 @@ on:
       - main
       - 'feature/**'
     paths:
-      - 'infra/ec2-demo/**'
-      - 'compose.academy.yaml'
+      - 'infra/evidencite/**'
+      - 'compose.aws.yaml'
       - 'api/Dockerfile.academy'
       - 'tools/aws_academy_preflight.py'
       - 'tools/upload_academy_models_s3.sh'
       - 'tools/ec2_academy_deploy.sh'
       - 'tools/prepare_ssm_deploy.py'
-      - '.github/workflows/validate-ec2-demo.yml'
-      - '.github/workflows/deploy-ec2-demo.yml'
+      - 'tools/academy_rebuild.sh'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/destroy.yml'
+      - '.github/workflows/validate.yml'
+      - '.github/workflows/deploy.yml'
   pull_request:
     paths:
-      - 'infra/ec2-demo/**'
-      - 'compose.academy.yaml'
+      - 'infra/evidencite/**'
+      - 'compose.aws.yaml'
       - 'api/Dockerfile.academy'
       - 'tools/aws_academy_preflight.py'
       - 'tools/upload_academy_models_s3.sh'
       - 'tools/ec2_academy_deploy.sh'
       - 'tools/prepare_ssm_deploy.py'
-      - '.github/workflows/validate-ec2-demo.yml'
-      - '.github/workflows/deploy-ec2-demo.yml'
+      - 'tools/academy_rebuild.sh'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/destroy.yml'
+      - '.github/workflows/validate.yml'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -41,17 +47,20 @@ jobs:
         with:
           terraform_version: '1.11.4'
       - name: Terraform format
-        run: terraform -chdir=infra/ec2-demo fmt -check -recursive
+        run: terraform -chdir=infra/evidencite fmt -check -recursive
       - name: Init providers without state or AWS credentials
-        run: terraform -chdir=infra/ec2-demo init -backend=false -input=false -no-color
+        run: terraform -chdir=infra/evidencite init -backend=false -input=false -no-color
       - name: Validate Terraform
-        run: terraform -chdir=infra/ec2-demo validate -no-color
+        run: terraform -chdir=infra/evidencite validate -no-color
       - name: Validate Compose cloud (no containers)
         env:
           GEMINI_API_KEY: placeholder-for-syntax-only
           EVIDENCITE_DOMAIN: evidencite.example.com
-        run: docker compose -f compose.academy.yaml config --quiet
+        run: docker compose -f compose.aws.yaml config --quiet
       - name: Python and Shell syntax
         run: |
           python3 -m py_compile tools/aws_academy_preflight.py tools/prepare_ssm_deploy.py
-          bash -n tools/upload_academy_models_s3.sh tools/ec2_academy_deploy.sh infra/ec2-demo/bootstrap.sh
+          bash -n tools/upload_academy_models_s3.sh tools/ec2_academy_deploy.sh tools/academy_rebuild.sh infra/evidencite/bootstrap.sh
+
+      - name: Validate frontend JavaScript syntax
+        run: find app/static -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
