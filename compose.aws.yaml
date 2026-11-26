@@ -1,5 +1,5 @@
-# AWS Academy Learner Lab: t3.large (8 GiB RAM). Granite is intentionally unavailable.
-# This file never changes the local compose.yaml.
+# AWS Academy: six production inference variants on EC2; Granite runs separately.
+# Keep local compose.yaml independent; Granite GPU integration is separate.
 name: evidencite-academy
 services:
   api:

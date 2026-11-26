@@ -1,10 +1,10 @@
-name: Deploy EvidenCite
+name: Deploy EvidenCite AWS EC2
 
 on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Escribe DEPLOY_EVIDENCITE (el despliegue puede generar costos AWS)"
+        description: "Escribe DEPLOY_EVIDENCITE para crear/reutilizar EC2 (genera costos)"
         required: true
         type: string
 
@@ -12,130 +12,40 @@ permissions:
   contents: read
 
 concurrency:
-  group: evidencite-aws-infra
+  group: evidencite-ec2-lifecycle
   cancel-in-progress: false
-
-env:
-  AWS_REGION: us-east-1
-  TF_DIR: infra/evidencite
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 120
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_PAGER: ""
+      EVIDENCITE_DEPLOY_BRANCH: ${{ github.ref_name }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Gate - explicit consent and full stack preflight
+      - name: Confirmar despliegue
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
-          if [ "$CONFIRMATION" != "DEPLOY_EVIDENCITE" ]; then
-            echo "::error::Escribe DEPLOY_EVIDENCITE para autorizar creación de infraestructura"
-            exit 1
-          fi
-          python3 tools/cloud_preflight.py --strict
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+          test "$CONFIRMATION" = 'DEPLOY_EVIDENCITE' || { echo 'Confirmacion invalida'; exit 2; }
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.11.4'
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get AWS account and prepare state bucket
+          aws-region: us-east-1
+      - name: AWS Academy preflight (solo lectura)
+        run: python3 tools/aws_academy_preflight.py
+      - name: Verificar bucket de modelos persistentes
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          STATE_BUCKET="evidencite-tfstate-${ACCOUNT_ID}"
-
-          echo "ACCOUNT_ID=${ACCOUNT_ID}" >> "$GITHUB_ENV"
-          echo "STATE_BUCKET=${STATE_BUCKET}" >> "$GITHUB_ENV"
-
-          if ! aws s3api head-bucket --bucket "$STATE_BUCKET" 2>/dev/null; then
-            aws s3api create-bucket \
-              --bucket "$STATE_BUCKET" \
-              --region "$AWS_REGION"
-          fi
-
-      - name: Terraform init
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform init \
-            -backend-config="bucket=${STATE_BUCKET}" \
-            -backend-config="key=evidencite/terraform.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-
-      - name: Create ECR repositories first
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform apply -auto-approve \
-            -target=aws_ecr_repository.api \
-            -target=aws_ecr_repository.app
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push API image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          docker build \
-            -f api/Dockerfile \
-            -t "$ECR_REGISTRY/evidencite-api:latest" .
-
-          docker push "$ECR_REGISTRY/evidencite-api:latest"
-
-      - name: Build and push frontend image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          docker build \
-            -t "$ECR_REGISTRY/evidencite-app:latest" ./app
-
-          docker push "$ECR_REGISTRY/evidencite-app:latest"
-
-      - name: Deploy infrastructure
-        working-directory: ${{ env.TF_DIR }}
-        run: terraform apply -auto-approve
-
-      - name: Force ECS deployment
-        run: |
-          aws ecs update-service \
-            --cluster evidencite-cluster \
-            --service evidencite-api \
-            --force-new-deployment \
-            --region "$AWS_REGION"
-
-          aws ecs update-service \
-            --cluster evidencite-cluster \
-            --service evidencite-app \
-            --force-new-deployment \
-            --region "$AWS_REGION"
-
-      - name: Wait for ECS services
-        run: |
-          aws ecs wait services-stable \
-            --cluster evidencite-cluster \
-            --services evidencite-api evidencite-app \
-            --region "$AWS_REGION"
-
-      - name: Show application URL
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          ALB_DNS=$(terraform output -raw alb_dns_name)
-          APP_URL="http://${ALB_DNS}"
-
-          echo "EvidenCite deployed successfully"
-          echo "$APP_URL"
-
-          echo "## 🚀 EvidenCite deployed" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Application URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "[$APP_URL]($APP_URL)" >> "$GITHUB_STEP_SUMMARY"
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          aws s3api head-bucket --bucket "evidencite-demo-${ACCOUNT}-models"
+      - name: Crear o reutilizar EC2, desplegar via SSM y comprobar HTTPS
+        run: bash tools/academy_rebuild.sh --approve-costs

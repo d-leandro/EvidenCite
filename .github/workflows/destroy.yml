@@ -1,10 +1,10 @@
-name: Destroy EvidenCite
+name: Destroy EvidenCite AWS EC2
 
 on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Escribe DESTROY_EVIDENCITE para destruir la infraestructura (el estado S3 se conserva)"
+        description: "Escribe DESTROY_EVIDENCITE (elimina EC2/EBS, preserva S3/SSM)"
         required: true
         type: string
 
@@ -12,82 +12,51 @@ permissions:
   contents: read
 
 concurrency:
-  group: evidencite-aws-infra
+  group: evidencite-ec2-lifecycle
   cancel-in-progress: false
-
-env:
-  AWS_REGION: us-east-1
-  TF_DIR: infra/evidencite
 
 jobs:
   destroy:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 45
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_PAGER: ""
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Gate - explicit destruction consent
+      - name: Confirmar destruccion
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
-          if [ "$CONFIRMATION" != "DESTROY_EVIDENCITE" ]; then
-            echo "::error::Escribe DESTROY_EVIDENCITE para autorizar destrucción"
-            exit 1
-          fi
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+          test "$CONFIRMATION" = 'DESTROY_EVIDENCITE' || { echo 'Confirmacion invalida'; exit 2; }
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.11.4'
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get AWS account and state bucket
+          aws-region: us-east-1
+      - name: Inicializar el estado remoto YA EXISTENTE
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity \
-            --query Account \
-            --output text)
-
-          STATE_BUCKET="evidencite-tfstate-${ACCOUNT_ID}"
-
-          echo "ACCOUNT_ID=${ACCOUNT_ID}" >> "$GITHUB_ENV"
-          echo "STATE_BUCKET=${STATE_BUCKET}" >> "$GITHUB_ENV"
-
-          echo "Using Terraform state bucket: ${STATE_BUCKET}"
-
-      - name: Verify state bucket exists
+          ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+          STATE_BUCKET="evidencite-tfstate-${ACCOUNT}"
+          aws s3api head-bucket --bucket "$STATE_BUCKET"
+          terraform -chdir=infra/evidencite init -input=false -reconfigure \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config='key=evidencite/ec2-demo.tfstate' \
+            -backend-config='region=us-east-1' \
+            -backend-config='use_lockfile=true'
+      - name: Proteger los recursos S3 persistentes
         run: |
-          if ! aws s3api head-bucket \
-            --bucket "$STATE_BUCKET" 2>/dev/null; then
-
-            echo "Terraform state bucket does not exist."
-            echo "There may be no EvidenCite deployment to destroy."
-            exit 1
+          if terraform -chdir=infra/evidencite state list | grep -E '(^|\\.)(aws_s3_bucket|aws_ssm_parameter)'; then
+            echo 'STOP: el estado incluye recursos persistentes S3 o SSM; revisar antes de destruir' >&2
+            exit 2
           fi
-
-      - name: Terraform init
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform init \
-            -backend-config="bucket=${STATE_BUCKET}" \
-            -backend-config="key=evidencite/terraform.tfstate" \
-            -backend-config="region=${AWS_REGION}" \
-            -backend-config="use_lockfile=true"
-
-      - name: Terraform destroy
-        working-directory: ${{ env.TF_DIR }}
-        run: |
-          terraform destroy -auto-approve
-
-      - name: Destroy summary
-        run: |
-          echo "## 💀 EvidenCite destroyed" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Terraform infrastructure was removed successfully." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The Terraform state bucket was preserved for audit and later reuse." >> "$GITHUB_STEP_SUMMARY"
+      - name: Destruir solamente el stack EC2
+        run: terraform -chdir=infra/evidencite destroy -input=false -auto-approve -var='allow_paid_resources=true'
+      - name: Resumen
+        run: echo 'Stack EC2 destruido; buckets de modelos y estado no administrados por este stack.' >> "$GITHUB_STEP_SUMMARY"

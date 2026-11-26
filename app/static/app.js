@@ -936,3 +936,26 @@ pdfUploadButton.addEventListener("click", async () => {
         }
     }
 });
+
+// Ejemplo guiado de un articulo cientifico publico; solo precarga datos.
+(() => {
+    const exampleButton = document.getElementById("guided-sample-load");
+    if (!exampleButton) return;
+
+    exampleButton.addEventListener("click", () => {
+        contextInput.value = "Previous sequence-to-sequence architectures relied heavily on recurrent neural networks. Vaswani et al. (2017) introduced the Transformer architecture, replacing recurrence with self-attention mechanisms. Subsequent studies expanded upon this approach.";
+        contextInput.dispatchEvent(new Event("input", {bubbles: true}));
+
+        targetInput.value = "Vaswani et al. (2017)";
+        targetInput.dispatchEvent(new Event("input", {bubbles: true}));
+
+        paperQuery.value = "1706.03762";
+        paperQuery.dispatchEvent(new Event("input", {bubbles: true}));
+        resultSection.classList.add("hidden");
+
+        document.getElementById("guided-sample-status").textContent =
+            "Contexto cargado. Confirma el resultado de la búsqueda; en Configuración B, recupera después los tres fragmentos.";
+        paperButton.click();
+        document.querySelector(".paper-lookup")?.scrollIntoView({behavior: "smooth", block: "center"});
+    });
+})();

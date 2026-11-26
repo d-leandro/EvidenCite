@@ -75,13 +75,13 @@ for model in scibert_A scibert_B; do
 
 install -d -m 0700 /srv/evidencite/metrics
 # Check that the configuration is valid without showing resolved environment variables.
-docker compose --env-file "$ENV_FILE" -f compose.academy.yaml config --quiet
+docker compose --env-file "$ENV_FILE" -f compose.aws.yaml config --quiet
 # Only changes this isolated Compose project; does not affect local WSL Granite.
-docker compose --env-file "$ENV_FILE" -f compose.academy.yaml up -d --build --wait --wait-timeout 1800
+docker compose --env-file "$ENV_FILE" -f compose.aws.yaml up -d --build --wait --wait-timeout 1800
 
 # Nginx resolves the API container IP at startup.
 # Refresh its upstream after Docker recreates the API.
-docker compose --env-file "$ENV_FILE" -f compose.academy.yaml restart gateway
+docker compose --env-file "$ENV_FILE" -f compose.aws.yaml restart gateway
 
 # Allow the restarted gateway to accept connections before health checks.
 for attempt in $(seq 1 15); do

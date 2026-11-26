@@ -1,11 +1,27 @@
-output "api_ecr_url" {
-  value = aws_ecr_repository.api.repository_url
+output "instance_id" {
+  value       = aws_instance.demo.id
+  description = "Use with SSM Session Manager and SSM port forwarding"
 }
 
-output "app_ecr_url" {
-  value = aws_ecr_repository.app.repository_url
+output "models_bucket" {
+  value       = local.models_bucket_name
+  description = "Private bucket for model artifacts"
 }
 
-output "alb_dns_name" {
-  value = aws_lb.evidencite.dns_name
+output "region" {
+  value = var.aws_region
+}
+
+output "ssh_required" {
+  value = false
+}
+
+output "public_ip" {
+  value       = aws_instance.demo.public_ip
+  description = "Ephemeral EC2 public IPv4; changes after stop/start"
+}
+
+output "public_url" {
+  value       = "https://evidencite.${replace(aws_instance.demo.public_ip, ".", "-")}.sslip.io"
+  description = "Public URL. Run the deployment script after any IP change."
 }

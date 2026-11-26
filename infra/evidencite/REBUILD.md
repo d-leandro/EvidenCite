@@ -36,7 +36,7 @@ Root EBS is configured with `delete_on_termination=true`; these files cannot be
 recovered after destroy without an external backup.
 
 ```bash
-terraform -chdir=infra/ec2-demo destroy -var='allow_paid_resources=true'
+terraform -chdir=infra/evidencite destroy -var='allow_paid_resources=true'
 ```
 
 The S3 model bucket, its security configuration, the S3 backend bucket and the
@@ -51,14 +51,14 @@ only Terraform's record; it **does not** delete anything on AWS. Run once from t
 repository root, after this code change and before any Terraform plan/apply/destroy:
 
 ```bash
-terraform -chdir=infra/ec2-demo state rm \
+terraform -chdir=infra/evidencite state rm \
   aws_s3_bucket_public_access_block.models \
   aws_s3_bucket_server_side_encryption_configuration.models
 
-BUCKET="$(terraform -chdir=infra/ec2-demo output -raw models_bucket)"
+BUCKET="$(terraform -chdir=infra/evidencite output -raw models_bucket)"
 aws s3api get-public-access-block --bucket "$BUCKET"
 aws s3api get-bucket-encryption --bucket "$BUCKET"
-terraform -chdir=infra/ec2-demo plan -var='allow_paid_resources=true'
+terraform -chdir=infra/evidencite plan -var='allow_paid_resources=true'
 ```
 
 Expected: all four public-access-block booleans remain `true`, encryption `AES256`,

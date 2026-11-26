@@ -1464,3 +1464,37 @@ body[data-configuration="B"] #model-selector:focus {
     color: var(--muted);
     font-size: 12px;
 }
+
+/* Ejemplo guiado de cita: ayuda contextual, no boton flotante invasivo. */
+.guided-sample {
+    margin: 0 20px 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(57, 200, 255, 0.045);
+    font-size: 13px;
+}
+.guided-sample summary { cursor: pointer; color: var(--cyan); font-weight: 700; }
+.guided-sample summary span { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 4px; }
+.guided-sample-content { padding-top: 14px; line-height: 1.55; }
+.guided-sample-meta, .guided-sample-note { font-size: 11px; color: var(--muted); }
+.guided-sample-label { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+.guided-sample blockquote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--cyan); background: #080e18; color: var(--text); }
+.guided-sample-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+.guided-sample-actions button { border: 0; border-radius: 5px; padding: 9px 12px; cursor: pointer; background: var(--cyan); color: #06101b; font-weight: 700; }
+.guided-sample-actions a { color: var(--cyan); text-decoration: underline; font-size: 12px; }
+#guided-sample-status { color: var(--green); font-size: 11px; margin: 10px 0 0; }
+
+/* Menu de ayuda: documentacion publicada en GitHub Pages */
+.tab-help { position: relative; margin-left: auto; align-self: center; }
+.tab-help-toggle { display: block; list-style: none; user-select: none; }
+.tab-help-toggle::-webkit-details-marker { display: none; }
+.tab-help[open] .tab-help-toggle { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab-help-menu {
+    position: absolute; z-index: 80; top: calc(100% + 2px); right: 0;
+    width: min(235px, 80vw); padding: 7px; border: 1px solid var(--border);
+    background: #142238; box-shadow: 0 14px 34px rgba(0,0,0,.45);
+    border-radius: 8px;
+}
+.tab-help-menu a { display: block; padding: 12px; color: var(--text); text-decoration: none; font-size: 13px; border-radius: 5px; }
+.tab-help-menu a:hover, .tab-help-menu a:focus-visible { background: var(--cyan-soft); color: var(--cyan); }
