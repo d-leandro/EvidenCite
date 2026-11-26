@@ -41,7 +41,7 @@ inference_lock = Lock()
 async def lifespan(app: FastAPI):
     print("Cargando Granite 4.2 8B INT8...", flush=True)
 
-    torch.set_num_threads(min(3, max(1, os.cpu_count() or 1)))
+    torch.set_num_threads(8)
 
     config = AutoConfig.from_pretrained(
         BASE_PATH,
@@ -87,12 +87,8 @@ async def lifespan(app: FastAPI):
 
     for mode in ("A", "B"):
         name = mode.lower()
-        from pathlib import Path
-        source = (ADAPTER_PATHS[mode] if
-                  (Path(ADAPTER_PATHS[mode]) / "tokenizer.json").is_file()
-                  else BASE_PATH)
         tokenizer = AutoTokenizer.from_pretrained(
-            source,
+            ADAPTER_PATHS[mode],
             local_files_only=True,
         )
 

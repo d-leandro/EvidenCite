@@ -41,7 +41,7 @@ def predict_granite(
         response = httpx.post(
             f"{GRANITE_URL}/predict",
             json=request.model_dump(exclude_none=True),
-            timeout=httpx.Timeout(600.0, connect=5.0),
+            timeout=httpx.Timeout(180.0, connect=5.0),
             trust_env=False,
         )
     except httpx.RequestError as exc:
