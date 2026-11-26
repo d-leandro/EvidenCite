@@ -1484,3 +1484,17 @@ body[data-configuration="B"] #model-selector:focus {
 .guided-sample-actions button { border: 0; border-radius: 5px; padding: 9px 12px; cursor: pointer; background: var(--cyan); color: #06101b; font-weight: 700; }
 .guided-sample-actions a { color: var(--cyan); text-decoration: underline; font-size: 12px; }
 #guided-sample-status { color: var(--green); font-size: 11px; margin: 10px 0 0; }
+
+/* Menu de ayuda: documentacion publicada en GitHub Pages */
+.tab-help { position: relative; margin-left: auto; align-self: center; }
+.tab-help-toggle { display: block; list-style: none; user-select: none; }
+.tab-help-toggle::-webkit-details-marker { display: none; }
+.tab-help[open] .tab-help-toggle { color: var(--cyan); border-bottom-color: var(--cyan); }
+.tab-help-menu {
+    position: absolute; z-index: 80; top: calc(100% + 2px); right: 0;
+    width: min(235px, 80vw); padding: 7px; border: 1px solid var(--border);
+    background: #142238; box-shadow: 0 14px 34px rgba(0,0,0,.45);
+    border-radius: 8px;
+}
+.tab-help-menu a { display: block; padding: 12px; color: var(--text); text-decoration: none; font-size: 13px; border-radius: 5px; }
+.tab-help-menu a:hover, .tab-help-menu a:focus-visible { background: var(--cyan-soft); color: var(--cyan); }
