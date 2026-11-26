@@ -10,7 +10,7 @@ window.EvidenQA = (function () {
 
   const TABS = [
     { id: "a6-01", label: "A6-01 Calibración" },
-    { id: "a4-04", label: "A4-04 Ablación" },
+    { id: "a4-04", label: "A4-04 Gen. vs. clasif." },
     { id: "a4-05", label: "A4-05 Confusiones" },
     { id: "a5-04", label: "A5-04 Vecindad/NLL" },
     { id: "tab5",  label: "Tabla V Signif." },
@@ -33,9 +33,9 @@ window.EvidenQA = (function () {
 
     if (id === "a4-04") {
       return `
-        <h3 class="qa-heading">A4-04 · Ablación Clasificador vs. Generativo (Qwen3-0.6B) y Costo Local</h3>
+        <h3 class="qa-heading">A4-04 · Clasificador vs. Generativo (Qwen3-0.6B) y Costo Local</h3>
         <p class="qa-summary">
-          Comparar cabeza lineal de clasificación frente a generación causal con prompt demostró desempeño indistinguible (±0,02 Macro-F1), pero el modo generativo disparó VRAM y latencia sin beneficio.
+          Con la misma base congelada y el mismo LoRA, cambiar la cabeza lineal de clasificación por la generación causal de la etiqueta (prompt 0-Shot de A5) dio un desempeño indistinguible (±0,02 Macro-F1), pero multiplicó la latencia y, en Config A, la VRAM.
         </p>
         <div class="qa-kpi-row">
           <div class="qa-kpi"><strong>6 → 85 GB VRAM</strong><span>Config A (Config B exigió gradient checkpointing en B200 180 GB)</span></div>
@@ -54,7 +54,7 @@ window.EvidenQA = (function () {
           </tbody>
         </table>
         <div class="qa-note-box">
-          <strong>Aclaración de alcance:</strong> ~$12,7 USD cubre únicamente las 6 corridas definitivas de Tabla III; excluye R1/R2 (92 corridas, 47,82 h GPU totales) y cómputo continuo en producción.
+          <strong>Aclaración de alcance:</strong> ~$12,7 USD cubre únicamente las 6 corridas definitivas de Tabla III; excluye la selección de modelos (R1 y R2), las corridas fallidas, el aprovisionamiento y el cómputo continuo en producción. Las 92 corridas suman 47,8 h registradas.
         </div>`;
     }
 

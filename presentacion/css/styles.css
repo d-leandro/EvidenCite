@@ -1499,3 +1499,29 @@ svg .svg-axis {
   from { stroke-dashoffset: 22; }
   to { stroke-dashoffset: 0; }
 }
+
+/* ==========================================================================
+   A4-01 · Embudo en pestañas (R1 · R2 · Final · Gen. vs. clasif.)
+   Config A / Config B: pares validados para daltonismo en cada tema
+   ========================================================================== */
+#chapter-a4 { --a4-cfg-a: #1D4ED8; --a4-cfg-b: #D97706; }
+[data-theme="dark"] #chapter-a4 { --a4-cfg-a: #4A8DF0; --a4-cfg-b: #E5801F; }
+.a4-funnel { width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.a4-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: none; }
+.a4-tabs button { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 9px; align-items: center; text-align: left; padding: 8px 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-tint); color: var(--ink-2); font: inherit; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.a4-tabs button:hover { border-color: var(--ink-3); }
+.a4-tabs button:focus-visible { outline: 2px solid var(--accent-warn); outline-offset: 2px; }
+.a4-tabs button.is-active { background: var(--surface); border-color: var(--ink-2); box-shadow: inset 0 -3px 0 var(--accent-warn); color: var(--ink); }
+.a4-tab-step { grid-row: 1 / span 2; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; font: 700 0.72rem var(--font-mono); color: var(--ink-3); }
+.a4-tabs button.is-active .a4-tab-step { border-color: var(--accent-warn); background: var(--accent-warn-soft); color: var(--ink); }
+.a4-tab-t { font: 700 0.8rem var(--font-mono); color: var(--ink); line-height: 1.3; white-space: nowrap; }
+.a4-tab-s { font-size: 0.72rem; color: var(--ink-3); line-height: 1.3; }
+.a4-tabpanel { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.a4-tabpanel svg { width: 100%; height: 100%; max-height: 100%; overflow: visible; }
+@media (max-width: 1440px) {
+  .a4-tabs { gap: 6px; }
+  .a4-tabs button { padding: 7px 9px; column-gap: 7px; }
+  .a4-tab-step { width: 20px; height: 20px; font-size: 0.68rem; }
+  .a4-tab-t { font-size: 0.74rem; }
+  .a4-tab-s { font-size: 0.68rem; }
+}

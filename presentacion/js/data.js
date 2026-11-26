@@ -93,36 +93,75 @@ window.EVIDENCITE_DATA = {
     { cls: "Improvement",     preN: 217, prePct: 7.76,  goldN: 68,   goldPct: 2.43,  deltaPct: -5.33 }
   ],
 
-  // A4-01 R2 (10 modelos 2B-4B, medias exactas de reports/a4/r2_comparacion.csv)
-  a4R2Models: [
-    { name: "SmolLM3-3B",             mean: 0.7456, min: 0.7421, max: 0.7492, top7: true },
-    { name: "Llama-3.2-3B",           mean: 0.7450, min: 0.7368, max: 0.7511, top7: true },
-    { name: "Qwen3.5-4B",             mean: 0.7432, min: 0.7363, max: 0.7516, top7: true },
-    { name: "Qwen3-4B",               mean: 0.7429, min: 0.7347, max: 0.7504, top7: true },
-    { name: "Qwen3.5-2B",             mean: 0.7427, min: 0.7393, max: 0.7487, top7: true },
-    { name: "Granite-4.1-3B",         mean: 0.7396, min: 0.7289, max: 0.7559, top7: true },
-    { name: "Granite-4.2-3B ★",       mean: 0.7384, min: 0.7303, max: 0.7460, top7: true, chosen: true },
-    { name: "Phi-4-mini (3,8B)",      mean: 0.7349, min: 0.7261, max: 0.7438, top7: false },
-    { name: "Nemotron-Nano-4B",       mean: 0.7326, min: 0.7253, max: 0.7456, top7: false },
-    { name: "Nanbeige-4.1-3B",        mean: 0.7289, min: 0.7207, max: 0.7374, top7: false }
-  ],
+  // A4-01 Embudo de 92 corridas (pestañas R1 · R2 · Definitivos · Generativo vs. clasificador).
+  // Generado desde analisis/comparacion.csv y recursos.csv de los tres zips de analizar_resultados.ipynb
+  // (comparacion_modelos, comparacion_modelos_v2, EvidenCite_A6_A7_Evaluacion_Comparativa). Memoria en GB = MB / 1024.
+  a4Funnel: {
+    // R1 (19 corridas, 1 semilla, iteración previa del etiquetado): Macro-F1 de test e IC95 por configuración
+    r1: [
+      { name: "Llama-3.2-3B", discarded: false, a: { f1: 0.8297, lo: 0.8154, hi: 0.843, min: 21.7, gb: 39.1, pct: 0.75 }, b: { f1: 0.8345, lo: 0.8204, hi: 0.8485, min: 28.2, gb: 39.1, pct: 0.75 } },
+      { name: "Phi-4-mini", discarded: false, a: { f1: 0.8272, lo: 0.8126, hi: 0.8406, min: 22.8, gb: 38.1, pct: 0.6 }, b: { f1: 0.8295, lo: 0.8151, hi: 0.8433, min: 30.9, gb: 38.1, pct: 0.6 } },
+      { name: "SmolLM3-3B", discarded: false, a: { f1: 0.827, lo: 0.8126, hi: 0.8412, min: 27.7, gb: 45.1, pct: 0.97 }, b: { f1: 0.8276, lo: 0.8137, hi: 0.8412, min: 30.9, gb: 45.1, pct: 0.97 } },
+      { name: "Granite-4.1-3B", discarded: false, a: { f1: 0.8289, lo: 0.8146, hi: 0.8422, min: 24.5, gb: 48.7, pct: 0.91 }, b: { f1: 0.8222, lo: 0.8077, hi: 0.8355, min: 32.2, gb: 48.7, pct: 0.91 } },
+      { name: "Qwen3.5-2B", discarded: false, a: { f1: 0.819, lo: 0.805, hi: 0.8331, min: 48.3, gb: 54.5, pct: 1.04 }, b: { f1: 0.825, lo: 0.8105, hi: 0.8389, min: 39.7, gb: 54.5, pct: 1.04 } },
+      { name: "Qwen3-4B", discarded: false, a: { f1: 0.8269, lo: 0.8134, hi: 0.8404, min: 30.1, gb: 56.2, pct: 0.82 }, b: { f1: 0.8149, lo: 0.7997, hi: 0.8292, min: 40.2, gb: 56.2, pct: 0.82 } },
+      { name: "Hunyuan-4B", discarded: true, a: { f1: 0.8106, lo: 0.796, hi: 0.8249, min: 29.2, gb: 56.3, pct: 0.76 }, b: { f1: 0.8168, lo: 0.8031, hi: 0.832, min: 40.0, gb: 56.3, pct: 0.76 } },
+      { name: "Gemma-4-E4B", discarded: true, a: { f1: 0.8172, lo: 0.8033, hi: 0.8315, min: 49.6, gb: 73.1, pct: 0.63 }, b: { f1: 0.8076, lo: 0.7927, hi: 0.8222, min: 57.0, gb: 94.0, pct: 0.63 } },
+      { name: "Gemma-4-E2B", discarded: true, a: { f1: 0.81, lo: 0.7949, hi: 0.8245, min: 34.6, gb: 48.6, pct: 0.74 }, b: { f1: 0.7971, lo: 0.7823, hi: 0.812, min: 37.3, gb: 62.1, pct: 0.74 } },
+      { name: "Gemma-4-26B-A4B*", discarded: true, b: { f1: 0.785, lo: 0.7702, hi: 0.8001, min: 101.0, gb: 57.3, pct: 0.12 } }
+    ],
+    // R2 (58 corridas = 10 modelos × A/B × 3 semillas; faltan Nemotron B y Qwen3.5-2B B con la semilla 2255891522)
+    r2: [
+      { name: "SmolLM3-3B", candidate: false, granite: false, mean: 0.7456, min: 0.7421, max: 0.7492, runs: [{ cfg: "A", f1: 0.744 }, { cfg: "A", f1: 0.7448 }, { cfg: "A", f1: 0.7421 }, { cfg: "B", f1: 0.7472 }, { cfg: "B", f1: 0.7492 }, { cfg: "B", f1: 0.7465 }], top7: true },
+      { name: "Llama-3.2-3B", candidate: true, granite: false, mean: 0.745, min: 0.7368, max: 0.7511, runs: [{ cfg: "A", f1: 0.7505 }, { cfg: "A", f1: 0.7406 }, { cfg: "A", f1: 0.7407 }, { cfg: "B", f1: 0.7511 }, { cfg: "B", f1: 0.7501 }, { cfg: "B", f1: 0.7368 }], top7: true },
+      { name: "Qwen3.5-4B", candidate: true, granite: false, mean: 0.7432, min: 0.7363, max: 0.7516, runs: [{ cfg: "A", f1: 0.7516 }, { cfg: "A", f1: 0.7387 }, { cfg: "A", f1: 0.7363 }, { cfg: "B", f1: 0.7443 }, { cfg: "B", f1: 0.7496 }, { cfg: "B", f1: 0.739 }], top7: true },
+      { name: "Qwen3-4B", candidate: false, granite: false, mean: 0.7429, min: 0.7347, max: 0.7504, runs: [{ cfg: "A", f1: 0.7468 }, { cfg: "A", f1: 0.7387 }, { cfg: "A", f1: 0.7389 }, { cfg: "B", f1: 0.7347 }, { cfg: "B", f1: 0.7504 }, { cfg: "B", f1: 0.7477 }], top7: true },
+      { name: "Qwen3.5-2B", candidate: true, granite: false, mean: 0.7427, min: 0.7393, max: 0.7487, runs: [{ cfg: "A", f1: 0.7458 }, { cfg: "A", f1: 0.7396 }, { cfg: "A", f1: 0.7393 }, { cfg: "B", f1: 0.7487 }, { cfg: "B", f1: 0.7403 }], top7: true },
+      { name: "Granite-4.1-3B", candidate: true, granite: true, mean: 0.7396, min: 0.7289, max: 0.7559, runs: [{ cfg: "A", f1: 0.7326 }, { cfg: "A", f1: 0.7334 }, { cfg: "A", f1: 0.7289 }, { cfg: "B", f1: 0.7413 }, { cfg: "B", f1: 0.7559 }, { cfg: "B", f1: 0.7456 }], top7: true },
+      { name: "Granite-4.2-3B", candidate: true, granite: true, mean: 0.7384, min: 0.7303, max: 0.746, runs: [{ cfg: "A", f1: 0.7314 }, { cfg: "A", f1: 0.746 }, { cfg: "A", f1: 0.7457 }, { cfg: "B", f1: 0.7387 }, { cfg: "B", f1: 0.7383 }, { cfg: "B", f1: 0.7303 }], top7: true },
+      { name: "Phi-4-mini (3,8B)", candidate: false, granite: false, mean: 0.7349, min: 0.7261, max: 0.7438, runs: [{ cfg: "A", f1: 0.7261 }, { cfg: "A", f1: 0.727 }, { cfg: "A", f1: 0.7384 }, { cfg: "B", f1: 0.7319 }, { cfg: "B", f1: 0.7438 }, { cfg: "B", f1: 0.7425 }], top7: false },
+      { name: "Nemotron-Nano-4B", candidate: false, granite: false, mean: 0.7326, min: 0.7253, max: 0.7456, runs: [{ cfg: "A", f1: 0.7253 }, { cfg: "A", f1: 0.7327 }, { cfg: "A", f1: 0.729 }, { cfg: "B", f1: 0.7305 }, { cfg: "B", f1: 0.7456 }], top7: false },
+      { name: "Nanbeige-4.1-3B", candidate: false, granite: false, mean: 0.7289, min: 0.7207, max: 0.7374, runs: [{ cfg: "A", f1: 0.7332 }, { cfg: "A", f1: 0.7374 }, { cfg: "A", f1: 0.7254 }, { cfg: "B", f1: 0.7207 }, { cfg: "B", f1: 0.7237 }, { cfg: "B", f1: 0.7331 }], top7: false }
+    ],
+    r2Band: [0.7384, 0.7456],   // medias del Top-7 (ANOVA p = 0,45)
+    // Definitivos sobre el test automático (labeled-v2). TF-IDF no tiene corrida sobre ese test: solo su F1 de dev automático.
+    final: [
+      { name: "Granite-4.2-8B", sub: "LoRA · 8B", cfg: "A", auto: { f1: 0.7436, lo: 0.7264, hi: 0.7593, dev: 0.7391, lat: 7.14, min: 74.1, gb: 36.5 } },
+      { name: "Granite-4.2-8B", sub: "LoRA · 8B", cfg: "B", auto: { f1: 0.7366, lo: 0.7197, hi: 0.7534, dev: 0.7352, lat: 11.82, min: 99.4, gb: 116.6 } },
+      { name: "SciBERT", sub: "ajuste completo · 110M", cfg: "A", auto: { f1: 0.7303, lo: 0.7132, hi: 0.746, dev: 0.7145, lat: 3.12, min: 5.7, gb: 4.7 } },
+      { name: "SciBERT", sub: "ajuste completo · 110M", cfg: "B", auto: { f1: 0.7224, lo: 0.7054, hi: 0.7389, dev: 0.734, lat: 6.06, min: 6.3, gb: 4.7 } },
+      { name: "TF-IDF + RL", sub: "léxico", cfg: "A", devOnly: 0.5269 },
+      { name: "TF-IDF + RL", sub: "léxico", cfg: "B", devOnly: 0.4661 }
+    ],
+    // Qwen3-0.6B, clasificador vs. generativo (4 corridas). gold: mismas predicciones recalificadas contra el Gold
+    // (consolidacion_metricas_a6_a7.ipynb y celda 10c de analizar_resultados.ipynb). gc: con gradient checkpointing.
+    gen: [
+      { cfg: "A", mode: "clasificador", f1: 0.7459, lo: 0.7296, hi: 0.7619, dev: 0.7296, lat: 1.892, min: 8.6, gb: 6.2, gold: 0.4563 },
+      { cfg: "A", mode: "generativo", f1: 0.737, lo: 0.7197, hi: 0.7533, dev: 0.7331, lat: 7.901, min: 12.3, gb: 85.1, gold: 0.434 },
+      { cfg: "B", mode: "clasificador", f1: 0.737, lo: 0.7205, hi: 0.7529, dev: 0.7231, lat: 3.154, min: 11.1, gb: 31.7, gold: 0.442 },
+      { cfg: "B", mode: "generativo", f1: 0.7422, lo: 0.7257, hi: 0.7585, dev: 0.7324, lat: 9.152, min: 35.9, gb: 34.2, gold: 0.436, gc: true }
+    ]
+  },
 
   // A4-02 Definitivos: Test Automático vs. Test Gold A3 (Fig. 4 y Tabla III)
+  // TF-IDF no tiene corrida sobre el test automático (Fig. 4 solo lo muestra sobre el Gold): autoF1 = null.
+  // devF1 es su Macro-F1 de dev (etiquetas automáticas), que antes figuraba aquí como si fuera el test automático.
   a4Definitives: [
     { name: "Granite-4.2-8B (B)", params: "8B · LoRA",  autoF1: 0.737, goldF1: 0.441, recalF1: 0.463, cfg: "B" },
     { name: "Granite-4.2-8B (A)", params: "8B · LoRA",  autoF1: 0.744, goldF1: 0.435, recalF1: 0.453, cfg: "A" },
     { name: "Qwen3-0.6B (A)",     params: "0,6B · LoRA",autoF1: 0.746, goldF1: 0.456, recalF1: 0.456, cfg: "A" },
     { name: "SciBERT 110M (A)",   params: "110M · Full",autoF1: 0.730, goldF1: 0.462, recalF1: 0.462, cfg: "A" },
     { name: "SciBERT 110M (B)",   params: "110M · Full",autoF1: 0.722, goldF1: 0.433, recalF1: 0.433, cfg: "B" },
-    { name: "TF-IDF + RL (A)",    params: "Léxico",     autoF1: 0.527, goldF1: 0.366, recalF1: 0.366, cfg: "A" },
-    { name: "TF-IDF + RL (B)",    params: "Léxico",     autoF1: 0.466, goldF1: 0.332, recalF1: 0.332, cfg: "B" }
+    { name: "TF-IDF + RL (A)",    params: "Léxico",     autoF1: null,  devF1: 0.527, goldF1: 0.366, recalF1: 0.366, cfg: "A" },
+    { name: "TF-IDF + RL (B)",    params: "Léxico",     autoF1: null,  devF1: 0.466, goldF1: 0.332, recalF1: 0.332, cfg: "B" }
   ],
 
   // A4-03 Fig. 11 — Diagnóstico por instancia (verificado en test_revisado_por_modelo.csv y cache A5)
+  // Valores alineados con la Fig. 11 del informe (Qwen3-0.6B: 84,7 / 64,6 / −49,8 pp; antes 84,8 / 64,5 / −49,7).
   fig11Diagnosis: [
     { name: "Granite-4.2-8B (A4)",    type: "a4", conf: 87.1, auto: 62.9, hum: 17.1, delta: -45.8 },
-    { name: "R2 LoRA 2B–4B (20 mod.)",type: "a4", conf: 85.7, auto: 63.9, hum: 15.7, delta: -48.2 },
-    { name: "Qwen3-0.6B (A4)",        type: "a4", conf: 84.8, auto: 64.5, hum: 14.8, delta: -49.7 },
+    { name: "R2 LoRA 2B–4B (10 × A/B)",type: "a4", conf: 85.7, auto: 63.9, hum: 15.7, delta: -48.2 },
+    { name: "Qwen3-0.6B (clasif./gen.)", type: "a4", conf: 84.7, auto: 64.6, hum: 14.8, delta: -49.8 },
     { name: "SciBERT 110M (A4)",      type: "a4", conf: 83.5, auto: 63.0, hum: 15.2, delta: -47.8 },
     { name: "GPT-4.1-mini 0s-B (A5)", type: "a5", conf: 69.8, auto: 28.2, hum: 39.0, delta: +10.8 },
     { name: "Gemini-3.8-Flash 0s-B (A5)", type: "a5", conf: 82.8, auto: 19.5, hum: 56.3, delta: +36.8 }

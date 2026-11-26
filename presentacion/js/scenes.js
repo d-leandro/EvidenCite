@@ -14,6 +14,7 @@ window.EvidenScenes = (function () {
     a3Morph: null,
     a2a3Mode: null,
     a4Mode: null,
+    a4Funnel: null,
     fig11: null,
     a5a7Mode: null,
     costChart: null,
@@ -361,22 +362,51 @@ window.EvidenScenes = (function () {
   }
 
   /* ---- A4 (Beats 15–19) ---- */
+  // Encabezado del escenario para cada pestaña del embudo de A4-01: [título, leyenda, nota al pie]
+  const A4_FUNNEL_HEAD = {
+    r1: [
+      "R1 · 10 modelos de 7 familias: se descartan multimodales y MoE",
+      "Fig. 10a · 19 corridas · 1 semilla",
+      "Etiquetado previo y con sección citante: escala no comparable con R2. Gemma 4 fue el más costoso (E4B: 73–94 GB, 50–57 min) y en el MoE LoRA solo cubrió el 0,12% de los parámetros."
+    ],
+    r2: [
+      "R2 · 10 LLMs de 2B–4B × A/B × 3 semillas: banda plana en ~0,74",
+      "Fig. 10b · 58 corridas · test automático",
+      "Top-7 sin diferencia detectable (ANOVA p = 0,45); ni tamaño (|ρ| < 0,2) ni arquitectura predicen el F1. Se eligió Granite: Llama es de acceso restringido y Qwen3.5, el más costoso."
+    ],
+    final: [
+      "Definitivos: de 110M a 8B, el mismo techo en el test automático",
+      "Fig. 4 (lado automático) · 11 corridas",
+      "Granite-4.2-8B (0,737–0,744) queda 1–2 puntos sobre SciBERT y a la altura de R2 (0,738–0,746). TF-IDF solo tiene F1 de dev: su test se evaluó directamente sobre el Gold (A4-02)."
+    ],
+    gen: [
+      "Qwen3-0.6B: cabeza de clasificación vs. modo generativo",
+      "IV-B2 · 4 corridas · 1 semilla por variante",
+      "Misma base congelada y mismo LoRA: el F1 no cambia, pero generar la etiqueta cuesta 2,9–4,2× más latencia y hasta 85 GB. Se adoptó la cabeza de clasificación, sin prompts."
+    ]
+  };
+
   function renderA4(step) {
     const canvas = document.getElementById("stage-a4-canvas");
     if (!canvas) return;
 
     if (step === 0) {
-      swapStage(canvas, "a4-r2", (el) => {
-        controllers.a4Mode = "r2";
-        C.renderA4R2(el, D.a4R2Models);
+      // Embudo en pestañas. swapStage solo lo reconstruye al llegar desde otro paso, con la pestaña Final por
+      // defecto; si el paso ya está activo (p. ej. clic en el texto), conserva la capa y la pestaña elegida.
+      swapStage(canvas, "a4-funnel", (el) => {
+        controllers.a4Mode = "funnel";
+        controllers.a4Funnel = C.createA4Funnel(el, D.a4Funnel, {
+          onChange: (key) => setHeader("a4", ...A4_FUNNEL_HEAD[key])
+        });
+        controllers.a4Funnel.show("final");
       });
-      setHeader("a4", "Embudo de 92 corridas y banda plana en R2 (~0,74)", "Fig. 10b · 10 modelos 2B–4B × 3 semillas", "Ni tamaño (|ρ| < 0,2) ni arquitectura rompen el techo automático; Granite-4.2 se elige para escalar a 8B.");
+      setHeader("a4", ...A4_FUNNEL_HEAD[controllers.a4Funnel.tab]);
     } else if (step === 1) {
       swapStage(canvas, "a4-collapse", (el) => {
         controllers.a4Mode = "collapse";
         C.renderA4Collapse(el, D.a4Definitives);
       });
-      setHeader("a4", "Desplome de A4 al pasar del test automático al Gold humano", "Fig. 4 · Tabla III (N = 2.798)", "Escalar 70× (110M → 8B) no evita la caída a 0,43–0,46 Macro-F1; Config B empeora o es neutra.");
+      setHeader("a4", "Desplome de A4 al pasar del test automático al Gold humano", "Fig. 4 · Tabla III (N = 2.798)", "Escalar 70× (110M → 8B) no evita la caída a 0,43–0,46 Macro-F1 (TF-IDF: 0,33–0,37); Config B empeora o es neutra.");
     } else {
       swapStage(canvas, "a4-fig11", (el) => {
         controllers.a4Mode = "fig11";
@@ -385,14 +415,14 @@ window.EvidenScenes = (function () {
       const subStep = step - 2; // 0, 1, 2
       controllers.fig11.update(subStep);
       const titles = [
-        "Fig. 11 (Paso 1/3) — En citas confirmadas, el fine-tuning acierta 83–88%",
-        "Fig. 11 (Paso 2/3) — En citas corregidas, A4 repite la etiqueta vieja (○)",
-        "Fig. 11 (Paso 3/3) — Divergencia causal: fine-tuning cae (●), APIs aciertan"
+        "Fig. 11 (Paso 1/3) — Confirmadas: el fine-tuning acierta 83–88%",
+        "Fig. 11 (Paso 2/3) — Corregidas: A4 repite la etiqueta vieja (○)",
+        "Fig. 11 (Paso 3/3) — Corregidas: A4 casi no coincide con la humana (●); las APIs sí"
       ];
       const foots = [
-        "Confirmadas (n = 1.278): Granite-8B (87,1%) iguala o supera a Gemini (82,8%).",
-        "Corregidas (n = 1.520): los modelos con fine-tuning repiten la etiqueta descartada 62,9–64,5% de las veces.",
-        "Al deslizar a la etiqueta humana Gold (●), A4 cae −45,8 a −49,7 pp mientras Gemini salta +36,8 pp."
+        "Confirmadas (n = 1.278): A3 mantuvo la etiqueta automática. Granite-8B (87,1%) iguala o supera a Gemini (82,8%).",
+        "Corregidas (n = 1.520): A3 cambió la etiqueta automática; los modelos con fine-tuning siguen prediciendo la descartada en 62,9–64,6% de los casos.",
+        "A4 coincide con la humana en 13,5–18,0% (Δ −45,8 a −49,8 pp); Gemini 0s-B, en 56,3% (+36,8 pp). El resto de las predicciones cae en una 3.ª clase."
       ];
       setHeader("a4", titles[subStep], "Fig. 11 (Anexo A) · N = 2.798", foots[subStep]);
     }
