@@ -52,6 +52,12 @@ El 26 de noviembre de 2026 se verificó inferencia real en los ocho modelos. El 
 
 Estos valores corresponden a los seis runs principales de los modelos entrenados, sobre el conjunto `test-revisado`; no miden la exactitud de cualquier consulta arbitraria en producción.
 
+## Declaración de uso de inteligencia artificial generativa
+
+| Transparencia sobre el desarrollo de EvidenCite |
+|:---|
+| Para la elaboración de **EvidenCite** se utilizaron herramientas de **inteligencia artificial generativa** en la creación de la mayor parte del código y la documentación. Asimismo, una parte significativa del proyecto proviene de desarrollos realizados previamente en los cursos **Desarrollo de Soluciones** y **Aplicaciones Nativas en la Nube**, cuyos componentes fueron reutilizados, adaptados y ampliados. **Todo el código y la documentación resultantes fueron revisados y corregidos por Julián Andrés Malaver Montoya**, con el propósito de garantizar su coherencia, pertinencia y correspondencia con la solución implementada. |
+
 ## Autores
 
 Daniel Ricardo Gallo Acevedo, Dubán Leandro Jiménez Puerta, Julián Andrés Malaver Montoya y Javier Mauricio Torres Ortega. Maestría en Inteligencia Artificial, Universidad de los Andes.
