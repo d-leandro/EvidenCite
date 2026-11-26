@@ -670,6 +670,59 @@ svg .svg-axis {
   max-width: 920px;
 }
 
+/* Merged CTX-01 compact layout (quote + 3 gaps + SOTA table) */
+.editorial-panel.is-ctx-merged .quote-showcase {
+  padding: 10px 0 10px 18px;
+  margin-bottom: 14px;
+}
+
+.editorial-panel.is-ctx-merged .quote-meta {
+  font-size: 0.72rem;
+  margin-bottom: 5px;
+}
+
+.editorial-panel.is-ctx-merged .quote-text {
+  font-size: clamp(0.92rem, 1.06vw, 1.04rem);
+  line-height: 1.44;
+}
+
+.editorial-panel.is-ctx-merged .pi-grid {
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.editorial-panel.is-ctx-merged .pi-item {
+  padding-top: 8px;
+}
+
+.editorial-panel.is-ctx-merged .pi-code {
+  font-size: 0.72rem;
+  margin-bottom: 3px;
+}
+
+.editorial-panel.is-ctx-merged .pi-title {
+  font-size: 0.96rem;
+  margin-bottom: 4px;
+}
+
+.editorial-panel.is-ctx-merged .pi-desc {
+  font-size: 0.82rem;
+  line-height: 1.38;
+}
+
+.editorial-panel.is-ctx-merged .sota-table {
+  font-size: 0.84rem;
+}
+
+.editorial-panel.is-ctx-merged .sota-table th {
+  font-size: 0.7rem;
+  padding: 7px 10px;
+}
+
+.editorial-panel.is-ctx-merged .sota-table td {
+  padding: 7px 10px;
+}
+
 /* CTX-01 citation quote & gap comparison */
 .quote-showcase {
   padding: 18px 0 18px 24px;
@@ -820,17 +873,17 @@ svg .svg-axis {
   margin-top: 2px;
 }
 
-/* A1-01 Config A -> Config B Transformation */
+/* A1-01 Config A + timed Config B reveal underneath (Option 2B stacked rows) */
 .ab-container {
   width: 100%;
   max-width: 920px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .ab-citing {
-  padding: 14px 18px;
+  padding: 10px 14px;
   border-left: 3px solid var(--ink-2);
   background: var(--surface-tint);
   border-radius: 0 6px 6px 0;
@@ -840,9 +893,10 @@ svg .svg-axis {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 5px;
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 0.73rem;
   color: var(--ink-3);
 }
 
@@ -850,7 +904,7 @@ svg .svg-axis {
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
 }
 
 .ab-pill.gold { background: var(--accent-gold-soft); color: var(--accent-gold); }
@@ -859,36 +913,13 @@ svg .svg-axis {
 
 .ab-citing p {
   margin: 0;
-  font-size: 0.94rem;
-  line-height: 1.5;
+  font-size: 0.87rem;
+  line-height: 1.44;
   color: var(--ink);
 }
 
-.ab-evidence-wrap {
-  position: relative;
-  min-height: 290px;
-}
-
-.ab-view {
-  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ab-view.is-hidden {
-  opacity: 0;
-  transform: translateY(14px);
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-}
-
-.ab-view.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-  position: relative;
-}
-
 .ab-global-box {
-  padding: 18px 20px;
+  padding: 10px 14px;
   border-left: 3px solid var(--accent-secondary);
   background: var(--accent-secondary-soft);
   border-radius: 0 6px 6px 0;
@@ -896,27 +927,40 @@ svg .svg-axis {
 
 .ab-global-title {
   font-family: var(--font-serif);
-  font-size: 1.05rem;
+  font-size: 0.96rem;
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 8px;
+  margin: 0 0 4px;
 }
 
 .ab-global-abs {
-  font-size: 0.92rem;
+  font-size: 0.83rem;
   color: var(--ink-2);
   margin: 0;
-  line-height: 1.52;
+  line-height: 1.42;
+}
+
+.ab-b-staged {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 640ms cubic-bezier(0.22, 1, 0.36, 1), transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.ab-b-staged.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .ab-chunks {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
 
 .ab-chunk {
-  padding: 12px 16px;
+  padding: 8px 13px;
   border-left: 3px solid var(--accent-primary);
   background: var(--accent-primary-soft);
   border-radius: 0 6px 6px 0;
@@ -927,9 +971,9 @@ svg .svg-axis {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .ab-chunk-sec {
@@ -944,9 +988,9 @@ svg .svg-axis {
 
 .ab-chunk p {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: var(--ink);
-  line-height: 1.44;
+  line-height: 1.38;
 }
 
 /* ==========================================================================

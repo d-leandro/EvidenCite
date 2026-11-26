@@ -5,17 +5,17 @@
 
 window.EVIDENCITE_DATA = {
   meta: {
-    title: "EvidenCite: Recomendación Local de Citas y Clasificación de su Función Retórica en Artículos Académicos mediante Recuperación Densa e Inferencia Probabilística",
+    title: "EvidenCite: Recomendación local de citas y clasificación de su función retórica en artículos académicos",
     authors: "Daniel R. Gallo Acevedo · Dubán L. Jiménez Puerta · Julián A. Malaver Montoya · Javier M. Torres Ortega",
     program: "Maestría en Inteligencia Artificial (MAIA) · Universidad de los Andes",
     totalMinutes: 15,
     blocks: [
       { id: "portada", phase: "CTX", label: "Portada", speaker: "Leandro", targetSec: 0, startBeat: 0, endBeat: 0 },
-      { id: "b1", phase: "A1", label: "Contexto + A1", speaker: "Leandro", targetSec: 135, startBeat: 1, endBeat: 8 },
-      { id: "b2", phase: "A2/A3", label: "Panel A2 + Giro A3", speaker: "Javier", targetSec: 150, startBeat: 9, endBeat: 14 },
-      { id: "b3", phase: "A4", label: "Techo Supervisado A4", speaker: "Daniel", targetSec: 165, startBeat: 15, endBeat: 19 },
-      { id: "b4", phase: "A5/A7", label: "LLMs API y Precisión–Costo", speaker: "Leandro", targetSec: 150, startBeat: 20, endBeat: 26 },
-      { id: "b5", phase: "A8/CONC", label: "Cloud, Demo y Cierre", speaker: "Julián", targetSec: 300, startBeat: 27, endBeat: 30 }
+      { id: "b1", phase: "A1", label: "Contexto + A1", speaker: "Leandro", targetSec: 135, startBeat: 1, endBeat: 6 },
+      { id: "b2", phase: "A2/A3", label: "Panel A2 + Giro A3", speaker: "Javier", targetSec: 150, startBeat: 7, endBeat: 12 },
+      { id: "b3", phase: "A4", label: "Techo Supervisado A4", speaker: "Daniel", targetSec: 165, startBeat: 13, endBeat: 17 },
+      { id: "b4", phase: "A5/A7", label: "LLMs API y Precisión–Costo", speaker: "Leandro", targetSec: 150, startBeat: 18, endBeat: 24 },
+      { id: "b5", phase: "A8/CONC", label: "Cloud, Demo y Cierre", speaker: "Julián", targetSec: 300, startBeat: 25, endBeat: 30 }
     ]
   },
 

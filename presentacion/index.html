@@ -21,14 +21,14 @@
 
     <nav class="phase-nav" aria-label="Fases del proyecto">
       <button class="phase-pill is-active" data-goto-beat="1" data-phase="CTX">CTX</button>
-      <button class="phase-pill" data-goto-beat="4" data-phase="A1">A1</button>
-      <button class="phase-pill" data-goto-beat="9" data-phase="A2">A2</button>
-      <button class="phase-pill" data-goto-beat="12" data-phase="A3">A3</button>
-      <button class="phase-pill" data-goto-beat="15" data-phase="A4">A4</button>
-      <button class="phase-pill" data-goto-beat="20" data-phase="A5">A5</button>
-      <button class="phase-pill" data-goto-beat="24" data-phase="A6/A7">A6/A7</button>
-      <button class="phase-pill" data-goto-beat="27" data-phase="A8">A8</button>
-      <button class="phase-pill" data-goto-beat="31" data-phase="CONC">CONC</button>
+      <button class="phase-pill" data-goto-beat="3" data-phase="A1">A1</button>
+      <button class="phase-pill" data-goto-beat="7" data-phase="A2">A2</button>
+      <button class="phase-pill" data-goto-beat="10" data-phase="A3">A3</button>
+      <button class="phase-pill" data-goto-beat="13" data-phase="A4">A4</button>
+      <button class="phase-pill" data-goto-beat="18" data-phase="A5">A5</button>
+      <button class="phase-pill" data-goto-beat="22" data-phase="A6/A7">A6/A7</button>
+      <button class="phase-pill" data-goto-beat="25" data-phase="A8">A8</button>
+      <button class="phase-pill" data-goto-beat="29" data-phase="CONC">CONC</button>
     </nav>
 
     <div class="topbar-right">
@@ -36,7 +36,7 @@
         <span class="speaker-dot"></span>
         <span id="speaker-name">Leandro</span>
       </div>
-      <span class="beat-counter" id="beat-counter">00 / 32</span>
+      <span class="beat-counter" id="beat-counter">00 / 30</span>
     </div>
 
     <div class="progress-track">
@@ -51,7 +51,7 @@
     <section class="full-beat" data-beat="0" data-phase="CTX" data-speaker="Leandro" data-block="0">
       <div class="hero-beat">
         <div class="hero-kicker">Sustentación de Proyecto de Grado · MAIA · Universidad de los Andes</div>
-        <h1 class="hero-title">EvidenCite: Recomendación Local de Citas y Clasificación de su Función Retórica mediante Recuperación Densa e Inferencia Probabilística</h1>
+        <h1 class="hero-title">EvidenCite: Recomendación local de citas y clasificación de su función retórica en artículos académicos</h1>
         <p class="hero-subtitle">
           Evaluamos si llevar pasajes locales del artículo citado (<strong>Config B</strong>) supera al resumen global (<strong>Config A</strong>) en las 9 funciones retóricas de Lyu et al., y auditamos el impacto real del ruido de etiquetado frente a un conjunto de prueba revisado manualmente al 100%.
         </p>
@@ -91,7 +91,7 @@
     </section>
 
     <!-- ==================================================================
-         CAPÍTULO 1 — CONTEXTO Y PREGUNTAS DE INVESTIGACIÓN (Beats 1–3)
+         CAPÍTULO 1 — CONTEXTO Y PREGUNTAS DE INVESTIGACIÓN (Beats 1–2)
          Expositor: Leandro
          ================================================================== -->
     <section class="chapter" id="chapter-ctx">
@@ -99,33 +99,21 @@
         <div class="narrative-col">
           <article class="beat-step" data-beat="1" data-phase="CTX" data-speaker="Leandro" data-block="1" data-scene="ctx" data-step="0">
             <div class="beat-tag">CTX-01 <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">El resumen global no revela cómo se usa una cita</h2>
+            <h2 class="beat-heading">El resumen global no basta: tres brechas abiertas</h2>
             <p class="beat-lead">
-              Los conteos bibliométricos tratan toda cita por igual. Al clasificar en <strong>9 funciones retóricas finas</strong> (Lyu et al., 2021), mirar solo título y resumen del citado omite el pasaje técnico exacto que motivó la referencia.
+              Al clasificar citas en <strong>9 funciones retóricas</strong> (Lyu et al., 2021), ningún estudio previo reúne pasajes locales del citado en paridad 1:1 y verdad humana completa.
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">9 clases</span><span class="metric-lbl">taxonomía no evaluativa</span></div>
-              <div class="metric-item"><span class="metric-val">Δ⁸</span><span class="metric-lbl">salida probabilística</span></div>
-            </div>
-          </article>
-
-          <article class="beat-step" data-beat="2" data-phase="CTX" data-speaker="Leandro" data-block="1" data-scene="ctx" data-step="1">
-            <div class="beat-tag">CTX-01 <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Tres brechas abiertas en el estado del arte</h2>
-            <p class="beat-lead">
-              Ningún estudio previo combina <strong>9 funciones retóricas</strong>, <strong>pasajes locales del citado</strong> en paridad 1:1 y <strong>verdad humana completa</strong> para auditar el sesgo de etiquetado automático.
-            </p>
-            <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val">3–7 cl.</span><span class="metric-lbl">benchmarks clásicos</span></div>
               <div class="metric-item"><span class="metric-val is-gold">3 / 3</span><span class="metric-lbl">brechas cubiertas en EvidenCite</span></div>
             </div>
           </article>
 
-          <article class="beat-step" data-beat="3" data-phase="CTX" data-speaker="Leandro" data-block="1" data-scene="ctx" data-step="2">
+          <article class="beat-step" data-beat="2" data-phase="CTX" data-speaker="Leandro" data-block="1" data-scene="ctx" data-step="1">
             <div class="beat-tag">CTX-02 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Tres preguntas de investigación y hoja de ruta</h2>
             <p class="beat-lead">
-              Ejecutamos <strong>ocho actividades secuenciales (A1–A8)</strong> para responder empíricamente el alcance de la evidencia local, el límite del etiquetado automático y la relación precisión–costo.
+              Ejecutamos <strong>8 actividades (A1–A8)</strong> para dar respuesta a estas preguntas.
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">PI1</span><span class="metric-lbl">Config B vs. A</span></div>
@@ -137,12 +125,12 @@
 
         <div class="visual-stage">
           <div class="stage-header">
-            <h3 class="stage-title" id="stage-ctx-title">El problema de ambigüedad en citas científicas</h3>
+            <h3 class="stage-title" id="stage-ctx-title">El problema y las tres brechas frente al estado del arte</h3>
             <p class="stage-caption" id="stage-ctx-caption">Tabla I · Lyu et al. (2021)</p>
           </div>
           <div class="stage-canvas" id="stage-ctx-canvas"></div>
           <div class="stage-footnote">
-            <span id="stage-ctx-foot">Excluye Assessment (polaridad evaluativa) y fusiona Future Work en Gap.</span>
+            <span id="stage-ctx-foot">EvidenCite es el único banco con 9 clases, paridad 1:1 Config A/B y test 100% Gold.</span>
             <span class="mono">CTX</span>
           </div>
         </div>
@@ -150,49 +138,37 @@
     </section>
 
     <!-- ==================================================================
-         CAPÍTULO 2 — A1: PARIDAD 1:1 Y DAG VERTICAL MEDALLION (Beats 4–8)
+         CAPÍTULO 2 — A1: PARIDAD 1:1 Y CONSTRUCCIÓN DEL DATASET (Beats 3–6)
          Expositor: Leandro
          ================================================================== -->
     <section class="chapter" id="chapter-a1">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="4" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="0">
-            <div class="beat-tag">A1-01 · Config A <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Paridad estricta 1:1 — Vista global (Config A)</h2>
+          <article class="beat-step" data-beat="3" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="0">
+            <div class="beat-tag">A1-01 · Config A vs. Config B <span class="beat-speaker-chip">· Leandro</span></div>
+            <h2 class="beat-heading">Paridad 1:1: resumen global vs. pasajes locales</h2>
             <p class="beat-lead">
-              Misma ventana citante de <strong>3 oraciones</strong> (media 83,9 palabras, <code>&lt;cite&gt;</code> y <code>[OTHERCIT]</code>). En <strong>Config A</strong> el clasificador solo recibe el título y el resumen del artículo citado.
+              Sobre la misma ventana citante de <strong>3 oraciones</strong>, contrastamos <strong>Config A</strong> (título y resumen) frente a <strong>Config B</strong> (<strong>Top-3 pasajes</strong> ≤110 pal. + encabezados autorales).
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val">inst_04783</span><span class="metric-lbl">Gold A3: Basis</span></div>
-              <div class="metric-item"><span class="metric-val">93,6%</span><span class="metric-lbl">sin sección citante en MultiCite</span></div>
+              <div class="metric-item"><span class="metric-val is-primary">0,894</span><span class="metric-lbl">coseno Top-1 (K = 3)</span></div>
             </div>
           </article>
 
-          <article class="beat-step" data-beat="5" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="1">
-            <div class="beat-tag">A1-01 · Config B <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Transformación a evidencia local (Config B)</h2>
+          <article class="beat-step" data-beat="4" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="1">
+            <div class="beat-tag">A1-02 · Construcción del Dataset <span class="beat-speaker-chip">· Leandro</span></div>
+            <h2 class="beat-heading">Cinco etapas desde MultiCite y unarXive</h2>
             <p class="beat-lead">
-              Sustituimos el resumen por los <strong>Top-3 pasajes más afines</strong> (&le;110 pal.) recuperados del cuerpo citado, preservando sus <strong>encabezados autorales exactos</strong> como señal de encuadre.
+              Construimos el corpus en <strong>5 etapas de refinamiento progresivo</strong> a partir de <strong>MultiCite</strong> (Gold humano, 7 clases) y <strong>unarXive 2024</strong> (CS LaTeX). Con APIs estructuramos <strong>~66.000 artículos</strong> y <strong>~145.000 pares</strong>.
             </p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-primary">0,894</span><span class="metric-lbl">coseno Top-1</span></div>
-              <div class="metric-item"><span class="metric-val">≤ 110 pal.</span><span class="metric-lbl">por fragmento (K = 3)</span></div>
+              <div class="metric-item"><span class="metric-val is-gold">66.314</span><span class="metric-lbl">artículos estructurados</span></div>
+              <div class="metric-item"><span class="metric-val">~145k</span><span class="metric-lbl">pares citante–citado</span></div>
             </div>
           </article>
 
-          <article class="beat-step" data-beat="6" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="2">
-            <div class="beat-tag">A1-02 · Ingesta Medallion <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">DAG vertical en 5 capas y rescate seminal</h2>
-            <p class="beat-lead">
-              El cruce inicial solo resolvía <strong>0,4%</strong> de MultiCite. La ingesta dirigida de los Top-250 más citados (apoyada en caché local y APIs) rescató <strong>3.629 citas Gold 1:1</strong> y estructuró 66.314 artículos.
-            </p>
-            <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-gold">0,4% → 3.629</span><span class="metric-lbl">rescate Gold 1:1</span></div>
-              <div class="metric-item"><span class="metric-val">30.722</span><span class="metric-lbl">citados con cuerpo</span></div>
-            </div>
-          </article>
-
-          <article class="beat-step" data-beat="7" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="3">
+          <article class="beat-step" data-beat="5" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="2">
             <div class="beat-tag">A1-02 · Zoom Recuperación + NLI <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Presupuesto de 512 tokens y minado NLI calibrado</h2>
             <p class="beat-lead">
@@ -204,7 +180,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="8" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="4">
+          <article class="beat-step" data-beat="6" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="3">
             <div class="beat-tag">A1-02 · Consolidación 1:1 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">18.658 pares 1:1, fuga nula y acceso O(1)</h2>
             <p class="beat-lead">
@@ -238,7 +214,7 @@
     <section class="chapter" id="chapter-a2a3">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="9" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="0">
+          <article class="beat-step" data-beat="7" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="0">
             <div class="beat-tag">A2-01 · Comité 7B–8B <span class="beat-speaker-chip">· Javier</span></div>
             <h2 class="beat-heading">Panel de 3 jueces abiertos en vLLM</h2>
             <p class="beat-lead">
@@ -250,7 +226,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="10" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="1">
+          <article class="beat-step" data-beat="8" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="1">
             <div class="beat-tag">A2-01 · Auditoría ante Gold <span class="beat-speaker-chip">· Javier</span></div>
             <h2 class="beat-heading">Baja concordancia y sesgo metodológico</h2>
             <p class="beat-lead">
@@ -262,7 +238,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="11" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="2">
+          <article class="beat-step" data-beat="9" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="2">
             <div class="beat-tag">A2-02 · Regla Conservadora <span class="beat-speaker-chip">· Javier</span></div>
             <h2 class="beat-heading">Compromiso: 40,7% entró sin consenso a train</h2>
             <p class="beat-lead">
@@ -275,7 +251,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="12" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="3">
+          <article class="beat-step" data-beat="10" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="3">
             <div class="beat-tag">A3-01 · Curaduría Doble Ciego <span class="beat-speaker-chip">· Javier (con Julián)</span></div>
             <h2 class="beat-heading">Revisión manual del 100% del conjunto de prueba</h2>
             <p class="beat-lead">
@@ -287,7 +263,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="13" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="4">
+          <article class="beat-step" data-beat="11" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="4">
             <div class="beat-tag">A3-02 · Test Pre-A3 <span class="beat-speaker-chip">· Javier</span></div>
             <h2 class="beat-heading">Antes de A3: cuotas artificialmente balanceadas</h2>
             <p class="beat-lead">
@@ -299,7 +275,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="14" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="5">
+          <article class="beat-step" data-beat="12" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="5">
             <div class="beat-tag">A3-02 · Giro Gold Humano <span class="beat-speaker-chip">· Javier</span></div>
             <h2 class="beat-heading">A3 corrigió 54,32% del test y reveló la distribución real</h2>
             <p class="beat-lead">
@@ -333,7 +309,7 @@
     <section class="chapter" id="chapter-a4">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="15" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="0">
+          <article class="beat-step" data-beat="13" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="0">
             <div class="beat-tag">A4-01 · Embudo 92 Corridas <span class="beat-speaker-chip">· Daniel</span></div>
             <h2 class="beat-heading">92 corridas (110M → 8B): techo plano en ~0,74</h2>
             <p class="beat-lead">
@@ -345,7 +321,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="16" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="1">
+          <article class="beat-step" data-beat="14" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="1">
             <div class="beat-tag">A4-02 · Evaluación Gold <span class="beat-speaker-chip">· Daniel</span></div>
             <h2 class="beat-heading">Desplome generalizado a 0,43–0,46 sobre Gold A3</h2>
             <p class="beat-lead">
@@ -357,7 +333,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="17" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="2">
+          <article class="beat-step" data-beat="15" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="2">
             <div class="beat-tag">A4-03 · Paso 1 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
             <h2 class="beat-heading">Clímax #1: en citas confirmadas, A4 acierta 83–88%</h2>
             <p class="beat-lead">
@@ -369,7 +345,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="18" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="3">
+          <article class="beat-step" data-beat="16" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="3">
             <div class="beat-tag">A4-03 · Paso 2 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
             <h2 class="beat-heading">En las 1.520 corregidas: fieles a la etiqueta vieja</h2>
             <p class="beat-lead">
@@ -381,7 +357,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="19" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="4">
+          <article class="beat-step" data-beat="17" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="4">
             <div class="beat-tag">A4-03 · Paso 3 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
             <h2 class="beat-heading">Divergencia causal: fine-tuning cae, APIs aciertan</h2>
             <p class="beat-lead">
@@ -415,7 +391,7 @@
     <section class="chapter" id="chapter-a5a7">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="20" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
+          <article class="beat-step" data-beat="18" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Antes de A3: empate. Después de A3: no.</h2>
             <p class="beat-lead">En 22.384 inferencias API (<strong>99,991% JSON válido</strong>), GPT 0s-B y Gemini 0s-B empataban en test automático (0,441 vs. 0,449). En Gold, <strong>Gemini salta a 0,5996 (+0,1331 Macro-F1)</strong>.</p>
@@ -425,7 +401,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="21" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="1">
+          <article class="beat-step" data-beat="19" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="1">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 2/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Gemini gana 9 de 9 clases</h2>
             <p class="beat-lead">Supera a GPT 0s-B en todas las funciones; las mayores brechas están en clases difíciles: <strong>Basis (+0,302)</strong>, <strong>Further Reading (+0,246)</strong> y <strong>Gap (+0,173)</strong>.</p>
@@ -435,7 +411,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="22" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="2">
+          <article class="beat-step" data-beat="20" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="2">
             <div class="beat-tag">A5-02 · Respuesta a PI1 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Config B aporta mejoras focalizadas según modelo y sección</h2>
             <p class="beat-lead">GPT 0-Shot: <strong>+2,86 pp globales</strong> y <strong>+10,28 pp</strong> en Related Work. Gemini: misma calidad, <strong>−19,4% pensamiento latente</strong>.</p>
@@ -445,7 +421,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="23" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="3">
+          <article class="beat-step" data-beat="21" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="3">
             <div class="beat-tag">A5-03 · Por qué cayó 9-Shot <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">El 9-Shot se contaminó desde el prompt</h2>
             <p class="beat-lead">0-Shot venció a 9-Shot porque <strong>4 de 9 ejemplos</strong> salieron de empates 1-1-1 en <strong>train</strong>, donde el error real fue <strong>66,06%</strong>.</p>
@@ -455,7 +431,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="24" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="4">
+          <article class="beat-step" data-beat="22" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="4">
             <div class="beat-tag">A6 · Panorama Global A4 vs. A5 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Las 14 variantes sobre una misma escala</h2>
             <p class="beat-lead">En A4, Config B cae o empata. En A5, <strong>Gemini 0s-B</strong> lidera precisión (<strong>0,5996</strong>) y calibración (<strong>ECE 0,1158</strong>).</p>
@@ -465,7 +441,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="25" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="5">
+          <article class="beat-step" data-beat="23" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="5">
             <div class="beat-tag">A7-01 · Precisión–Costo (1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">9-Shot: más caro, peor resultado</h2>
             <p class="beat-lead"><strong>10.000 citas</strong> cuestan entre <strong>$8,23 y $53,09</strong> en 9-Shot. Todas rinden peor que 0-Shot.</p>
@@ -475,7 +451,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="26" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="6">
+          <article class="beat-step" data-beat="24" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="6">
             <div class="beat-tag">A7-01 · Precisión–Costo (2/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Dos opciones claras en producción</h2>
             <p class="beat-lead"><strong>GPT 0s-B</strong> si importa costo y velocidad. <strong>Gemini 0s-B</strong> si importa calidad y calibración.</p>
@@ -507,7 +483,7 @@
     <section class="chapter" id="chapter-a8">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="27" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="0">
+          <article class="beat-step" data-beat="25" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="0">
             <div class="beat-tag">A8-01 · Paso 1 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Entrada única: una cita, un citado</h2>
             <p class="beat-lead">
@@ -519,7 +495,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="28" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="1">
+          <article class="beat-step" data-beat="26" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="1">
             <div class="beat-tag">A8-01 · Paso 2 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Dos evidencias en paralelo: Config A y Config B</h2>
             <p class="beat-lead">
@@ -531,7 +507,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="29" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="2">
+          <article class="beat-step" data-beat="27" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="2">
             <div class="beat-tag">A8-01 · Paso 3 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Inferencia independiente en 9 clases</h2>
             <p class="beat-lead">
@@ -562,7 +538,7 @@
          BEAT 30 — A8-02: PAUSA LIMPIA PARA DEMOSTRACIÓN EXTERNA (3:00 MIN)
          Expositor: Julián (Sin video embebido ni enlaces)
          ================================================================== -->
-    <section class="full-beat" data-beat="30" data-phase="A8" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="28" data-phase="A8" data-speaker="Julián" data-block="5">
       <div class="demo-pause-beat">
         <div class="demo-badge">
           <span class="demo-pulse"></span>
@@ -597,7 +573,7 @@
          BEAT 31 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="31" data-phase="CONC" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="29" data-phase="CONC" data-speaker="Julián" data-block="5">
       <div class="closing-inner">
         <div class="hero-kicker">CONC-01 · Síntesis Empírica · Julián</div>
         <h2 class="hero-title" style="max-width: 30ch;">Respuesta directa a las tres preguntas de investigación</h2>
@@ -634,7 +610,7 @@
          BEAT 32 — CONC-02: LIMITACIONES HONESTAS Y TRABAJO FUTURO
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="32" data-phase="CONC" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="30" data-phase="CONC" data-speaker="Julián" data-block="5">
       <div class="closing-inner">
         <div class="hero-kicker">CONC-02 · Alcance y Proyección · Julián</div>
         <h2 class="hero-title" style="max-width: 30ch;">Limitaciones declaradas y próximos pasos</h2>

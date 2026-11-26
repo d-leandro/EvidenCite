@@ -83,7 +83,7 @@ window.EvidenScenes = (function () {
     return nextLayer;
   }
 
-  /* ---- CTX (Beats 1–3) ---- */
+  /* ---- CTX (Beats 1–2) ---- */
   function renderCtx(step) {
     const canvas = document.getElementById("stage-ctx-canvas");
     if (!canvas) return;
@@ -91,58 +91,46 @@ window.EvidenScenes = (function () {
     if (step === 0) {
       setHeader(
         "ctx",
-        "¿Por qué falla mirar solo el título y el resumen del citado?",
-        "Ejemplo real · inst_04783",
-        "La taxonomía de Lyu et al. (2021) distingue 9 funciones retóricas no evaluativas en Δ⁸."
+        "El problema y las tres brechas frente al estado del arte",
+        "Tabla I · Ejemplo real inst_04783",
+        "EvidenCite es el único banco con 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
       );
       swapStage(canvas, "ctx-0", (layer) => {
         layer.innerHTML = `
-        <div class="editorial-panel">
+        <div class="editorial-panel is-ctx-merged">
           <div class="quote-showcase">
             <div class="quote-meta">ARTÍCULO CITANTE (2212.08018) · VENTANA m = 3 ORACIONES</div>
             <p class="quote-text">
               "The procedure builds upon the recent work by Hopkins, Kamath and Majid
               <span class="cite-mark">&lt;cite&gt;Hopkins, Kamath &amp; Majid, 2022&lt;/cite&gt;</span>
-              on pure DP mean estimation. First, we exploit their algorithm to precondition the unknown covariance matrix...
+              on pure DP mean estimation. First, we exploit their algorithm to precondition the unknown covariance matrix…
               uses the result of <span class="othercit-mark">[OTHERCIT]</span> to improve the conditioning of Σ."
             </p>
           </div>
-          <div class="pi-grid" style="margin-bottom:0;">
+          <div class="pi-grid">
             <div class="pi-item">
               <div class="pi-code">BRECHA 1 · GRANULARIDAD</div>
-              <h4 class="pi-title">3–6 clases gruesas</h4>
-              <p class="pi-desc">SciCite y ACL-ARC colapsan funciones metodológicas cercanas (<em>Basis</em>, <em>Application</em>, <em>Improvement</em>).</p>
+              <h4 class="pi-title">3–7 clases gruesas</h4>
+              <p class="pi-desc">Colapsan funciones cercanas (<em>Basis</em>, <em>Application</em>, <em>Improvement</em>).</p>
             </div>
             <div class="pi-item">
-              <div class="pi-code">BRECHA 2 · EVIDENCIA ESTÁTICA</div>
+              <div class="pi-code">BRECHA 2 · EVIDENCIA</div>
               <h4 class="pi-title">Solo título y resumen</h4>
-              <p class="pi-desc">Config A entrega el mismo resumen global para toda mención y oculta algoritmos o pruebas internas.</p>
+              <p class="pi-desc">Oculta el pasaje técnico interno del citado.</p>
             </div>
             <div class="pi-item">
-              <div class="pi-code">BRECHA 3 · RUIDO DE ETIQUETAS</div>
-              <h4 class="pi-title">Sesgo en LLMs 7B–8B</h4>
-              <p class="pi-desc">Etiquetadores abiertos sobre-atribuyen clases metodológicas y distorsionan la evaluación.</p>
+              <div class="pi-code">BRECHA 3 · RUIDO</div>
+              <h4 class="pi-title">Sesgo LLMs 7B–8B</h4>
+              <p class="pi-desc">Sin test 100% Gold distorsionan evaluación.</p>
             </div>
           </div>
-        </div>`;
-      });
-    } else if (step === 1) {
-      setHeader(
-        "ctx",
-        "Posicionamiento frente al estado del arte",
-        "Síntesis de Tabla I · 4 referencias ancla",
-        "EvidenCite es el único banco que reúne 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
-      );
-      swapStage(canvas, "ctx-1", (layer) => {
-        layer.innerHTML = `
-        <div class="editorial-panel">
           <table class="sota-table">
             <thead>
               <tr>
                 <th>Referencia / Sistema</th>
                 <th>Clases</th>
                 <th>Evidencia del citado</th>
-                <th>Test Gold 9 clases</th>
+                <th>Test Gold 9 cl.</th>
                 <th>Calibración y costo</th>
               </tr>
             </thead>
@@ -157,7 +145,7 @@ window.EvidenScenes = (function () {
               <tr>
                 <td><strong>MultiCite</strong> (Lauscher et al., 2022)</td>
                 <td class="mono">7</td>
-                <td>Ninguna en CFC (F1 0,00–0,04 extractivo)</td>
+                <td>Ninguna en CFC (F1 0,00–0,04)</td>
                 <td><span class="check-no">Parcial (7 cl.)</span></td>
                 <td><span class="check-no">—</span></td>
               </tr>
@@ -193,13 +181,13 @@ window.EvidenScenes = (function () {
         "Diseño experimental en 8 actividades",
         "Al cierre de la sustentación volveremos a estas tres tarjetas con su veredicto empírico."
       );
-      swapStage(canvas, "ctx-2", (layer) => {
+      swapStage(canvas, "ctx-1", (layer) => {
         layer.innerHTML = `
         <div class="editorial-panel">
           <div class="pi-grid">
             <div class="pi-item">
               <div class="pi-code">PI1 · EVIDENCIA LOCAL</div>
-              <h4 class="pi-title">¿Cuándo ayuda Config B?</h4>
+              <h4 class="pi-title">¿Cuánto aporta la evidencia local (Config B)?</h4>
               <p class="pi-desc">¿En qué medida y en qué secciones del citante los pasajes locales superan al título y resumen global?</p>
             </div>
             <div class="pi-item">
@@ -228,7 +216,9 @@ window.EvidenScenes = (function () {
     }
   }
 
-  /* ---- A1 (Beats 4–8) ---- */
+  /* ---- A1 (Beats 3–6) ---- */
+  let a1RevealTimer = null;
+
   function buildA1AB(layer) {
     const ex = D.inst04783;
     layer.innerHTML = `
@@ -246,33 +236,31 @@ window.EvidenScenes = (function () {
           </p>
         </div>
 
-        <div class="ab-evidence-wrap">
-          <div class="ab-view is-visible" id="ab-view-a">
-            <div class="ab-label-row">
-              <span>EVIDENCIA DEL CITADO (${ex.citedId})</span>
-              <span class="ab-pill cfg-a">Config A · Vista Global (Título + Resumen)</span>
-            </div>
-            <div class="ab-global-box">
-              <h4 class="ab-global-title">${ex.citedTitle}</h4>
-              <p class="ab-global-abs">"${ex.citedAbstract}"</p>
-            </div>
+        <div class="ab-a-block">
+          <div class="ab-label-row">
+            <span>EVIDENCIA DEL CITADO (${ex.citedId})</span>
+            <span class="ab-pill cfg-a">Config A · Vista Global (Título + Resumen)</span>
           </div>
+          <div class="ab-global-box">
+            <h4 class="ab-global-title">${ex.citedTitle}</h4>
+            <p class="ab-global-abs">"${ex.citedAbstract}"</p>
+          </div>
+        </div>
 
-          <div class="ab-view is-hidden" id="ab-view-b">
-            <div class="ab-label-row">
-              <span>EVIDENCIA DEL CITADO (${ex.citedId}) · PARIDAD 1:1</span>
-              <span class="ab-pill cfg-b">Config B · Top-3 Chunks ≤110 pal. + Encabezados Autorales</span>
-            </div>
-            <div class="ab-chunks">
-              ${ex.chunks.map((ch) => `
-                <div class="ab-chunk">
-                  <div class="ab-chunk-head">
-                    <span class="ab-chunk-sec">[${ch.heading}]</span>
-                    <span class="ab-chunk-score">R${ch.rank} · cos ${ch.score}</span>
-                  </div>
-                  <p>"${ch.text}"</p>
-                </div>`).join("")}
-            </div>
+        <div class="ab-b-staged" id="ab-b-staged">
+          <div class="ab-label-row">
+            <span>MISMA CITA · PARIDAD 1:1 (RANKING TOP-3)</span>
+            <span class="ab-pill cfg-b">Config B · Top-3 Chunks ≤110 pal. + Encabezados Autorales</span>
+          </div>
+          <div class="ab-chunks">
+            ${ex.chunks.map((ch) => `
+              <div class="ab-chunk">
+                <div class="ab-chunk-head">
+                  <span class="ab-chunk-sec">[${ch.heading}]</span>
+                  <span class="ab-chunk-score">R${ch.rank} · cos ${ch.score}</span>
+                </div>
+                <p>"${ch.text}"</p>
+              </div>`).join("")}
           </div>
         </div>
       </div>`;
@@ -282,26 +270,31 @@ window.EvidenScenes = (function () {
     const canvas = document.getElementById("stage-a1-canvas");
     if (!canvas) return;
 
-    if (step <= 1) {
+    if (a1RevealTimer) {
+      clearTimeout(a1RevealTimer);
+      a1RevealTimer = null;
+    }
+
+    if (step === 0) {
       const layer = swapStage(canvas, "a1-ab", (el) => {
         controllers.a1Mode = "ab";
         controllers.a1Dag = null;
         buildA1AB(el);
       });
-      const viewA = layer.querySelector("#ab-view-a");
-      const viewB = layer.querySelector("#ab-view-b");
-      if (step === 0) {
-        setHeader("a1", "Paridad 1:1 — Configuración A (Global)", "Fig. 1 · inst_04783", "Misma ventana citante fija (m = 3 oraciones); varía únicamente la evidencia del artículo citado.");
-        if (viewA && viewB) {
-          viewA.className = "ab-view is-visible";
-          viewB.className = "ab-view is-hidden";
-        }
-      } else {
-        setHeader("a1", "Paridad 1:1 — Transformación a Configuración B (Local Top-3)", "Fig. 1 · Encabezados autorales preservados", "Encabezados exactos (Nearest Enclosing Scope) sin colapsar a IMRaD · cosenos 0,894 / 0,889 / 0,888.");
-        if (viewA && viewB) {
-          viewA.className = "ab-view is-hidden";
-          viewB.className = "ab-view is-visible";
-        }
+      setHeader(
+        "a1",
+        "Paridad 1:1 — Config A (global) vs. Config B (Top-3 local)",
+        "Fig. 1 · inst_04783 · cosenos 0,894 / 0,889 / 0,888",
+        "Misma ventana citante fija (m = 3); Config B aparece debajo con pasajes ≤110 pal. + encabezados autorales."
+      );
+      const bBlock = layer && layer.querySelector("#ab-b-staged");
+      if (bBlock) {
+        bBlock.classList.remove("is-revealed");
+        // Timed entrance underneath Config A so the audience reads Config A first (~1,35s)
+        a1RevealTimer = setTimeout(() => {
+          bBlock.classList.add("is-revealed");
+          a1RevealTimer = null;
+        }, 1350);
       }
       return;
     }
@@ -310,11 +303,11 @@ window.EvidenScenes = (function () {
       controllers.a1Mode = "dag";
       controllers.a1Dag = C.createMedallionDAG(el);
     });
-    const dagStage = step - 2; // 0, 1, 2
+    const dagStage = step - 1; // 0, 1, 2
     controllers.a1Dag.update(dagStage);
 
     if (dagStage === 0) {
-      setHeader("a1", "DAG vertical Medallion — Capas 1–2: Ingesta y rescate seminal", "Fig. 2 · MultiCite + unarXive", "Rescate Top-250 apoyado en caché local y APIs elevó la cobertura Gold de 0,4% a 3.629 pares 1:1.");
+      setHeader("a1", "Construcción del Dataset — Capas 1–2: Ingesta y rescate seminal", "Fig. 2 · MultiCite + unarXive 2024", "Rescate Top-250 apoyado en caché local y APIs estructuró 66.314 artículos y ~145.000 pares (3.629 Gold 1:1).");
     } else if (dagStage === 1) {
       setHeader("a1", "Zoom Capa 3 — Recuperación SciBERT (512 tok) y NLI calibrado", "Fig. 3 · Consulta sin encabezados + DeBERTa-v3", "Presupuesto exacto de 512 tokens y filtrado NLI para llenar cuotas por clase cuidando calidad.");
     } else {
