@@ -579,29 +579,60 @@
         <h2 class="hero-title" style="max-width: 30ch;">Respuesta directa a las tres preguntas de investigación</h2>
 
         <div class="verdict-grid">
+
           <div class="verdict-col">
-            <div class="pi-code">PI1 · EVIDENCIA LOCAL VS. GLOBAL ✓</div>
-            <div class="verdict-anchor">+10,28 pp · −19,4%</div>
+            <div class="pi-code">
+              PI1 · EVIDENCIA LOCAL VS. GLOBAL ✓
+            </div>
+            <div class="verdict-anchor">
+              Beneficio dependiente del modelo
+            </div>
             <p>
-              Config B no mejora de forma uniforme, pero aporta ganancias focalizadas: <strong>+2,86 pp globales y +10,28 pp en Related Work</strong> en GPT 0-Shot, y <strong>−19,4% de razonamiento latente</strong> en Gemini. En A4 fue neutra o negativa al entrenarse sin leer el citado.
+              La evidencia local no produjo mejoras sistemáticas.
+              En <strong>TF-IDF y SciBERT</strong> redujo el Macro-F1,
+              mientras que en <strong>Granite</strong> produjo una
+              variación marginal.
+              GPT mejoró su exactitud global en
+              <strong>+2,86 pp</strong> y Gemini redujo sus tokens
+              de razonamiento en <strong>19,4%</strong>.
             </p>
           </div>
 
           <div class="verdict-col">
-            <div class="pi-code">PI2 · RUIDO Y TECHO SUPERVISADO ✓</div>
-            <div class="verdict-anchor">54,32% · 0,43–0,46</div>
+            <div class="pi-code">
+              PI2 · CALIDAD DEL ETIQUETADO ✓
+            </div>
+            <div class="verdict-anchor">
+              54,32% · 0,74 → 0,43–0,46
+            </div>
             <p>
-              El ruido del etiquetado automático fijó el techo de A4 (<strong>~0,74</strong> automático → <strong>0,43–0,46</strong> Gold; 62–65% repetición de errores). La curaduría manual A3 reveló la ventaja real de <strong>+0,1331 Macro-F1</strong> de Gemini sobre GPT.
+              <strong>SciBERT, Qwen y Granite</strong> alcanzaron
+              desempeños similares pese a sus diferencias de
+              arquitectura y tamaño. Al evaluar las mismas
+              predicciones con etiquetas revisadas, el Macro-F1
+              disminuyó considerablemente, evidenciando la
+              importancia de un etiquetado consistente.
             </p>
           </div>
 
           <div class="verdict-col">
-            <div class="pi-code">PI3 · PRECISIÓN, CALIBRACIÓN Y COSTO ✓</div>
-            <div class="verdict-anchor">$17,68 vs. $6,59 / 10k</div>
+            <div class="pi-code">
+              PI3 · DESEMPEÑO, CALIBRACIÓN Y EFICIENCIA ✓
+            </div>
+            <div class="verdict-anchor">
+              SciBERT 110M · F1 = 0,4623
+            </div>
             <p>
-              Ninguna familia domina todos los ejes. En API, <strong>Gemini 0s-B</strong> ofrece el mejor balance (<strong>0,5996 F1, ECE 0,1158</strong>) y <strong>GPT 0s-B</strong> lidera en costo/velocidad (p50 = 1,03 s), descartando todas las variantes 9-Shot.
+              Gemini obtuvo el mayor Macro-F1
+              (<strong>0,5996</strong>) y GPT presentó menores
+              costos entre las APIs evaluadas.
+              Sin embargo, <strong>SciBERT</strong> alcanzó un
+              desempeño cercano al de GPT (0,4664), con bajo
+              costo de entrenamiento y sin tarifas por consulta.
+              Ninguna familia domina todos los criterios.
             </p>
           </div>
+
         </div>
       </div>
     </section>
@@ -616,28 +647,95 @@
         <h2 class="hero-title" style="max-width: 30ch;">Limitaciones declaradas y próximos pasos</h2>
 
         <div class="limits-future-grid">
+
           <div class="lf-col">
             <h3>Limitaciones reconocidas</h3>
+
             <ul class="lf-list">
-              <li><strong>Cobertura documental:</strong> la paridad 1:1 requiere texto completo accesible en arXiv; escasez natural en <em>Basis</em> e <em>Improvement</em>.</li>
-              <li><strong>Encabezados en Config B:</strong> no se aisló por separado el efecto del encabezado citado frente al texto del pasaje.</li>
-              <li><strong>Calibración en A4:</strong> las corridas locales persistieron la clase predicha (argmax), sin probabilidades Softmax por instancia.</li>
-              <li><strong>Desempate híbrido en A3:</strong> el 32% (894 citas) se desempató entre dos opciones humanas con árbitros LLM comerciales.</li>
+
+              <li>
+                <strong>Consistencia del etiquetado:</strong>
+                diferencias entre los criterios de anotación
+                utilizados en train, dev y test.
+              </li>
+
+              <li>
+                <strong>Cobertura documental:</strong>
+                dependencia del texto completo en arXiv y
+                menor disponibilidad de algunas funciones
+                retóricas.
+              </li>
+
+              <li>
+                <strong>Evidencia local:</strong>
+                no se aisló el efecto de los encabezados
+                frente al contenido de los pasajes.
+              </li>
+
+              <li>
+                <strong>Comparabilidad operativa:</strong>
+                ausencia de calibración en A4 y de mediciones
+                equivalentes de costo y latencia entre modelos
+                locales y APIs.
+              </li>
+
+              <li>
+                <strong>Desempate híbrido:</strong>
+                el 32% del test requirió arbitraje mediante
+                LLMs, introduciendo un posible sesgo hacia
+                las familias comerciales.
+              </li>
+
             </ul>
           </div>
 
           <div class="lf-col">
-            <h3>Tres líneas de trabajo futuro</h3>
+            <h3>Próximos pasos</h3>
+
             <ul class="lf-list">
-              <li><strong>1. Reetiquetado calibrado de train/dev:</strong> generar etiquetas con un modelo de frontera calibrado para entrenar modelos locales y validarlos sobre un Gold humano independiente.</li>
-              <li><strong>2. Ablaciones finas en API y recuperación:</strong> evaluar <code>thinking_level=MINIMAL</code> en Gemini (ahorro estimado ~13% y −37% p95) y pasajes sin encabezados.</li>
-              <li><strong>3. Bancos Few-Shot curados:</strong> construir demostraciones exclusivamente desde ejemplos Gold revisados por humanos.</li>
+
+              <li>
+                <strong>1. Etiquetado homogéneo:</strong>
+                aplicar una guía de anotación común a train,
+                dev y test, priorizando la anotación humana
+                y una evaluación independiente.
+              </li>
+
+              <li>
+                <strong>2. Reentrenamiento supervisado:</strong>
+                reevaluar TF-IDF, SciBERT y modelos con LoRA
+                sobre datos de mayor calidad, explorando el
+                potencial de arquitecturas especializadas.
+              </li>
+
+              <li>
+                <strong>3. Recuperación y prompting:</strong>
+                aislar el aporte de los encabezados, construir
+                bancos Few-Shot curados y evaluar estrategias
+                de razonamiento eficientes.
+              </li>
+
+              <li>
+                <strong>4. Eficiencia operativa integral:</strong>
+                comparar todas las familias bajo protocolos
+                homogéneos de costo, latencia, calibración
+                y escalabilidad.
+              </li>
+
             </ul>
           </div>
+
         </div>
 
+        
+
         <div class="closing-takeaway">
-          El experimento deja una conclusión concreta: el límite de los modelos locales no estuvo en su arquitectura ni en su tamaño, sino en la calidad de las etiquetas de entrenamiento; por eso el siguiente paso más efectivo es reetiquetar <code>train</code> y <code>dev</code> con un modelo mejor calibrado.
+          Incrementar el tamaño y la complejidad de los modelos
+          no garantiza un mejor desempeño.
+          <strong>La calidad del etiquetado, la especialización
+          del modelo y la selección de la evidencia</strong>
+          son factores clave para construir soluciones
+          confiables y computacionalmente eficientes.
         </div>
 
         <div class="closing-foot">
