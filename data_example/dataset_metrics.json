@@ -1,0 +1,109 @@
+{
+  "total_instances": 18658,
+  "elapsed_seconds": 61100.16,
+  "parity_verification": {
+    "instances_with_abstract_config_a": 18658,
+    "instances_with_chunks_config_b": 18658,
+    "strict_parity_1_to_1": true
+  },
+  "leakage_verification": {
+    "leakage_train_test": 0,
+    "leakage_train_dev": 0,
+    "leakage_dev_test": 0,
+    "zero_leakage_guaranteed": true
+  },
+  "gold_instances": 3629,
+  "mined_instances": 15029,
+  "sources_distribution": {
+    "multicite": 3629,
+    "unarxive_mined": 15029
+  },
+  "canonical_classes_distribution": {
+    "Background": 2300,
+    "Gap": 2300,
+    "Basis": 1189,
+    "Comparison": 2300,
+    "Application": 2028,
+    "Improvement": 1641,
+    "Evidence": 2300,
+    "Originator": 2300,
+    "Further Reading": 2300
+  },
+  "splits": {
+    "train": {
+      "count": 13077,
+      "proportion": 0.7009,
+      "classes": {
+        "Gap": 1606,
+        "Basis": 830,
+        "Comparison": 1604,
+        "Improvement": 1147,
+        "Evidence": 1602,
+        "Further Reading": 1667,
+        "Background": 1607,
+        "Originator": 1598,
+        "Application": 1416
+      },
+      "unique_citing_papers": 5835
+    },
+    "dev": {
+      "count": 2783,
+      "proportion": 0.1492,
+      "classes": {
+        "Basis": 177,
+        "Comparison": 343,
+        "Evidence": 342,
+        "Background": 344,
+        "Gap": 343,
+        "Originator": 342,
+        "Improvement": 245,
+        "Further Reading": 344,
+        "Application": 303
+      },
+      "unique_citing_papers": 1243
+    },
+    "test": {
+      "count": 2798,
+      "proportion": 0.15,
+      "classes": {
+        "Basis": 182,
+        "Improvement": 249,
+        "Evidence": 356,
+        "Originator": 360,
+        "Background": 349,
+        "Gap": 351,
+        "Comparison": 353,
+        "Further Reading": 289,
+        "Application": 309
+      },
+      "unique_citing_papers": 1258
+    }
+  },
+  "citation_context_stats": {
+    "mean_words": 83.94,
+    "min_words": 8,
+    "max_words": 542
+  },
+  "similarity_stats": {
+    "mean_top1_similarity": 0.8943
+  },
+  "nli_weak_supervision": {
+    "total_evaluated": 135035,
+    "total_accepted": 63802,
+    "total_rejected": 71233,
+    "acceptance_rate_pct": 47.25,
+    "rejected_low_confidence": 70461,
+    "rejected_low_margin": 772,
+    "accepted_per_class": {
+      "Comparison": 1618,
+      "Further Reading": 13611,
+      "Basis": 709,
+      "Background": 7115,
+      "Evidence": 31408,
+      "Improvement": 1401,
+      "Gap": 3146,
+      "Application": 857,
+      "Originator": 3937
+    }
+  }
+}
