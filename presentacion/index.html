@@ -385,10 +385,10 @@
       <button class="phase-pill" data-goto-beat="7" data-phase="A2">A2</button>
       <button class="phase-pill" data-goto-beat="10" data-phase="A3">A3</button>
       <button class="phase-pill" data-goto-beat="13" data-phase="A4">A4</button>
-      <button class="phase-pill" data-goto-beat="18" data-phase="A5">A5</button>
-      <button class="phase-pill" data-goto-beat="22" data-phase="A6/A7">A6/A7</button>
-      <button class="phase-pill" data-goto-beat="25" data-phase="A8">A8</button>
-      <button class="phase-pill" data-goto-beat="29" data-phase="CONC">CONC</button>
+      <button class="phase-pill" data-goto-beat="16" data-phase="A5">A5</button>
+      <button class="phase-pill" data-goto-beat="20" data-phase="A6/A7">A6/A7</button>
+      <button class="phase-pill" data-goto-beat="23" data-phase="A8">A8</button>
+      <button class="phase-pill" data-goto-beat="27" data-phase="CONC">CONC</button>
     </nav>
 
     <div class="topbar-right">
@@ -639,81 +639,46 @@
     </section>
 
     <!-- ==================================================================
-         CAPÍTULO 4 — A4: TECHO SUPERVISADO Y CLÍMAX #1 FIG. 11 (Beats 15–19)
+         CAPÍTULO 4 — A4: SELECCIÓN DE MODELOS Y TECHO SUPERVISADO (Beats 13–15)
          Expositor: Daniel
          ================================================================== -->
     <section class="chapter" id="chapter-a4">
       <div class="scrolly-grid">
         <div class="narrative-col">
           <article class="beat-step" data-beat="13" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="0">
-            <div class="beat-tag">A4-01 · Embudo 92 Corridas <span class="beat-speaker-chip">· Daniel</span></div>
-            <h2 class="beat-heading">92 corridas (110M → 8B): techo plano en ~0,74</h2>
-            <p class="beat-lead">
-              Cuatro etapas (pestañas): R1 descartó multimodales y MoE; en R2, los <strong>7 mejores LLMs de 2B–4B son indistinguibles (p = 0,45)</strong>; y en los definitivos, pasar de SciBERT (110M) a <strong>Granite-4.2-8B</strong> (~70×) no supera ~0,74. El modo generativo empata con el clasificador y es 3–4× más lento.
-            </p>
+            <div class="beat-tag">A4</div>
+            <h2 class="beat-heading">92 entrenamientos para elegir modelo</h2>
+            <p class="beat-lead">De 110M a 8B parámetros, el test automático subió apenas un punto.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val">92 corridas</span><span class="metric-lbl">47,8 h registradas · MLflow</span></div>
-              <div class="metric-item"><span class="metric-val is-warn">~0,74</span><span class="metric-lbl">techo en test automático</span></div>
+              <div class="metric-item"><span class="metric-val">0,74</span><span class="metric-lbl">Macro-F1 en el test automático</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="14" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="1">
-            <div class="beat-tag">A4-02 · Evaluación Gold <span class="beat-speaker-chip">· Daniel</span></div>
-            <h2 class="beat-heading">Desplome generalizado a 0,43–0,46 sobre Gold A3</h2>
-            <p class="beat-lead">
-              Mismas 2.798 citas del test, ahora calificadas con la etiqueta humana de A3: <strong>todos los modelos con fine-tuning caen de ~0,74 a 0,43–0,46 Macro-F1</strong> (TF-IDF, a 0,33–0,37), el orden entre modelos no se conserva (Spearman ρ = 0,32) y Config B empeora o no cambia el resultado.
-            </p>
+            <div class="beat-tag">A4</div>
+            <h2 class="beat-heading">Further Reading resistió; Gap se desplomó</h2>
+            <p class="beat-lead">Frente al Gold, el F1 bajó en las nueve clases, pero no por igual.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-danger">0,43–0,46</span><span class="metric-lbl">rango A4 en Gold</span></div>
-              <div class="metric-item"><span class="metric-val">ρ = 0,32</span><span class="metric-lbl">orden auto vs. Gold (Spearman)</span></div>
+              <div class="metric-item"><span class="metric-val">0,18</span><span class="metric-lbl">F1 de Gap frente al Gold (antes <span class="nw">0,76–0,78</span>)</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="15" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="2">
-            <div class="beat-tag">A4-03 · Paso 1 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
-            <h2 class="beat-heading">Clímax #1: donde A3 confirmó la etiqueta, A4 acierta 83–88%</h2>
-            <p class="beat-lead">
-              Partimos el Gold en dos: <strong>1.278 citas confirmadas</strong> (A3 mantuvo la etiqueta automática) y <strong>1.520 corregidas</strong> (la cambió). En las confirmadas, las familias con fine-tuning aciertan <strong>83,5–87,1%</strong>, a la par de Gemini (82,8%): no les falta capacidad.
-            </p>
+            <div class="beat-tag">A4</div>
+            <h2 class="beat-heading">El desplome está en las citas que A3 corrigió</h2>
+            <p class="beat-lead">Donde A3 mantuvo la etiqueta automática, los modelos aciertan <span class="nw">83–88&nbsp;%</span>; donde la cambió, <span class="nw">15–18&nbsp;%</span>.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-gold">87,1%</span><span class="metric-lbl">Granite-8B en confirmadas</span></div>
-              <div class="metric-item"><span class="metric-val">n = 1.278</span><span class="metric-lbl">citas confirmadas</span></div>
-            </div>
-          </article>
-
-          <article class="beat-step" data-beat="16" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="3">
-            <div class="beat-tag">A4-03 · Paso 2 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
-            <h2 class="beat-heading">En las 1.520 corregidas, A4 repite la etiqueta descartada</h2>
-            <p class="beat-lead">
-              Cada predicción puede coincidir con la etiqueta automática vieja (○), con la humana (●) o con ninguna. Los marcadores huecos muestran que los modelos con fine-tuning <strong>siguen prediciendo la etiqueta que A3 descartó en 62,9–64,6% de los casos</strong>.
-            </p>
-            <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-warn">61,8–65,2%</span><span class="metric-lbl">repiten la etiqueta vieja (por modelo)</span></div>
-              <div class="metric-item"><span class="metric-val">n = 1.520</span><span class="metric-lbl">citas corregidas por A3</span></div>
-            </div>
-          </article>
-
-          <article class="beat-step" data-beat="17" data-phase="A4" data-speaker="Daniel" data-block="3" data-scene="a4" data-step="4">
-            <div class="beat-tag">A4-03 · Paso 3 / 3 <span class="beat-speaker-chip">· Daniel</span></div>
-            <h2 class="beat-heading">Aprendieron el etiquetador, no la tarea</h2>
-            <p class="beat-lead">
-              En esas mismas 1.520, A4 coincide con la etiqueta humana (●) solo en <strong>13,5–18,0%</strong>: 46–50 pp menos que con la vieja. Los LLMs vía API, que nunca vieron estas etiquetas, hacen lo contrario: <strong>Gemini coincide 56,3% con la humana y 19,5% con la vieja (+36,8 pp)</strong>.
-            </p>
-            <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-danger">−45,8 a −49,8 pp</span><span class="metric-lbl">humana − vieja en A4</span></div>
-              <div class="metric-item"><span class="metric-val is-primary">+36,8 pp</span><span class="metric-lbl">humana − vieja en Gemini 0s-B</span></div>
+              <div class="metric-item"><span class="metric-val">15–18&nbsp;%</span><span class="metric-lbl">de acierto en las 1.520 citas corregidas</span></div>
             </div>
           </article>
         </div>
 
         <div class="visual-stage">
           <div class="stage-header">
-            <h3 class="stage-title" id="stage-a4-title">Definitivos: de 110M a 8B, el mismo techo en el test automático</h3>
-            <p class="stage-caption" id="stage-a4-caption">Fig. 4 (lado automático) · 11 corridas</p>
+            <h3 class="stage-title" id="stage-a4-title">Modelos principales: comparación de arquitecturas</h3>
+            <p class="stage-caption" id="stage-a4-caption"></p>
           </div>
           <div class="stage-canvas" id="stage-a4-canvas"></div>
           <div class="stage-footnote">
-            <span id="stage-a4-foot">Granite-4.2-8B (0,737–0,744) queda 1–2 puntos sobre SciBERT y a la altura de R2 (0,738–0,746).</span>
+            <span id="stage-a4-foot"></span>
             <span class="mono">A4</span>
           </div>
         </div>
@@ -727,7 +692,7 @@
     <section class="chapter" id="chapter-a5a7">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="18" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
+          <article class="beat-step" data-beat="16" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Antes de A3: empate. Después de A3: no.</h2>
             <p class="beat-lead"><strong>22.384 inferencias API</strong> (99,99% JSON válido). En test automático empatan; en Gold humano, <strong>Gemini 0s-B salta a 0,5996 Macro-F1</strong>.</p>
@@ -737,7 +702,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="19" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="1">
+          <article class="beat-step" data-beat="17" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="1">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 2/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Gemini gana 9 de 9 clases</h2>
             <p class="beat-lead">Supera a GPT 0s-B en todas las funciones; las mayores brechas están en clases difíciles: <strong>Basis (+0,302)</strong>, <strong>Further Reading (+0,246)</strong> y <strong>Gap (+0,173)</strong>.</p>
@@ -747,7 +712,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="20" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="2">
+          <article class="beat-step" data-beat="18" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="2">
             <div class="beat-tag">A5-02 · Respuesta a PI1 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Config B aporta mejoras focalizadas según modelo y sección</h2>
             <p class="beat-lead">GPT 0-Shot: <strong>+2,86 pp globales</strong> y <strong>+10,28 pp</strong> en Related Work. Gemini: misma calidad, <strong>−19,4% pensamiento latente</strong>.</p>
@@ -757,7 +722,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="21" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="3">
+          <article class="beat-step" data-beat="19" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="3">
             <div class="beat-tag">A5-03 · Por qué cayó 9-Shot <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">El 9-Shot se contaminó desde el prompt</h2>
             <p class="beat-lead">0-Shot venció a 9-Shot porque <strong>4 de 9 ejemplos</strong> salieron de empates 1-1-1 en <strong>train</strong>, donde el error real fue <strong>66,06%</strong>.</p>
@@ -767,7 +732,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="22" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="4">
+          <article class="beat-step" data-beat="20" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="4">
             <div class="beat-tag">A6 · Panorama Global A4 vs. A5 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Las 14 variantes sobre una misma escala</h2>
             <p class="beat-lead">En A4, <strong>Config B cae o empata</strong>. En A5, <strong>Gemini 0s-B</strong> lidera en precisión (<strong>0,5996 Macro-F1</strong>).</p>
@@ -777,7 +742,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="23" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="5">
+          <article class="beat-step" data-beat="21" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="5">
             <div class="beat-tag">A7-01 · Precisión–Costo (1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">9-Shot: más caro, peor resultado</h2>
             <p class="beat-lead"><strong>10.000 citas</strong> cuestan entre <strong>$8,23 y $53,09</strong> en 9-Shot. Todas rinden peor que 0-Shot.</p>
@@ -787,7 +752,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="24" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="6">
+          <article class="beat-step" data-beat="22" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="6">
             <div class="beat-tag">A7-01 · Precisión–Costo (2/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Dos opciones claras en producción</h2>
             <p class="beat-lead"><strong>GPT 0s-B</strong> si importa costo y velocidad. <strong>Gemini 0s-B</strong> si importa calidad y calibración.</p>
@@ -819,7 +784,7 @@
     <section class="chapter" id="chapter-a8">
       <div class="scrolly-grid">
         <div class="narrative-col">
-          <article class="beat-step" data-beat="25" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="0">
+          <article class="beat-step" data-beat="23" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="0">
             <div class="beat-tag">A8-01 · Paso 1 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Entrada única: una cita, un citado</h2>
             <p class="beat-lead">
@@ -831,7 +796,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="26" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="1">
+          <article class="beat-step" data-beat="24" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="1">
             <div class="beat-tag">A8-01 · Paso 2 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Dos evidencias en paralelo: Config A y Config B</h2>
             <p class="beat-lead">
@@ -843,7 +808,7 @@
             </div>
           </article>
 
-          <article class="beat-step" data-beat="27" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="2">
+          <article class="beat-step" data-beat="25" data-phase="A8" data-speaker="Julián" data-block="5" data-scene="a8" data-step="2">
             <div class="beat-tag">A8-01 · Paso 3 / 3 <span class="beat-speaker-chip">· Julián</span></div>
             <h2 class="beat-heading">Inferencia independiente en 9 clases</h2>
             <p class="beat-lead">
@@ -874,7 +839,7 @@
          BEAT 30 — A8-02: PAUSA LIMPIA PARA DEMOSTRACIÓN EXTERNA (3:00 MIN)
          Expositor: Julián (Sin video embebido ni enlaces)
          ================================================================== -->
-    <section class="full-beat" data-beat="28" data-phase="A8" data-speaker="Julián" data-block="5">
+    <section class="full-beat" data-beat="26" data-phase="A8" data-speaker="Julián" data-block="5">
       <div class="demo-pause-beat">
         <div class="demo-badge">
           <span class="demo-pulse"></span>
@@ -909,11 +874,7 @@
          BEAT 31 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat conclusions-v2"
-         data-beat="29"
-         data-phase="CONC"
-         data-speaker="Julián"
-         data-block="5">
+    <section class="full-beat conclusions-v2" data-beat="27" data-phase="CONC" data-speaker="Julián" data-block="5">
 
     <div class="closing-inner">
 
@@ -937,31 +898,31 @@
                     Evidencia local vs. global
                 </h3>
 
-                
+
     <div class="fact">
         <div class="fact-value negative">−0,034 a −0,014</div>
         <div class="fact-label">TF-IDF, SciBERT y Qwen</div>
         <div class="fact-note">Disminución del Macro-F1</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value ">+0,006</div>
         <div class="fact-label">Granite: mejora marginal</div>
         <div class="fact-note">Sin mejora significativa en el contraste pareado</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value positive">+2,86 pp</div>
         <div class="fact-label">GPT: mejora significativa en exactitud</div>
         <div class="fact-note">+10,28 pp en Related Work</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value positive">−17,7%</div>
         <div class="fact-label">Gemini: tokens de razonamiento</div>
         <div class="fact-note">−19,4% de llamadas con razonamiento; F1 sin mejora significativa.</div>
     </div>
-    
+
 
                 <div class="research-verdict">
                     La evidencia local beneficia
@@ -980,37 +941,37 @@
                     Calidad del etiquetado
                 </h3>
 
-                
+
     <div class="fact">
         <div class="fact-value ">54,32%</div>
         <div class="fact-label">Etiquetas corregidas</div>
         <div class="fact-note">1.520 de 2.798 citas</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value ">0,74 → 0,43–0,46</div>
         <div class="fact-label">Caída del Macro-F1 supervisado</div>
         <div class="fact-note">Mismas predicciones, etiquetas revisadas</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value negative">62–65%</div>
         <div class="fact-label">Los modelos reprodujeron los errores del etiquetado automático</div>
         <div class="fact-note">Sobre las citas corregidas</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value ">110M → 8B</div>
         <div class="fact-label">Más parámetros, desempeño similar</div>
         <div class="fact-note">SciBERT, Qwen y Granite</div>
     </div>
-    
+
     <div class="fact">
         <div class="fact-value ">+0,1331</div>
         <div class="fact-label">Gemini supera a GPT en Macro-F1</div>
         <div class="fact-note">Diferencia revelada por la revisión humana</div>
     </div>
-    
+
 
                 <div class="research-verdict">
                     El ruido del etiquetado limita
@@ -1034,7 +995,7 @@
                 </div>
 
                 <div class="rank-list">
-                    
+
     <div class="rank-row gemini">
         <span>Gemini B</span>
         <div class="rank-track">
@@ -1043,7 +1004,7 @@
         </div>
         <span class="rank-value">0,5996</span>
     </div>
-    
+
     <div class="rank-row ">
         <span>GPT B</span>
         <div class="rank-track">
@@ -1052,7 +1013,7 @@
         </div>
         <span class="rank-value">0,4664</span>
     </div>
-    
+
     <div class="rank-row scibert">
         <span>SciBERT A</span>
         <div class="rank-track">
@@ -1061,7 +1022,7 @@
         </div>
         <span class="rank-value">0,4623</span>
     </div>
-    
+
     <div class="rank-row ">
         <span>Qwen A</span>
         <div class="rank-track">
@@ -1070,7 +1031,7 @@
         </div>
         <span class="rank-value">0,4560</span>
     </div>
-    
+
     <div class="rank-row ">
         <span>Granite B</span>
         <div class="rank-track">
@@ -1079,7 +1040,7 @@
         </div>
         <span class="rank-value">0,4412</span>
     </div>
-    
+
     <div class="rank-row ">
         <span>TF-IDF A</span>
         <div class="rank-track">
@@ -1088,7 +1049,7 @@
         </div>
         <span class="rank-value">0,3661</span>
     </div>
-    
+
                 </div>
 
                 <div class="fact-note">
@@ -1172,11 +1133,7 @@
          BEAT 32 — CONC-02: LIMITACIONES HONESTAS Y TRABAJO FUTURO
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat conclusions-v2"
-         data-beat="30"
-         data-phase="CONC"
-         data-speaker="Julián"
-         data-block="5">
+    <section class="full-beat conclusions-v2" data-beat="28" data-phase="CONC" data-speaker="Julián" data-block="5">
 
     <div class="closing-inner">
 
@@ -1199,32 +1156,32 @@
             <span class="list-mark">—</span>
             <span>Etiquetado heterogéneo entre train, dev y test.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>Dependencia del texto completo citado en arXiv.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>Pocos ejemplos de Basis e Improvement.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>Aporte de los encabezados no aislado.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>Calibración no evaluada en modelos supervisados.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>Protocolos de inferencia local/API diferentes.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">—</span>
             <span>32% del test: desempate asistido por LLMs.</span>
@@ -1242,32 +1199,32 @@
             <span class="list-mark">01</span>
             <span>Etiquetado homogéneo en train, dev y test, preferiblemente humano.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">02</span>
             <span>Reentrenar modelos supervisados con mejores etiquetas.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">03</span>
             <span>Evaluar por separado el aporte de los encabezados.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">04</span>
             <span>Construir bancos Few-Shot con etiquetas validadas por humanos.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">05</span>
             <span>Evaluar razonamiento mínimo en Gemini para reducir costo y latencia.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">06</span>
             <span>Evaluar la calibración de los modelos supervisados.</span>
         </li>
-        
+
         <li>
             <span class="list-mark">07</span>
             <span>Evaluar eficiencia y costos a diferentes escalas.</span>

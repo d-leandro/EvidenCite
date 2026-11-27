@@ -393,32 +393,59 @@ window.EvidenCharts = (function () {
   }
 
   /* ========================================================================
-     6. A4-01 — Embudo de 92 corridas en 4 pestañas (R1 · R2 · Final · Gen. vs. clasif.)
-     Cada pestaña dibuja su propia gráfica; la de los modelos definitivos va por defecto.
-     Config A = círculo, Config B = cuadrado (forma + color, nunca solo color).
+     6. A4 — Pestañas del escenario (comunes a A4-01, A4-02 y A4-03)
+     Botones reales (role="tab"); cada pestaña redibuja su propia gráfica en el panel.
+     draw(key, svg) puede devolver una función de limpieza (p. ej., cancelar una animación).
      ======================================================================== */
-  function createA4Funnel(container, data, opts) {
-    const options = opts || {};
-    const TABS = [
-      { key: "r1",    t: "R1 · 19 corridas",     s: "Descarta multimodales y MoE",          aria: "Ronda 1: Macro-F1 de test e IC95 de 10 modelos en Config A y B" },
-      { key: "r2",    t: "R2 · 58 corridas",     s: "10 LLMs 2B–4B × 3 semillas",           aria: "Ronda 2: las 58 corridas y la media por modelo" },
-      { key: "final", t: "Final · 11 corridas",  s: "Granite-4.2-8B · SciBERT · TF-IDF",    aria: "Modelos definitivos sobre el test automático" },
-      { key: "gen",   t: "Gen. vs. clasif. · 4", s: "Qwen3-0.6B · misma base y LoRA",       aria: "Qwen3-0.6B: modo generativo frente a cabeza de clasificación" }
-    ];
-    const CA = "var(--a4-cfg-a)", CB = "var(--a4-cfg-b)";
-    const colOf = (cfg) => (cfg === "A" ? CA : CB);
-    const f3 = (v) => fmtComma(v, 3);
+  function fmtInt(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
 
+  function createA4Tabs(container, cfg) {
     container.innerHTML = `
       <div class="a4-funnel">
-        <div class="a4-tabs" role="tablist" aria-label="Etapas del embudo de selección de A4">
-          ${TABS.map((tb, i) => `<button type="button" role="tab" id="a4-tab-${tb.key}" data-a4-tab="${tb.key}" aria-controls="a4-tabpanel" aria-selected="false"><span class="a4-tab-step">${i + 1}</span><span class="a4-tab-t">${tb.t}</span><span class="a4-tab-s">${tb.s}</span></button>`).join("")}
+        <div class="a4-tabs${cfg.numbered ? "" : " is-pair"}" role="tablist" aria-label="${cfg.label}">
+          ${cfg.tabs.map((tb, i) => `<button type="button" role="tab" id="${cfg.id}-tab-${tb.key}" data-a4-tab="${tb.key}" aria-controls="${cfg.id}-panel" aria-selected="false">${cfg.numbered ? `<span class="a4-tab-step">${i + 1}</span>` : ""}<span class="a4-tab-t">${tb.t}</span></button>`).join("")}
         </div>
-        <div class="a4-tabpanel" id="a4-tabpanel" role="tabpanel"></div>
+        <div class="a4-tabpanel" id="${cfg.id}-panel" role="tabpanel"></div>
       </div>`;
     const root = container.querySelector(".a4-funnel");
     const panel = root.querySelector(".a4-tabpanel");
     const buttons = Array.from(root.querySelectorAll("[data-a4-tab]"));
+    let current = null;
+    let cleanup = null;
+
+    function show(key) {
+      const tab = cfg.tabs.find((tb) => tb.key === key) || cfg.tabs[0];
+      current = tab.key;
+      buttons.forEach((b) => {
+        const on = b.dataset.a4Tab === current;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+      panel.setAttribute("aria-labelledby", `${cfg.id}-tab-${current}`);
+      Tooltip.hide();
+      if (cleanup) cleanup();
+      panel.innerHTML = "";
+      const svg = el("svg", { viewBox: tab.viewBox, role: "img", "aria-label": tab.aria }, panel);
+      cleanup = cfg.draw(current, svg) || null;
+      if (cfg.onChange) cfg.onChange(current);
+    }
+
+    buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.a4Tab)));
+    return { show, get tab() { return current; } };
+  }
+
+  /* ========================================================================
+     6.1 A4-01 — Selección de modelos en 4 pestañas (ronda 1 · ronda 2 · final · gen. vs. clasif.)
+     La pestaña Final va por defecto. Config A = círculo, Config B = cuadrado (forma + color).
+     Las notas largas de cada pestaña están en el guion, no en la gráfica.
+     ======================================================================== */
+  function createA4Funnel(container, data, opts) {
+    const options = opts || {};
+    const CA = "var(--a4-cfg-a)", CB = "var(--a4-cfg-b)";
+    const colOf = (cfg) => (cfg === "A" ? CA : CB);
+    const f3 = (v) => fmtComma(v, 3);
 
     // ---- piezas comunes ----
     function marker(parent, cfg, x, y, o) {
@@ -468,15 +495,15 @@ window.EvidenCharts = (function () {
       return `M${x0},${y} H${x0 + w - r} Q${x0 + w},${y} ${x0 + w},${y + r} V${y + h - r} Q${x0 + w},${y + h} ${x0 + w - r},${y + h} H${x0} Z`;
     }
 
-    // ---- R1: 10 modelos de 7 familias, una semilla (Fig. 10a) ----
+    // ---- Ronda 1: 10 modelos de 7 familias, una semilla (Fig. 10a) ----
     function drawR1(svg) {
       const rows = data.r1;
-      const mL = 182, cW = 600, x0 = 0.765, x1 = 0.86;
+      const mL = 196, cW = 586, x0 = 0.765, x1 = 0.86;
       const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
       const top = 70, rowH = 36;
       const yOf = (i) => top + i * rowH;
       const yEnd = yOf(rows.length - 1) + rowH / 2;
-      legend(svg, [["A", "Config A (título + resumen)"], ["B", "Config B (Top-3 fragmentos)"], ["ci", "IC95"]], mL, 22);
+      legend(svg, [["A", "Config A"], ["B", "Config B"], ["ci", "IC95"]], mL, 22);
       const d0 = rows.findIndex((r) => r.discarded);
       el("rect", { x: 14, y: yOf(d0) - rowH / 2, width: mL + cW - 6, height: yEnd - yOf(d0) + rowH / 2, rx: 6, fill: "var(--ink-3)", opacity: 0.09 }, svg);
       txt("descartados", { x: mL + cW - 8, y: yEnd - 8, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11.5, "font-style": "italic" }, svg);
@@ -493,15 +520,14 @@ window.EvidenCharts = (function () {
           marker(g, cfg, xs(v.f1), y + dy, { r: 4.6 });
           tip.push(`Config ${cfg}: ${f3(v.f1)} [${f3(v.lo)}–${f3(v.hi)}] · ${fmtComma(v.min, 1)} min · ${fmtComma(v.gb, 0)} GB`);
         });
-        if (r.name.endsWith("*")) tip.push("MoE: LoRA cubrió solo el 0,12% de los parámetros; otra receta (1.024 tokens, LR 2e-4)");
-        else if (r.discarded) tip.push("Descartado: últimas posiciones de R1");
-        bindTip(g, r.name.replace("*", ""), tip);
+        if (r.moe) tip.push("Mezcla de expertos: solo Config B y otra receta (1.024 tokens, LR 2e-4); LoRA cubrió el 0,12% de los parámetros");
+        else if (r.discarded) tip.push("Descartado: últimas posiciones de la ronda 1");
+        bindTip(g, r.name, tip);
       });
-      txt("Macro-F1 de test e IC95 · etiquetado previo con sección citante (no comparable con R2)", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
-      txt("* mezcla de expertos (MoE), solo Config B y otra receta", { x: mL + cW, y: yEnd + 66, "text-anchor": "end", class: "svg-muted", "font-size": 11 }, svg);
+      txt("Macro-F1 de test e IC95 · etiquetado anterior, no comparable con la ronda 2", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
     }
 
-    // ---- R2: 10 LLMs 2B–4B × A/B × 3 semillas (Fig. 10b) ----
+    // ---- Ronda 2: 10 LLMs 2B–4B × A/B × 3 semillas (Fig. 10b) ----
     function drawR2(svg) {
       const rows = data.r2;
       const mL = 182, cW = 492, x0 = 0.718, x1 = 0.76;
@@ -512,7 +538,7 @@ window.EvidenCharts = (function () {
       legend(svg, [["A", "Config A"], ["B", "Config B"], ["tick", "media del modelo"], ["band", "Top-7"]], mL, 22);
       const [b0, b1] = data.r2Band;
       band(svg, xs(b0), xs(b1), top - 22, yEnd);
-      txt("Top-7 sin diferencia (p = 0,45 · ±0,006)", { x: (xs(b0) + xs(b1)) / 2, y: top - 28, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
+      txt("Top-7 sin diferencia significativa", { x: (xs(b0) + xs(b1)) / 2, y: top - 28, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
       grid(svg, xs, [0.72, 0.73, 0.74, 0.75, 0.76], top - 18, yEnd + 4, 2);
       rows.forEach((r, i) => {
         const y = yOf(i);
@@ -538,20 +564,20 @@ window.EvidenCharts = (function () {
         txt("familia elegida", { x: bx + 8, y: (ya + yb) / 2 - 3, "font-size": 11.5, "font-weight": 700, fill: "var(--ink)" }, svg);
         txt("→ Granite-4.2-8B", { x: bx + 8, y: (ya + yb) / 2 + 12, class: "svg-mono svg-ink2", "font-size": 11 }, svg);
       }
-      txt("Macro-F1 de test automático · un punto por corrida · en negrita, las familias candidatas", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+      txt("Macro-F1 en el test automático · un punto por corrida", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
     }
 
-    // ---- Final: definitivos sobre el test automático ----
+    // ---- Final: modelos principales sobre el test automático ----
     function drawFinal(svg) {
       const rows = data.final;
       const mL = 200, cW = 560, x0 = 0.44, x1 = 0.78;
       const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
       const yOf = (i) => 84 + i * 32 + Math.floor(i / 2) * 34;
       const top = yOf(0) - 22, yEnd = yOf(rows.length - 1) + 18;
-      legend(svg, [["A", "Config A"], ["B", "Config B"], ["dev", "TF-IDF: F1 de dev (sin test automático)"], ["band", "banda R2"]], mL, 22);
+      legend(svg, [["A", "Config A"], ["B", "Config B"], ["dev", "TF-IDF: solo F1 de dev"], ["band", "ronda 2"]], mL, 22);
       const [b0, b1] = data.r2Band;
       band(svg, xs(b0), xs(b1), top - 4, yEnd);
-      txt(`R2 (2B–4B): ${f3(b0)}–${f3(b1)}`, { x: (xs(b0) + xs(b1)) / 2, y: top - 10, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
+      txt(`ronda 2: ${f3(b0)}–${f3(b1)}`, { x: (xs(b0) + xs(b1)) / 2, y: top - 10, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
       grid(svg, xs, [0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75], top, yEnd + 4, 2);
       rows.forEach((r, i) => {
         const y = yOf(i);
@@ -563,7 +589,7 @@ window.EvidenCharts = (function () {
           txt(r.sub, { x: mL - 40, y: yc + 13, "text-anchor": "end", class: "svg-muted", "font-size": 11.5 }, svg);
           el("line", { x1: mL - 30, y1: y - 6, x2: mL - 30, y2: yOf(i + 1) + 6, stroke: "var(--line-strong)", "stroke-width": 1.2 }, svg);
         }
-        txt(`Config ${r.cfg}`.replace("Config ", ""), { x: mL - 12, y: y + 4, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11.5 }, g);
+        txt(r.cfg, { x: mL - 12, y: y + 4, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11.5 }, g);
         if (r.auto) {
           const a = r.auto;
           whisker(g, r.cfg, xs(a.lo), xs(a.hi), y);
@@ -579,19 +605,18 @@ window.EvidenCharts = (function () {
           txt(`${f3(r.devOnly)} (dev)`, { x: xs(r.devOnly) + 11, y: y + 4.5, class: "svg-mono svg-ink2", "font-size": 12 }, g);
           bindTip(g, `${r.name} · Config ${r.cfg}`, [
             `Dev automático: ${f3(r.devOnly)}`,
-            "Sin corrida sobre el test automático: se evaluó directamente sobre el Gold (A4-02)"
+            "Sin corrida sobre el test automático: se evaluó directamente sobre el Gold"
           ]);
         }
       });
-      // 110M → 8B: ~70× parámetros, uno o dos puntos más
+      // 110M → 8B: ~70× parámetros, poco más de un punto
       const ga = rows.find((r) => r.name.startsWith("Granite") && r.cfg === "A").auto.f1;
       const gb = rows.find((r) => r.name.startsWith("Granite") && r.cfg === "B").auto.f1;
       const sa = rows.find((r) => r.name === "SciBERT" && r.cfg === "A").auto.f1;
       const sb = rows.find((r) => r.name === "SciBERT" && r.cfg === "B").auto.f1;
       const yt = (yOf(1) + yOf(2)) / 2 + 4;
       txt(`8B vs. 110M (~70× parámetros): +${f3(ga - sa)} (A) · +${f3(gb - sb)} (B)`, { x: xs(0.705), y: yt, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, svg);
-      txt("Macro-F1 de test automático (etiquetas A1–A2) e IC95", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
-      txt("Las 11 corridas: estas 4 en el test automático + 7 evaluadas directamente sobre el Gold (A4-02).", { x: mL + cW / 2, y: yEnd + 66, "text-anchor": "middle", class: "svg-muted", "font-size": 11.5 }, svg);
+      txt("Macro-F1 en el test automático e IC95", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
     }
 
     // ---- Gen. vs. clasif.: Qwen3-0.6B, 4 corridas ----
@@ -611,7 +636,7 @@ window.EvidenCharts = (function () {
         { title: "Macro-F1 test auto.", x0: 0.70, x1: 0.78, ticks: [0.72, 0.76], dec: 2, kind: "dot", val: (r) => r.f1, ci: true, lbl: (r) => f3(r.f1) },
         { title: "Macro-F1 Gold", x0: 0.40, x1: 0.48, ticks: [0.42, 0.46], dec: 2, kind: "dot", val: (r) => r.gold, lbl: (r) => f3(r.gold) },
         { title: "Latencia (ms/inst.)", x0: 0, x1: 10, ticks: [0, 5, 10], dec: 0, kind: "bar", val: (r) => r.lat, lbl: (r) => fmtComma(r.lat, 1) },
-        { title: "Memoria pico (GB)", x0: 0, x1: 90, ticks: [0, 45, 90], dec: 0, kind: "bar", val: (r) => r.gb, lbl: (r) => fmtComma(r.gb, 1) + (r.gc ? "*" : "") }
+        { title: "Memoria pico (GB)", x0: 0, x1: 90, ticks: [0, 45, 90], dec: 0, kind: "bar", val: (r) => r.gb, lbl: (r) => fmtComma(r.gb, 1) }
       ];
       panels.forEach((p, k) => {
         const xa = px(k);
@@ -649,303 +674,169 @@ window.EvidenCharts = (function () {
             `Macro-F1 test automático: ${f3(r.f1)} [IC95 ${f3(r.lo)}–${f3(r.hi)}]`,
             `Macro-F1 Gold (recalificado): ${f3(r.gold)}`,
             `Latencia: ${fmtComma(r.lat, 2)} ms/instancia · entrenamiento ${fmtComma(r.min, 1)} min`,
-            `Memoria pico: ${fmtComma(r.gb, 1)} GB${r.gc ? " (con gradient checkpointing)" : ""}`
+            `Memoria pico: ${fmtComma(r.gb, 1)} GB${r.gc ? " (con gradient checkpointing: sin él no cabía en la B200)" : ""}`
           ]);
         });
       });
-      txt("Mismo F1 (diferencias de 0,005–0,022, del orden del IC95 con una corrida por variante); generar la etiqueta cuesta 2,9–4,2× más latencia.", { x: 14, y: yEnd + 42, class: "svg-muted", "font-size": 11.5 }, svg);
-      txt("* Generativo B con gradient checkpointing: sin él no cabía en la B200 (180 GB), así que 31,7 vs. 34,2 GB no se comparan en igualdad.", { x: 14, y: yEnd + 62, class: "svg-muted", "font-size": 11.5 }, svg);
     }
 
     const DRAW = { r1: drawR1, r2: drawR2, final: drawFinal, gen: drawGen };
-    const VIEWBOX = { r1: "0 0 860 520", r2: "0 0 860 520", final: "0 0 860 470", gen: "0 0 860 430" };
-    let current = null;
-
-    function show(key) {
-      const k = DRAW[key] ? key : "final";
-      current = k;
-      buttons.forEach((b) => {
-        const on = b.dataset.a4Tab === k;
-        b.classList.toggle("is-active", on);
-        b.setAttribute("aria-selected", String(on));
-      });
-      panel.setAttribute("aria-labelledby", `a4-tab-${k}`);
-      Tooltip.hide();
-      panel.innerHTML = "";
-      const svg = el("svg", { viewBox: VIEWBOX[k], role: "img", "aria-label": TABS.find((tb) => tb.key === k).aria }, panel);
-      DRAW[k](svg);
-      if (options.onChange) options.onChange(k);
-    }
-
-    buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.a4Tab)));
-    return { show, get tab() { return current; } };
+    return createA4Tabs(container, {
+      id: "a4-embudo",
+      label: "Etapas de la selección de modelos de A4",
+      numbered: true,
+      tabs: [
+        { key: "r1",    t: "Ronda 1 · 19 corridas",   viewBox: "0 0 860 470", aria: "Ronda 1: Macro-F1 de test e IC95 de 10 modelos en Config A y B" },
+        { key: "r2",    t: "Ronda 2 · 58 corridas",   viewBox: "0 0 860 480", aria: "Ronda 2: las 58 corridas y la media por modelo" },
+        { key: "final", t: "Final · 11 corridas",     viewBox: "0 0 860 400", aria: "Modelos principales sobre el test automático" },
+        { key: "gen",   t: "Gen. vs. clasif. · 4 corridas", viewBox: "0 0 860 330", aria: "Qwen3-0.6B: modo generativo frente a cabeza de clasificación" }
+      ],
+      draw: (key, svg) => DRAW[key](svg),
+      onChange: options.onChange
+    });
   }
 
   /* ========================================================================
-     7. A4-02 — Desplome Automático -> Gold (Fig. 4 animado)
+     7. A4-02 — F1 por clase: test automático → Gold (Config A), una pestaña por modelo
+     Mismo gesto que el desplome por modelo: ○ en el test automático y ● que se desliza a su valor
+     en el Gold. En rojo, las tres clases que más caen; el resto en gris. Fila final: Macro-F1.
+     A la derecha, el cambio porcentual de citas de cada clase en el test con la revisión de A3,
+     calculado de los mismos datos de la gráfica de A3 (a3Distribution): verde si sube, rojo si baja.
      ======================================================================== */
-  function renderA4Collapse(container, rows) {
-    container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 475", role: "img", "aria-label": "Caída de modelos A4 del test automático al Gold humano" }, container);
+  function createA4PerClass(container, data, distribucion) {
+    const f2 = (v) => fmtComma(v, 2);
+    const f3 = (v) => fmtComma(v, 3);
+    const testDe = {};
+    (distribucion || []).forEach((d) => { testDe[d.cls] = d; });
+    const signo = (v) => (v > 0 ? "+" : "−");
 
-    const mL = 190, cW = 610, startY = 70, rowH = 48;
-    const xMin = 0.28, xMax = 0.78;
-    const xScale = (v) => mL + ((v - xMin) / (xMax - xMin)) * cW;
+    function draw(key, svg) {
+      const m = data[key];
+      const rows = m.classes;
+      const mL = 180, cW = 480, x0 = 0.1, x1 = 0.95;
+      const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
+      const xCambio = 832; // columna del cambio porcentual, alineada a la derecha
+      const top = 74, rowH = 33;
+      const yOf = (i) => top + i * rowH;
+      const yMacro = yOf(rows.length) + 20;
+      const yEnd = yMacro + 18;
+      const umbral = rows.map((r) => r.auto - r.gold).sort((a, b) => b - a)[2]; // tercera mayor caída
 
-    // Vertical reference lines for API benchmarks (GPT = violet, Gemini = primary cyan/blue)
-    const xGpt = xScale(0.4664), xGem = xScale(0.5996);
-    el("line", { x1: xGpt, y1: startY - 18, x2: xGpt, y2: startY + rows.length * rowH - 8, stroke: "var(--accent-violet)", "stroke-dasharray": "5 4", "stroke-width": 1.6 }, svg);
-    txt("GPT 0s-B (0,466)", { x: xGpt, y: startY - 26, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-violet)" }, svg);
+      // Leyenda, con «Config A» al final; la columna de la derecha lleva su propio título
+      el("circle", { cx: mL + 6, cy: 26, r: 6, fill: "var(--bg)", stroke: "var(--ink-3)", "stroke-width": 2.2 }, svg);
+      txt("test automático", { x: mL + 20, y: 31, class: "svg-ink2", "font-size": 13 }, svg);
+      el("circle", { cx: mL + 150, cy: 26, r: 6.5, fill: "var(--ink-2)" }, svg);
+      const tGold = txt("Gold (etiqueta humana de A3)", { x: mL + 164, y: 31, class: "svg-ink2", "font-size": 13 }, svg);
+      txt("· Config A", { x: mL + 164 + (tGold.getComputedTextLength() || 186) + 12, y: 31, class: "svg-muted", "font-size": 12.5 }, svg);
+      if (distribucion) txt("Cambio porcentual del test", { x: xCambio, y: 31, "text-anchor": "end", "font-size": 13, "font-weight": 600, fill: "var(--ink-2)" }, svg);
 
-    el("line", { x1: xGem, y1: startY - 18, x2: xGem, y2: startY + rows.length * rowH - 8, stroke: "var(--accent-primary)", "stroke-dasharray": "5 4", "stroke-width": 1.8 }, svg);
-    txt("Gemini 0s-B (0,600)", { x: xGem, y: startY - 26, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
-
-    [0.30, 0.40, 0.50, 0.60, 0.70, 0.75].forEach((tk) => {
-      const x = xScale(tk);
-      el("line", { x1: x, y1: startY - 10, x2: x, y2: startY + rows.length * rowH - 8, class: "svg-grid" }, svg);
-      txt(fmtComma(tk, 2), { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
-    });
-    txt("Macro-F1: Test automático (○)  →  Test Gold humano A3 (●)", { x: mL + cW / 2, y: 454, "text-anchor": "middle", class: "svg-muted", "font-size": 12.5 }, svg);
-
-    const animRefs = [];
-    rows.forEach((r, i) => {
-      const y = startY + i * rowH + 16;
-      const g = el("g", {}, svg);
-      txt(r.name, { x: mL - 14, y: y + 4, "text-anchor": "end", "font-size": 13.5, "font-weight": i < 2 ? 700 : 500 }, g);
-
-      const xGold = xScale(r.goldF1);
-      if (r.autoF1 == null) {
-        // Sin corrida sobre el test automático (TF-IDF): solo el punto Gold, como en la Fig. 4 del informe
-        const dotOnly = el("circle", { cx: xGold, cy: y, r: 7.2, fill: "var(--accent-danger)", stroke: "var(--bg)", "stroke-width": 1.6, opacity: 0 }, g);
-        const lblOnly = txt(fmtComma(r.goldF1, 3), { x: xGold - 12, y: y + 4, "text-anchor": "end", class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-danger)", opacity: 0 }, g);
-        txt("solo evaluado sobre el Gold", { x: mL - 14, y: y + 20, "text-anchor": "end", class: "svg-muted", "font-size": 11 }, g);
-        bindTip(g, `${r.name} (${r.params})`, [
-          "Test automático: sin corrida (se evaluó directamente sobre el Gold)",
-          `Dev automático: ${fmtComma(r.devF1, 3)}`,
-          `Gold humano A3 (Tabla III): ${fmtComma(r.goldF1, 3)}`
-        ]);
-        animRefs.push({ fadeOnly: [dotOnly, lblOnly] });
-        return;
-      }
-      const xAuto = xScale(r.autoF1);
-
-      const bar = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: "var(--accent-danger)", "stroke-width": 3, "stroke-linecap": "round" }, g);
-      el("circle", { cx: xAuto, cy: y, r: 6.5, fill: "var(--bg)", stroke: "var(--ink-3)", "stroke-width": 2.2 }, g);
-      txt(fmtComma(r.autoF1, 3), { x: xAuto + 12, y: y + 4, class: "svg-mono svg-muted", "font-size": 11.5 }, g);
-
-      const dotGold = el("circle", { cx: xAuto, cy: y, r: 7.2, fill: "var(--accent-danger)", stroke: "var(--bg)", "stroke-width": 1.6, opacity: 0 }, g);
-      const lblGold = txt(fmtComma(r.goldF1, 3), { x: xGold - 12, y: y + 4, "text-anchor": "end", class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-danger)", opacity: 0 }, g);
-
-      bindTip(g, `${r.name} (${r.params})`, [
-        `Test automático: ${fmtComma(r.autoF1, 3)}`,
-        `Gold humano A3 (Tabla III): ${fmtComma(r.goldF1, 3)}`,
-        `Caída: ${fmtComma(r.goldF1 - r.autoF1, 3)} Macro-F1`
-      ]);
-      animRefs.push({ bar, dotGold, lblGold, xAuto, xGold });
-    });
-
-    // Brief 420ms hold so cross-dissolve settles and audience sees ~0,74 first, then 1,3s glide
-    tween(1300, (t) => {
-      const dotOp = Math.min(1, t * 4);
-      const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
-      animRefs.forEach(({ bar, dotGold, lblGold, xAuto, xGold, fadeOnly }) => {
-        if (fadeOnly) {
-          // TF-IDF (solo Gold): aparece en su sitio, sin deslizarse
-          fadeOnly[0].setAttribute("opacity", String(dotOp));
-          fadeOnly[1].setAttribute("opacity", String(lblOp));
-          return;
-        }
-        const curX = xAuto + (xGold - xAuto) * t;
-        bar.setAttribute("x1", String(curX));
-        dotGold.setAttribute("cx", String(curX));
-        dotGold.setAttribute("opacity", String(dotOp));
-        lblGold.setAttribute("opacity", String(lblOp));
+      [0.2, 0.4, 0.6, 0.8].forEach((tk) => {
+        const x = xs(tk);
+        el("line", { x1: x, y1: top - 18, x2: x, y2: yEnd, class: "svg-grid" }, svg);
+        txt(fmtComma(tk, 1), { x, y: yEnd + 18, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
       });
-    }, 420);
+      el("line", { x1: 14, y1: yMacro - 22, x2: xCambio, y2: yMacro - 22, stroke: "var(--line-strong)", "stroke-width": 1 }, svg);
+      txt("F1 por clase", { x: mL + cW / 2, y: yEnd + 42, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+
+      const anim = [];
+      function fila(nombre, auto, gold, y, estilo, tip) {
+        const g = el("g", {}, svg);
+        el("rect", { x: 14, y: y - rowH / 2, width: xCambio - 4, height: rowH, fill: "transparent" }, g);
+        txt(nombre, { x: mL - 16, y: y + 5, "text-anchor": "end", "font-size": 14, "font-weight": estilo.peso, fill: "var(--ink)" }, g);
+        const xa = xs(auto), xg = xs(gold);
+        const line = el("line", { x1: xa, y1: y, x2: xa, y2: y, stroke: estilo.col, "stroke-width": 3, "stroke-linecap": "round", opacity: estilo.op }, g);
+        el("circle", { cx: xa, cy: y, r: 6, fill: "var(--bg)", stroke: "var(--ink-3)", "stroke-width": 2.2 }, g);
+        txt(f2(auto), { x: xa + 12, y: y + 4.5, class: "svg-mono svg-muted", "font-size": 12 }, g);
+        const dot = el("circle", { cx: xa, cy: y, r: 6.8, fill: estilo.col, stroke: "var(--bg)", "stroke-width": 1.6, opacity: 0 }, g);
+        const lbl = txt(f2(gold), { x: xg - 12, y: y + 4.5, "text-anchor": "end", class: "svg-mono", "font-size": 12.5, "font-weight": 700, fill: "var(--ink)", opacity: 0 }, g);
+        const d = testDe[nombre];
+        if (d) {
+          // Cambio en el número de citas de la clase (el total del test no cambia: 2.798)
+          const c = (100 * (d.goldN - d.preN)) / d.preN;
+          txt(`${signo(c)}${Math.abs(Math.round(c))} %`, { x: xCambio, y: y + 5, "text-anchor": "end", "font-size": 14, "font-weight": 700, style: "font-variant-numeric: tabular-nums", fill: c > 0 ? "var(--a4-sube)" : "var(--accent-danger)" }, g);
+          tip = tip.concat(`Test: ${fmtInt(d.preN)} → ${fmtInt(d.goldN)} citas (${fmtComma(d.prePct, 1)} % → ${fmtComma(d.goldPct, 1)} %): ${signo(c)}${fmtComma(Math.abs(c), 1)} %`);
+        }
+        bindTip(g, `${nombre} · ${m.name} (Config A)`, tip);
+        anim.push({ line, dot, lbl, xa, xg });
+      }
+
+      rows.forEach((r, i) => {
+        const roja = r.auto - r.gold >= umbral;
+        fila(r.cls, r.auto, r.gold, yOf(i),
+          { col: roja ? "var(--accent-danger)" : "var(--ink-3)", op: roja ? 1 : 0.55, peso: roja ? 700 : 500 },
+          [`Test automático: ${f3(r.auto)}`, `Gold: ${f3(r.gold)}`, `Caída: −${f3(r.auto - r.gold)}`, `Citas de la clase en el Gold: ${fmtInt(r.n)}`]);
+      });
+      fila("Macro-F1", m.macro.auto, m.macro.gold, yMacro,
+        { col: "var(--ink)", op: 0.7, peso: 700 },
+        [`Test automático: ${f3(m.macro.auto)}`, `Gold: ${f3(m.macro.gold)}`, `Caída: −${f3(m.macro.auto - m.macro.gold)}`]);
+
+      // Breve pausa para ver primero el test automático; luego cada ● se desliza a su valor en el Gold
+      return tween(1300, (t) => {
+        const dotOp = Math.min(1, t * 4);
+        const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
+        anim.forEach((a) => {
+          const x = a.xa + (a.xg - a.xa) * t;
+          a.line.setAttribute("x1", String(x));
+          a.dot.setAttribute("cx", String(x));
+          a.dot.setAttribute("opacity", String(dotOp));
+          a.lbl.setAttribute("opacity", String(lblOp));
+        });
+      }, 420);
+    }
+
+    return createA4Tabs(container, {
+      id: "a4-clases",
+      label: "Modelo",
+      tabs: [
+        { key: "granite", t: data.granite.name, viewBox: "0 0 860 466", aria: `F1 por clase de ${data.granite.name}: test automático frente al Gold` },
+        { key: "scibert", t: data.scibert.name, viewBox: "0 0 860 466", aria: `F1 por clase de ${data.scibert.name}: test automático frente al Gold` }
+      ],
+      draw
+    });
   }
 
   /* ========================================================================
-     8. A4-03 ★ Estrella #4 (Clímax #1) — Fig. 11 en 3 PASOS EXACTOS
-     Paso 0: Panel A confirmadas
-     Paso 1: Panel B corregidas SOLO marcadores huecos (○ automática)
-     Paso 2: Deslizamiento animado hacia marcadores rellenos (● humana) + Δ
+     8. A4-03 — Acierto contra el Gold según lo que hizo A3, los dos modelos en una gráfica
+     Mismas predicciones del test automático, calificadas con la etiqueta humana (Fig. 11 del informe):
+     confirmadas = A3 mantuvo la etiqueta automática; corregidas = A3 la cambió.
      ======================================================================== */
-  function createFig11ThreeStep(container, rows) {
+  function createA4Revision(container, data) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 910 480", role: "img", "aria-label": "Diagnóstico causal por instancia (Fig. 11) en 3 pasos" }, container);
-
-    const mL = 205;
-    const p1X = mL, p1W = 196;
-    const p2X = 446, p2W = 314;
-    const deltaX = 786;
-    const startY = 80, rowH = 54;
-
-    const xConf = (pct) => p1X + ((pct - 50) / 50) * p1W; // 50%..100%
-    const xCorr = (pct) => p2X + (pct / 80) * p2W;        // 0%..80%
-
-    const yFor = (i) => startY + i * rowH + (i >= 4 ? 18 : 0);
-
-    // Panel A group
-    const gA = el("g", { class: "svg-anim" }, svg);
-    txt("(a) Confirmadas (n = 1.278)", { x: p1X, y: 34, "font-size": 13.5, "font-weight": 700 }, gA);
-    txt("% acierto del modelo", { x: p1X, y: 52, class: "svg-mono svg-muted", "font-size": 11 }, gA);
-    [50, 75, 100].forEach((tk) => {
-      const x = xConf(tk);
-      el("line", { x1: x, y1: 62, x2: x, y2: 415, class: "svg-grid" }, gA);
-      txt(`${tk}%`, { x, y: 434, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11 }, gA);
+    const svg = el("svg", { viewBox: "0 0 860 476", role: "img", "aria-label": "Acierto de Granite-4.2-8B y SciBERT en citas confirmadas y corregidas por A3" }, container);
+    const grupos = [
+      { t: `Confirmadas por A3 · ${fmtInt(data.nConf)} citas`, d: "La revisión humana mantuvo la etiqueta automática.", campo: "conf", n: data.nConf, col: "var(--ink-3)" },
+      { t: `Corregidas por A3 · ${fmtInt(data.nCorr)} citas`, d: "La revisión humana cambió la etiqueta automática.", campo: "corr", n: data.nCorr, col: "var(--accent-danger)" }
+    ];
+    const modelos = [data.granite, data.scibert];
+    const bX = 210, bW = 500, barH = 28;
+    const barras = [];
+    grupos.forEach((gr, gi) => {
+      const y0 = 30 + gi * 236;
+      txt(gr.t, { x: 24, y: y0, "font-size": 16, "font-weight": 700, fill: "var(--ink)" }, svg);
+      txt(gr.d, { x: 24, y: y0 + 22, class: "svg-ink2", "font-size": 14 }, svg);
+      modelos.forEach((m, mi) => {
+        const yA = y0 + 40 + mi * 92;
+        txt(m.name, { x: 24, y: yA + barH + 9, "font-size": 14, "font-weight": 600, fill: "var(--ink)" }, svg);
+        m.runs.forEach((run, ri) => {
+          const y = yA + ri * 38;
+          const aciertos = run[gr.campo];
+          const pct = (100 * aciertos) / gr.n;
+          const g = el("g", {}, svg);
+          el("rect", { x: 14, y: y - 5, width: 820, height: barH + 10, fill: "transparent" }, g);
+          txt(run.cfg, { x: bX - 14, y: y + 19, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 12.5 }, g);
+          el("rect", { x: bX, y, width: bW, height: barH, rx: 6, fill: "var(--surface-tint)" }, g);
+          const barra = el("rect", { x: bX, y, width: 0, height: barH, rx: 6, fill: gr.col }, g);
+          txt(`${fmtComma(pct, 1)} %`, { x: bX + bW + 18, y: y + 21, class: "svg-serif", "font-size": 21, "font-weight": 700, fill: "var(--ink)" }, g);
+          bindTip(g, `${m.name} · Config ${run.cfg}`, [
+            `${gr.campo === "conf" ? "Confirmadas" : "Corregidas"}: acierta ${fmtInt(aciertos)} de ${fmtInt(gr.n)} citas (${fmtComma(pct, 1)} %)`
+          ]);
+          barras.push({ barra, w: (bW * pct) / 100 });
+        });
+      });
     });
-
-    // Panel B group
-    const gB = el("g", { class: "svg-anim" }, svg);
-    txt("(b) Corregidas (n = 1.520)", { x: p2X, y: 34, "font-size": 13.5, "font-weight": 700 }, gB);
-    txt("% que coincide con la vieja (○) / humana (●)", { x: p2X, y: 52, class: "svg-mono svg-muted", "font-size": 11 }, gB);
-    [0, 20, 40, 60, 80].forEach((tk) => {
-      const x = xCorr(tk);
-      el("line", { x1: x, y1: 62, x2: x, y2: 415, class: "svg-grid" }, gB);
-      txt(`${tk}%`, { x, y: 434, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11 }, gB);
-    });
-
-    const gDeltaHead = txt("Δ (hum − vieja)", { x: deltaX, y: 52, class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, gB);
-    gDeltaHead.classList.add("svg-anim");
-
-    // Separator A4 vs A5
-    const sepY = yFor(3) + 34;
-    el("line", { x1: 20, y1: sepY, x2: 860, y2: sepY, stroke: "var(--line-strong)", "stroke-dasharray": "5 4", "stroke-width": 1.2 }, svg);
-    txt("Fine-tuning local (A4)", { x: 20, y: sepY - 8, class: "svg-mono", "font-size": 10.5, "font-weight": 700, fill: "var(--accent-warn)" }, svg);
-    txt("LLMs API 0-Shot (A5)", { x: 20, y: sepY + 15, class: "svg-mono", "font-size": 10.5, "font-weight": 700, fill: "var(--accent-primary)" }, svg);
-
-    const dynRows = [];
-    rows.forEach((r, i) => {
-      const y = yFor(i);
-      const isA5 = r.type === "a5";
-      const colMain = isA5 ? "var(--accent-primary)" : "var(--accent-warn)";
-      const colSlide = isA5 ? "var(--accent-primary)" : "var(--accent-danger)";
-
-      // Y label
-      txt(r.name, { x: mL - 14, y: y + 5, "text-anchor": "end", "font-size": 12.8, "font-weight": isA5 || i === 0 ? 700 : 500 }, svg);
-
-      // Panel A row
-      const xC = xConf(r.conf);
-      const rowA = el("g", {}, gA);
-      el("line", { x1: p1X, y1: y, x2: xC, y2: y, stroke: colMain, "stroke-width": 4, opacity: 0.25, "stroke-linecap": "round" }, rowA);
-      if (isA5) {
-        el("polygon", { points: `${xC},${y - 7} ${xC + 7},${y} ${xC},${y + 7} ${xC - 7},${y}`, fill: colMain, stroke: "var(--bg)", "stroke-width": 1.4 }, rowA);
-      } else {
-        el("circle", { cx: xC, cy: y, r: 6.5, fill: colMain, stroke: "var(--bg)", "stroke-width": 1.4 }, rowA);
-      }
-      txt(`${fmtComma(r.conf, 1)}%`, { x: xC + 10, y: y + 4, class: "svg-mono", "font-size": 11.5, "font-weight": 700 }, rowA);
-      bindTip(rowA, `${r.name} — Confirmadas`, [`Acierto: ${fmtComma(r.conf, 1)}% sobre 1.278 citas confirmadas`]);
-
-      // Panel B row
-      const xAuto = xCorr(r.auto);
-      const xHum = xCorr(r.hum);
-      const rowB = el("g", {}, gB);
-
-      // Connector line (starts zero-length at xAuto, glides smoothly at 60fps to xHum in step 2)
-      const line = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: colSlide, "stroke-width": 3.2, "stroke-linecap": "round" }, rowB);
-
-      // Hollow marker (old automatic label)
-      const hollow = isA5
-        ? el("polygon", { points: `${xAuto},${y - 7} ${xAuto + 7},${y} ${xAuto},${y + 7} ${xAuto - 7},${y}`, fill: "var(--bg)", stroke: colSlide, "stroke-width": 2.4 }, rowB)
-        : el("circle", { cx: xAuto, cy: y, r: 6.8, fill: "var(--bg)", stroke: colSlide, "stroke-width": 2.4 }, rowB);
-      const lblAuto = txt(`${fmtComma(r.auto, 1)}%`, { x: isA5 ? xAuto - 12 : xAuto + 12, y: y + 4, "text-anchor": isA5 ? "end" : "start", class: "svg-mono svg-muted", "font-size": 11.5 }, rowB);
-
-      // Solid marker (human Gold label — starts at xAuto hidden, glides smoothly to xHum in step 2)
-      const solidGroup = el("g", { transform: `translate(${xAuto}, ${y})`, opacity: 0 }, rowB);
-      if (isA5) {
-        el("polygon", { points: "0,-7.5 7.5,0 0,7.5 -7.5,0", fill: colSlide, stroke: "var(--bg)", "stroke-width": 1.6 }, solidGroup);
-      } else {
-        el("circle", { cx: 0, cy: 0, r: 7.2, fill: colSlide, stroke: "var(--bg)", "stroke-width": 1.6 }, solidGroup);
-      }
-
-      const lblHum = txt(`${fmtComma(r.hum, 1)}%`, {
-        x: isA5 ? xHum + 12 : xHum - 12,
-        y: y + 4,
-        "text-anchor": isA5 ? "start" : "end",
-        class: "svg-mono",
-        "font-size": 12,
-        "font-weight": 700,
-        fill: colSlide,
-        opacity: 0
-      }, rowB);
-
-      const lblDelta = txt(`${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`, {
-        x: deltaX,
-        y: y + 4,
-        class: "svg-mono",
-        "font-size": 12.5,
-        "font-weight": 700,
-        fill: colSlide,
-        opacity: 0
-      }, rowB);
-
-      bindTip(rowB, `${r.name} — Corregidas (n = 1.520)`, [
-        `Repite la etiqueta automática descartada (○): ${fmtComma(r.auto, 1)}%`,
-        `Coincide con la etiqueta humana Gold (●): ${fmtComma(r.hum, 1)}%`,
-        `Otra clase: ${fmtComma(100 - r.auto - r.hum, 1)}%`,
-        `Δ (humana − vieja): ${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`
-      ]);
-
-      dynRows.push({ isA5, line, solidGroup, lblHum, lblDelta, lblAuto, hollow, xAuto, xHum, y });
-    });
-
-    // Bottom clean legend
-    const legY = 466;
-    el("circle", { cx: 220, cy: legY - 4, r: 5.5, fill: "var(--bg)", stroke: "var(--ink-2)", "stroke-width": 2 }, svg);
-    txt("repite la etiqueta vieja (○)", { x: 232, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
-    el("circle", { cx: 420, cy: legY - 4, r: 5.5, fill: "var(--ink-2)" }, svg);
-    txt("coincide con la humana Gold (●)", { x: 432, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
-    txt("el resto predice una 3.ª clase", { x: 640, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
-
-    let cancelA4 = null;
-    let cancelA5 = null;
-    let lastStep = null;
-
-    function applyRowProgress(row, t) {
-      const curX = row.xAuto + (row.xHum - row.xAuto) * t;
-      row.line.setAttribute("x2", String(curX));
-      row.solidGroup.setAttribute("transform", `translate(${curX}, ${row.y})`);
-      row.solidGroup.setAttribute("opacity", String(Math.min(1, t * 4)));
-      const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
-      row.lblHum.setAttribute("opacity", String(lblOp));
-      row.lblDelta.setAttribute("opacity", String(lblOp));
-    }
-
-    return {
-      update(step) {
-        // step 0: Panel A only; step 1: Panel B hollow markers; step 2: A4 glides left, +350ms later A5 launches right
-        gA.style.opacity = step === 0 ? "1" : "0.78";
-        gB.style.opacity = step === 0 ? "0.06" : "1";
-
-        if (lastStep === step) return;
-        lastStep = step;
-
-        if (cancelA4) { cancelA4(); cancelA4 = null; }
-        if (cancelA5) { cancelA5(); cancelA5 = null; }
-
-        if (step < 2) {
-          gDeltaHead.setAttribute("opacity", "0");
-          dynRows.forEach((row) => applyRowProgress(row, 0));
-          return;
-        }
-
-        gDeltaHead.setAttribute("opacity", "1");
-        const a4Rows = dynRows.filter((r) => !r.isA5);
-        const a5Rows = dynRows.filter((r) => r.isA5);
-        a4Rows.forEach((row) => applyRowProgress(row, 0));
-        a5Rows.forEach((row) => applyRowProgress(row, 0));
-
-        // 1. First the 4 fine-tuned A4 models fall leftwards (1,25s)
-        cancelA4 = tween(1250, (t) => {
-          a4Rows.forEach((row) => applyRowProgress(row, t));
-        }, 120);
-
-        // 2. 350ms later, GPT and Gemini launch rightwards toward human Gold (1,25s)
-        cancelA5 = tween(1250, (t) => {
-          a5Rows.forEach((row) => applyRowProgress(row, t));
-        }, 470);
-      }
-    };
+    tween(900, (t) => {
+      barras.forEach((b) => b.barra.setAttribute("width", String(b.w * t)));
+    }, 200);
   }
 
   /* ========================================================================
@@ -2135,8 +2026,8 @@ window.EvidenCharts = (function () {
     renderA3Waterfall,
     createA3Morph,
     createA4Funnel,
-    renderA4Collapse,
-    createFig11ThreeStep,
+    createA4PerClass,
+    createA4Revision,
     renderA5ParityBreak,
     renderA5ByClass,
     renderA5MacroSections,
