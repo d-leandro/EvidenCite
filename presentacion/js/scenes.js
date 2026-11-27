@@ -352,13 +352,13 @@ window.EvidenScenes = (function () {
     if (!canvas) return;
 
     if (step === 0) {
-      // swapStage solo reconstruye al llegar desde otro paso, con la pestaña Final por defecto; si el paso ya
+      // swapStage solo reconstruye al llegar desde otro paso, con la pestaña Ronda 1 por defecto; si el paso ya
       // está activo (p. ej. clic en el texto), conserva la capa y la pestaña elegida.
       swapStage(canvas, "a4-embudo", (el) => {
         controllers.a4Funnel = C.createA4Funnel(el, D.a4Funnel, {
           onChange: (key) => setHeader("a4", A4_TITULOS[key], "", "")
         });
-        controllers.a4Funnel.show("final");
+        controllers.a4Funnel.show("r1");
       });
       setHeader("a4", A4_TITULOS[controllers.a4Funnel.tab], "", "");
     } else if (step === 1) {
