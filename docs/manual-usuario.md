@@ -7,7 +7,7 @@ title: Manual de usuario | EvidenCite
 
 **EvidenCite: clasificación de funciones retóricas de citas científicas**
 
-[Aplicación en línea](https://evidencite.34-204-10-62.sslip.io) | [Repositorio GitHub](https://github.com/d-leandro/EvidenCite) | [Manual de instalación](manual-instalacion.html)
+[Aplicación en línea](https://evidencite.54-163-149-217.sslip.io) | [Repositorio GitHub](https://github.com/d-leandro/EvidenCite) | [Manual de instalación](manual-instalacion.html)
 
 > **Versión del manual:** 26 de noviembre de 2026. Es una demostración académica; la URL se basa en la IP de una EC2 de AWS Academy y puede cambiar. Los modelos Granite A/B requieren que el trabajador externo del equipo esté encendido.
 
@@ -40,7 +40,7 @@ La lista de modelos refleja su estado actual. Si un servicio deja de estar dispo
 
 ## 3. Flujo guiado en cinco pasos
 
-1. **Preparar el ejemplo.** Abre [EvidenCite](https://evidencite.34-204-10-62.sslip.io), expande **¿Necesitas un ejemplo?** y pulsa **Cargar ejemplo**.
+1. **Preparar el ejemplo.** Abre [EvidenCite](https://evidencite.54-163-149-217.sslip.io), expande **¿Necesitas un ejemplo?** y pulsa **Cargar ejemplo**.
 2. **Verificar la cita.** Debe aparecer el contexto ilustrativo sobre `Vaswani et al. (2017)` y la referencia objetivo correspondiente.
 3. **Obtener el artículo citado.** Busca el ID arXiv `1706.03762` o el título *Attention Is All You Need*. Revisa y confirma los metadatos. Como alternativa, proporciona el artículo manualmente (A) o sube el PDF correspondiente.
 4. **Elegir modo y modelo.** Para A, completa título y resumen. Para B, pulsa **Recuperar los 3 fragmentos** o utiliza la carga de PDF para preparar evidencia textual. Selecciona uno de los modelos disponibles.
@@ -133,7 +133,7 @@ El panel muestra métricas de los modelos entrenados (TF-IDF, SciBERT y Granite,
 ## 9. Uso de la API (opcional)
 
 ```bash
-APP_URL='https://evidencite.34-204-10-62.sslip.io'
+APP_URL='https://evidencite.54-163-149-217.sslip.io'
 curl -fsS "$APP_URL/health"
 curl -fsS "$APP_URL/api/v1/models"
 curl -fsS "$APP_URL/api/v1/labels"

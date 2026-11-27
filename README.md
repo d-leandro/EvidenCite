@@ -4,7 +4,7 @@
 
 [![Python 3.12](https://img.shields.io/badge/deployment-Python%203.12-3776ab)](pyproject.toml) [![Docker Compose](https://img.shields.io/badge/containers-Docker%20Compose-2496ed)](compose.aws.yaml) [![IaC Terraform](https://img.shields.io/badge/IaC-Terraform-7b42bc)](infra/evidencite/) [![Manuals](https://img.shields.io/badge/docs-GitHub%20Pages-24964f)](https://d-leandro.github.io/EvidenCite/)
 
-**[Live application](https://evidencite.34-204-10-62.sslip.io)** | **[GitHub repository](https://github.com/d-leandro/EvidenCite)** | **[User manual](https://d-leandro.github.io/EvidenCite/manual-usuario.html)** | **[Deployment manual](https://d-leandro.github.io/EvidenCite/manual-instalacion.html)** | **[Español](README.es.md)**
+**[Live application](https://evidencite.54-163-149-217.sslip.io)** | **[GitHub repository](https://github.com/d-leandro/EvidenCite)** | **[User manual](https://d-leandro.github.io/EvidenCite/manual-usuario.html)** | **[Deployment manual](https://d-leandro.github.io/EvidenCite/manual-instalacion.html)** | **[Español](README.es.md)**
 
 > **Demo availability:** this URL uses the current public address of an AWS Academy EC2 instance, which may change after stopping/recreation. Granite A/B additionally rely on the team's own PC and Tailscale Funnel. Check `GET /api/v1/models` before demonstrating. This academic prototype does not guarantee 24/7 uptime.
 
@@ -21,7 +21,7 @@ The nine classes are **Background, Gap, Basis, Comparison, Application, Improvem
 
 ## 2. Use the deployed application (no installation needed)
 
-1. Open the [live demo](https://evidencite.34-204-10-62.sslip.io).
+1. Open the [live demo](https://evidencite.54-163-149-217.sslip.io).
 2. In **Análisis de Citas**, expand **¿Necesitas un ejemplo?** and choose **Cargar ejemplo**. The example references *Attention Is All You Need* (arXiv `1706.03762`).
 3. Check the target citation (`Vaswani et al. (2017)`). In mode A, search/confirm the cited document or enter its title and abstract. In mode B, retrieve the three relevant chunks or process a matching PDF.
 4. Select an available model and press **Clasificar intención de cita**. Review the predicted label, confidence and all nine probabilities.
@@ -142,7 +142,7 @@ The chart summarizes the six principal training runs on `test-revisado` from the
 ## 8. API usage examples
 
 ```bash
-APP_URL='https://evidencite.34-204-10-62.sslip.io'
+APP_URL='https://evidencite.54-163-149-217.sslip.io'
 curl -fsS "$APP_URL/health"
 curl -fsS "$APP_URL/api/v1/models"
 curl -fsS "$APP_URL/api/v1/labels"
