@@ -1486,31 +1486,43 @@ svg .svg-axis {
 }
 
 /* ==========================================================================
-   A4-01 · Embudo en pestañas (R1 · R2 · Final · Gen. vs. clasif.)
-   Config A / Config B: pares validados para daltonismo en cada tema
+   A4 · Pestañas del escenario (A4-01: cuatro etapas; A4-02 y A4-03: un modelo por pestaña)
+   Config A / Config B: pares validados para daltonismo en cada tema.
+   --a4-sube: verde para el cambio positivo en A4-02 (el negativo usa --accent-danger)
    ========================================================================== */
-#chapter-a4 { --a4-cfg-a: #1D4ED8; --a4-cfg-b: #D97706; }
-[data-theme="dark"] #chapter-a4 { --a4-cfg-a: #4A8DF0; --a4-cfg-b: #E5801F; }
+#chapter-a4 { --a4-cfg-a: #1D4ED8; --a4-cfg-b: #D97706; --a4-sube: #047857; }
+[data-theme="dark"] #chapter-a4 { --a4-cfg-a: #4A8DF0; --a4-cfg-b: #E5801F; --a4-sube: #25DB9A; }
 .a4-funnel { width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .a4-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: none; }
-.a4-tabs button { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 9px; align-items: center; text-align: left; padding: 8px 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-tint); color: var(--ink-2); font: inherit; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.a4-tabs.is-pair { grid-template-columns: repeat(2, minmax(0, 220px)); }
+.a4-tabs button { display: flex; align-items: center; gap: 9px; text-align: left; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-tint); color: var(--ink-2); font: inherit; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 .a4-tabs button:hover { border-color: var(--ink-3); }
 .a4-tabs button:focus-visible { outline: 2px solid var(--accent-warn); outline-offset: 2px; }
 .a4-tabs button.is-active { background: var(--surface); border-color: var(--ink-2); box-shadow: inset 0 -3px 0 var(--accent-warn); color: var(--ink); }
-.a4-tab-step { grid-row: 1 / span 2; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; font: 700 0.72rem var(--font-mono); color: var(--ink-3); }
+.a4-tab-step { flex: none; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; font: 700 0.72rem var(--font-mono); color: var(--ink-3); }
 .a4-tabs button.is-active .a4-tab-step { border-color: var(--accent-warn); background: var(--accent-warn-soft); color: var(--ink); }
-.a4-tab-t { font: 700 0.8rem var(--font-mono); color: var(--ink); line-height: 1.3; white-space: nowrap; }
-.a4-tab-s { font-size: 0.72rem; color: var(--ink-3); line-height: 1.3; }
+.a4-tab-t { font-family: var(--font-sans); font-size: 0.86rem; font-weight: 600; color: var(--ink-2); line-height: 1.3; white-space: nowrap; }
+.a4-tabs button.is-active .a4-tab-t { color: var(--ink); }
 .a4-tabpanel { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .a4-tabpanel svg { width: 100%; height: 100%; max-height: 100%; overflow: visible; }
 @media (max-width: 1440px) {
   .a4-tabs { gap: 6px; }
-  .a4-tabs button { padding: 7px 9px; column-gap: 7px; }
+  .a4-tabs button { padding: 8px 9px; gap: 7px; }
   .a4-tab-step { width: 20px; height: 20px; font-size: 0.68rem; }
-  .a4-tab-t { font-size: 0.74rem; }
-  .a4-tab-s { font-size: 0.68rem; }
+  .a4-tab-t { font-size: 0.78rem; }
 }
 
+/* Maqueta minimalista de A4 (misma de A2 y A3, con el color de Daniel) */
+#chapter-a4 .beat-tag { font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 0.9rem; font-weight: 600; color: var(--ink-3); }
+#chapter-a4 .beat-heading { font-size: clamp(1.7rem, 2.4vw, 2.3rem); line-height: 1.16; margin-bottom: 16px; }
+#chapter-a4 .beat-lead { font-size: clamp(1.05rem, 1.2vw, 1.2rem); margin-bottom: 22px; }
+#chapter-a4 .beat-metrics { border-top: none; padding-top: 0; }
+#chapter-a4 .metric-val { font-family: var(--font-serif); font-size: 2.3rem; color: var(--accent-warn); }
+#chapter-a4 .metric-lbl { font-size: 0.95rem; color: var(--ink-2); }
+#chapter-a4 .stage-header { border-bottom: none; }
+#chapter-a4 .stage-caption,
+#chapter-a4 .stage-footnote { display: none; }
+#chapter-a4 .nw { white-space: nowrap; }
 
 /* Maqueta minimalista: solo capítulo A2 y A3 */
 #chapter-a2a3 .beat-tag { font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 0.9rem; font-weight: 600; color: var(--ink-3); }

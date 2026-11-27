@@ -13,9 +13,9 @@ window.EVIDENCITE_DATA = {
       { id: "portada", phase: "CTX", label: "Portada", speaker: "Leandro", targetSec: 0, startBeat: 0, endBeat: 0 },
       { id: "b1", phase: "A1", label: "Contexto + A1", speaker: "Leandro", targetSec: 135, startBeat: 1, endBeat: 6 },
       { id: "b2", phase: "A2/A3", label: "Panel A2 + Giro A3", speaker: "Javier", targetSec: 150, startBeat: 7, endBeat: 12 },
-      { id: "b3", phase: "A4", label: "Techo Supervisado A4", speaker: "Daniel", targetSec: 165, startBeat: 13, endBeat: 17 },
-      { id: "b4", phase: "A5/A7", label: "LLMs API y Precisión–Costo", speaker: "Leandro", targetSec: 150, startBeat: 18, endBeat: 24 },
-      { id: "b5", phase: "A8/CONC", label: "Cloud, Demo y Cierre", speaker: "Julián", targetSec: 300, startBeat: 25, endBeat: 30 }
+      { id: "b3", phase: "A4", label: "Techo Supervisado A4", speaker: "Daniel", targetSec: 165, startBeat: 13, endBeat: 15 },
+      { id: "b4", phase: "A5/A7", label: "LLMs API y Precisión–Costo", speaker: "Leandro", targetSec: 150, startBeat: 16, endBeat: 22 },
+      { id: "b5", phase: "A8/CONC", label: "Cloud, Demo y Cierre", speaker: "Julián", targetSec: 300, startBeat: 23, endBeat: 28 }
     ]
   },
 
@@ -93,11 +93,11 @@ window.EVIDENCITE_DATA = {
     { cls: "Improvement",     preN: 217, prePct: 7.76,  goldN: 68,   goldPct: 2.43,  deltaPct: -5.33 }
   ],
 
-  // A4-01 Embudo de 92 corridas (pestañas R1 · R2 · Definitivos · Generativo vs. clasificador).
+  // A4-01 Selección de modelos: 92 corridas en 4 pestañas (ronda 1 · ronda 2 · final · gen. vs. clasif.).
   // Generado desde analisis/comparacion.csv y recursos.csv de los tres zips de analizar_resultados.ipynb
   // (comparacion_modelos, comparacion_modelos_v2, EvidenCite_A6_A7_Evaluacion_Comparativa). Memoria en GB = MB / 1024.
   a4Funnel: {
-    // R1 (19 corridas, 1 semilla, iteración previa del etiquetado): Macro-F1 de test e IC95 por configuración
+    // Ronda 1 (19 corridas, 1 semilla, iteración previa del etiquetado): Macro-F1 de test e IC95 por configuración
     r1: [
       { name: "Llama-3.2-3B", discarded: false, a: { f1: 0.8297, lo: 0.8154, hi: 0.843, min: 21.7, gb: 39.1, pct: 0.75 }, b: { f1: 0.8345, lo: 0.8204, hi: 0.8485, min: 28.2, gb: 39.1, pct: 0.75 } },
       { name: "Phi-4-mini", discarded: false, a: { f1: 0.8272, lo: 0.8126, hi: 0.8406, min: 22.8, gb: 38.1, pct: 0.6 }, b: { f1: 0.8295, lo: 0.8151, hi: 0.8433, min: 30.9, gb: 38.1, pct: 0.6 } },
@@ -108,9 +108,9 @@ window.EVIDENCITE_DATA = {
       { name: "Hunyuan-4B", discarded: true, a: { f1: 0.8106, lo: 0.796, hi: 0.8249, min: 29.2, gb: 56.3, pct: 0.76 }, b: { f1: 0.8168, lo: 0.8031, hi: 0.832, min: 40.0, gb: 56.3, pct: 0.76 } },
       { name: "Gemma-4-E4B", discarded: true, a: { f1: 0.8172, lo: 0.8033, hi: 0.8315, min: 49.6, gb: 73.1, pct: 0.63 }, b: { f1: 0.8076, lo: 0.7927, hi: 0.8222, min: 57.0, gb: 94.0, pct: 0.63 } },
       { name: "Gemma-4-E2B", discarded: true, a: { f1: 0.81, lo: 0.7949, hi: 0.8245, min: 34.6, gb: 48.6, pct: 0.74 }, b: { f1: 0.7971, lo: 0.7823, hi: 0.812, min: 37.3, gb: 62.1, pct: 0.74 } },
-      { name: "Gemma-4-26B-A4B*", discarded: true, b: { f1: 0.785, lo: 0.7702, hi: 0.8001, min: 101.0, gb: 57.3, pct: 0.12 } }
+      { name: "Gemma-4-26B-A4B (MoE)", discarded: true, moe: true, b: { f1: 0.785, lo: 0.7702, hi: 0.8001, min: 101.0, gb: 57.3, pct: 0.12 } }
     ],
-    // R2 (58 corridas = 10 modelos × A/B × 3 semillas; faltan Nemotron B y Qwen3.5-2B B con la semilla 2255891522)
+    // Ronda 2 (58 corridas = 10 modelos × A/B × 3 semillas; faltan Nemotron B y Qwen3.5-2B B con la semilla 2255891522)
     r2: [
       { name: "SmolLM3-3B", candidate: false, granite: false, mean: 0.7456, min: 0.7421, max: 0.7492, runs: [{ cfg: "A", f1: 0.744 }, { cfg: "A", f1: 0.7448 }, { cfg: "A", f1: 0.7421 }, { cfg: "B", f1: 0.7472 }, { cfg: "B", f1: 0.7492 }, { cfg: "B", f1: 0.7465 }], top7: true },
       { name: "Llama-3.2-3B", candidate: true, granite: false, mean: 0.745, min: 0.7368, max: 0.7511, runs: [{ cfg: "A", f1: 0.7505 }, { cfg: "A", f1: 0.7406 }, { cfg: "A", f1: 0.7407 }, { cfg: "B", f1: 0.7511 }, { cfg: "B", f1: 0.7501 }, { cfg: "B", f1: 0.7368 }], top7: true },
@@ -124,7 +124,7 @@ window.EVIDENCITE_DATA = {
       { name: "Nanbeige-4.1-3B", candidate: false, granite: false, mean: 0.7289, min: 0.7207, max: 0.7374, runs: [{ cfg: "A", f1: 0.7332 }, { cfg: "A", f1: 0.7374 }, { cfg: "A", f1: 0.7254 }, { cfg: "B", f1: 0.7207 }, { cfg: "B", f1: 0.7237 }, { cfg: "B", f1: 0.7331 }], top7: false }
     ],
     r2Band: [0.7384, 0.7456],   // medias del Top-7 (ANOVA p = 0,45)
-    // Definitivos sobre el test automático (labeled-v2). TF-IDF no tiene corrida sobre ese test: solo su F1 de dev automático.
+    // Modelos principales sobre el test automático (labeled-v2). TF-IDF no tiene corrida sobre ese test: solo su F1 de dev automático.
     final: [
       { name: "Granite-4.2-8B", sub: "LoRA · 8B", cfg: "A", auto: { f1: 0.7436, lo: 0.7264, hi: 0.7593, dev: 0.7391, lat: 7.14, min: 74.1, gb: 36.5 } },
       { name: "Granite-4.2-8B", sub: "LoRA · 8B", cfg: "B", auto: { f1: 0.7366, lo: 0.7197, hi: 0.7534, dev: 0.7352, lat: 11.82, min: 99.4, gb: 116.6 } },
@@ -143,29 +143,53 @@ window.EVIDENCITE_DATA = {
     ]
   },
 
-  // A4-02 Definitivos: Test Automático vs. Test Gold A3 (Fig. 4 y Tabla III)
-  // TF-IDF no tiene corrida sobre el test automático (Fig. 4 solo lo muestra sobre el Gold): autoF1 = null.
-  // devF1 es su Macro-F1 de dev (etiquetas automáticas), que antes figuraba aquí como si fuera el test automático.
-  a4Definitives: [
-    { name: "Granite-4.2-8B (B)", params: "8B · LoRA",  autoF1: 0.737, goldF1: 0.441, recalF1: 0.463, cfg: "B" },
-    { name: "Granite-4.2-8B (A)", params: "8B · LoRA",  autoF1: 0.744, goldF1: 0.435, recalF1: 0.453, cfg: "A" },
-    { name: "Qwen3-0.6B (A)",     params: "0,6B · LoRA",autoF1: 0.746, goldF1: 0.456, recalF1: 0.456, cfg: "A" },
-    { name: "SciBERT 110M (A)",   params: "110M · Full",autoF1: 0.730, goldF1: 0.462, recalF1: 0.462, cfg: "A" },
-    { name: "SciBERT 110M (B)",   params: "110M · Full",autoF1: 0.722, goldF1: 0.433, recalF1: 0.433, cfg: "B" },
-    { name: "TF-IDF + RL (A)",    params: "Léxico",     autoF1: null,  devF1: 0.527, goldF1: 0.366, recalF1: 0.366, cfg: "A" },
-    { name: "TF-IDF + RL (B)",    params: "Léxico",     autoF1: null,  devF1: 0.466, goldF1: 0.332, recalF1: 0.332, cfg: "B" }
-  ],
+  // A4-02 F1 por clase, Config A. auto: corrida evaluada en el test automático (labeled-v2); gold: corrida
+  // evaluada en el Gold (test-revisado), la de las Tablas III y IV. F1 calculado de la matriz de confusión
+  // de cada metrics_summary.json (notebook a4_confirmadas_corregidas.ipynb, parte 2). n: citas de la clase en el Gold.
+  // Orden fijo en ambas pestañas: de mayor a menor F1 en el Gold de Granite.
+  a4PerClass: {
+    granite: {
+      name: "Granite-4.2-8B",
+      macro: { auto: 0.7436, gold: 0.4348 },
+      classes: [
+        { cls: "Further Reading", auto: 0.8745, gold: 0.8279, n: 227 },
+        { cls: "Application",     auto: 0.7331, gold: 0.6247, n: 637 },
+        { cls: "Comparison",      auto: 0.7352, gold: 0.5898, n: 298 },
+        { cls: "Basis",           auto: 0.7183, gold: 0.4430, n: 90 },
+        { cls: "Originator",      auto: 0.7319, gold: 0.4071, n: 105 },
+        { cls: "Background",      auto: 0.7188, gold: 0.3362, n: 1200 },
+        { cls: "Improvement",     auto: 0.7318, gold: 0.3094, n: 68 },
+        { cls: "Evidence",        auto: 0.6936, gold: 0.1967, n: 100 },
+        { cls: "Gap",             auto: 0.7551, gold: 0.1788, n: 73 }
+      ]
+    },
+    scibert: {
+      name: "SciBERT",
+      macro: { auto: 0.7303, gold: 0.4623 },
+      classes: [
+        { cls: "Further Reading", auto: 0.8864, gold: 0.8589, n: 227 },
+        { cls: "Application",     auto: 0.6996, gold: 0.6700, n: 637 },
+        { cls: "Comparison",      auto: 0.7352, gold: 0.6149, n: 298 },
+        { cls: "Basis",           auto: 0.6768, gold: 0.4326, n: 90 },
+        { cls: "Originator",      auto: 0.6979, gold: 0.3930, n: 105 },
+        { cls: "Background",      auto: 0.7281, gold: 0.4266, n: 1200 },
+        { cls: "Improvement",     auto: 0.6946, gold: 0.3221, n: 68 },
+        { cls: "Evidence",        auto: 0.6792, gold: 0.2671, n: 100 },
+        { cls: "Gap",             auto: 0.7753, gold: 0.1753, n: 73 }
+      ]
+    }
+  },
 
-  // A4-03 Fig. 11 — Diagnóstico por instancia (verificado en test_revisado_por_modelo.csv y cache A5)
-  // Valores alineados con la Fig. 11 del informe (Qwen3-0.6B: 84,7 / 64,6 / −49,8 pp; antes 84,8 / 64,5 / −49,7).
-  fig11Diagnosis: [
-    { name: "Granite-4.2-8B (A4)",    type: "a4", conf: 87.1, auto: 62.9, hum: 17.1, delta: -45.8 },
-    { name: "R2 LoRA 2B–4B (10 × A/B)",type: "a4", conf: 85.7, auto: 63.9, hum: 15.7, delta: -48.2 },
-    { name: "Qwen3-0.6B (clasif./gen.)", type: "a4", conf: 84.7, auto: 64.6, hum: 14.8, delta: -49.8 },
-    { name: "SciBERT 110M (A4)",      type: "a4", conf: 83.5, auto: 63.0, hum: 15.2, delta: -47.8 },
-    { name: "GPT-4.1-mini 0s-B (A5)", type: "a5", conf: 69.8, auto: 28.2, hum: 39.0, delta: +10.8 },
-    { name: "Gemini-3.8-Flash 0s-B (A5)", type: "a5", conf: 82.8, auto: 19.5, hum: 56.3, delta: +36.8 }
-  ],
+  // A4-03 Aciertos contra la etiqueta humana (Gold) de las corridas evaluadas en el test automático
+  // (Granite-4.2-8B 10 épocas, SciBERT labeled_v2), separando las 1.278 citas que A3 confirmó (misma etiqueta
+  // en labeled-v2 y test-revisado) de las 1.520 que corrigió. Método de la Fig. 11 del informe (notebook, parte 1).
+  // El 87,1 % de Granite en el informe es el promedio de A (86,3 %) y B (87,9 %) sobre las confirmadas.
+  a4Revision: {
+    nConf: 1278,
+    nCorr: 1520,
+    granite: { name: "Granite-4.2-8B", runs: [{ cfg: "A", conf: 1103, corr: 248 }, { cfg: "B", conf: 1124, corr: 274 }] },
+    scibert: { name: "SciBERT", runs: [{ cfg: "A", conf: 1073, corr: 224 }, { cfg: "B", conf: 1062, corr: 239 }] }
+  },
 
   // A5-01 Empate aparente (test_panel) vs. Gold A3 + F1 por 9 clases (Tabla IV)
   a5ParityBreak: {
