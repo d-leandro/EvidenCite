@@ -670,57 +670,42 @@ svg .svg-axis {
   max-width: 920px;
 }
 
-/* Merged CTX-01 compact layout (quote + 3 gaps + SOTA table) */
-.editorial-panel.is-ctx-merged .quote-showcase {
-  padding: 10px 0 10px 18px;
-  margin-bottom: 14px;
-}
-
-.editorial-panel.is-ctx-merged .quote-meta {
-  font-size: 0.72rem;
-  margin-bottom: 5px;
-}
-
-.editorial-panel.is-ctx-merged .quote-text {
-  font-size: clamp(0.92rem, 1.06vw, 1.04rem);
-  line-height: 1.44;
-}
-
+/* Merged CTX-01 balanced layout (3 gaps + SOTA table) */
 .editorial-panel.is-ctx-merged .pi-grid {
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
 .editorial-panel.is-ctx-merged .pi-item {
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .editorial-panel.is-ctx-merged .pi-code {
-  font-size: 0.72rem;
-  margin-bottom: 3px;
-}
-
-.editorial-panel.is-ctx-merged .pi-title {
-  font-size: 0.96rem;
+  font-size: 0.76rem;
   margin-bottom: 4px;
 }
 
+.editorial-panel.is-ctx-merged .pi-title {
+  font-size: 1.04rem;
+  margin-bottom: 6px;
+}
+
 .editorial-panel.is-ctx-merged .pi-desc {
-  font-size: 0.82rem;
-  line-height: 1.38;
+  font-size: 0.88rem;
+  line-height: 1.44;
 }
 
 .editorial-panel.is-ctx-merged .sota-table {
-  font-size: 0.84rem;
+  font-size: 0.89rem;
 }
 
 .editorial-panel.is-ctx-merged .sota-table th {
-  font-size: 0.7rem;
-  padding: 7px 10px;
+  font-size: 0.73rem;
+  padding: 9px 11px;
 }
 
 .editorial-panel.is-ctx-merged .sota-table td {
-  padding: 7px 10px;
+  padding: 10px 11px;
 }
 
 /* CTX-01 citation quote & gap comparison */

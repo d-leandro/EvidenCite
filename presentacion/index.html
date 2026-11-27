@@ -99,9 +99,9 @@
         <div class="narrative-col">
           <article class="beat-step" data-beat="1" data-phase="CTX" data-speaker="Leandro" data-block="1" data-scene="ctx" data-step="0">
             <div class="beat-tag">CTX-01 <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">El resumen global no basta: tres brechas abiertas</h2>
+            <h2 class="beat-heading">Tres brechas abiertas en clasificación de citas</h2>
             <p class="beat-lead">
-              Al clasificar citas en <strong>9 funciones retóricas</strong> (Lyu et al., 2021), ningún estudio previo reúne pasajes locales del citado en paridad 1:1 y verdad humana completa.
+              La clasificación automática de función de citas persiste con tres límites: pocas clases, evidencia estática y falta de prueba humana. <strong>EvidenCite cubre los tres.</strong>
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">9 clases</span><span class="metric-lbl">taxonomía no evaluativa</span></div>
@@ -158,9 +158,9 @@
 
           <article class="beat-step" data-beat="4" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="1">
             <div class="beat-tag">A1-02 · Construcción del Dataset <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Cinco etapas desde MultiCite y unarXive</h2>
+            <h2 class="beat-heading">Cinco capas de refinamiento progresivo</h2>
             <p class="beat-lead">
-              Construimos el corpus en <strong>5 etapas de refinamiento progresivo</strong> a partir de <strong>MultiCite</strong> (Gold humano, 7 clases) y <strong>unarXive 2024</strong> (CS LaTeX). Con APIs estructuramos <strong>~66.000 artículos</strong> y <strong>~145.000 pares</strong>.
+              Partimos de <strong>MultiCite</strong> y <strong>unarXive</strong> y, mediante APIs, estructuramos <strong>~66.000 artículos</strong> y <strong>~145.000 pares citante–citado</strong>.
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-gold">66.314</span><span class="metric-lbl">artículos estructurados</span></div>
@@ -170,9 +170,9 @@
 
           <article class="beat-step" data-beat="5" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="2">
             <div class="beat-tag">A1-02 · Zoom Recuperación + NLI <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">Presupuesto de 512 tokens y minado NLI calibrado</h2>
+            <h2 class="beat-heading">Recuperación Top-3 y etiquetado débil NLI</h2>
             <p class="beat-lead">
-              SciBERT recupera Top-3 con <strong>consulta sin encabezados</strong> para evitar cruces espurios por homonimia. Para llenar las cuotas por clase cuidando la calidad, aplicamos filtrado NLI con <strong>DeBERTa-v3 calibrado</strong>.
+              <strong>SciBERT</strong> recupera el <strong>Top-3</strong> de pasajes (≤110 pal. en 512 tokens). Para llenar cuotas cuidando calidad, <strong>DeBERTa-v3</strong> filtra y etiqueta <strong>63.802</strong> citas.
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">512 tok</span><span class="metric-lbl">~90 cit. + 3×140 chunks</span></div>
@@ -182,9 +182,9 @@
 
           <article class="beat-step" data-beat="6" data-phase="A1" data-speaker="Leandro" data-block="1" data-scene="a1" data-step="3">
             <div class="beat-tag">A1-02 · Consolidación 1:1 <span class="beat-speaker-chip">· Leandro</span></div>
-            <h2 class="beat-heading">18.658 pares 1:1, fuga nula y acceso O(1)</h2>
+            <h2 class="beat-heading">18.658 pares 1:1 con fuga cero</h2>
             <p class="beat-lead">
-              Particionamiento 70/15/15 agrupado por artículo citante (<strong>8.336 citantes disjuntos, fuga = 0</strong>) y ensamblado determinístico <strong>O(1) por instancia</strong> listo para A4 y A5.
+              Partición <strong>70/15/15</strong> agrupada por artículo citante (<strong>fuga cero</strong>) y <strong>ensamblado rápido en tiempo de ejecución</strong> para modelamiento (A4 y A5).
             </p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-gold">18.658</span><span class="metric-lbl">13.077 / 2.783 / 2.798</span></div>
@@ -370,7 +370,7 @@
           <article class="beat-step" data-beat="18" data-phase="A5" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="0">
             <div class="beat-tag">A5-01 · Clímax #2 (Paso 1/2) <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Antes de A3: empate. Después de A3: no.</h2>
-            <p class="beat-lead">En 22.384 inferencias API (<strong>99,991% JSON válido</strong>), GPT 0s-B y Gemini 0s-B empataban en test automático (0,441 vs. 0,449). En Gold, <strong>Gemini salta a 0,5996 (+0,1331 Macro-F1)</strong>.</p>
+            <p class="beat-lead"><strong>22.384 inferencias API</strong> (99,99% JSON válido). En test automático empatan; en Gold humano, <strong>Gemini 0s-B salta a 0,5996 Macro-F1</strong>.</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">0,5996</span><span class="metric-lbl">Gemini 0s-B Macro-F1</span></div>
               <div class="metric-item"><span class="metric-val is-gold">+0,1331</span><span class="metric-lbl">brecha vs. GPT (p &lt; 10⁻⁴)</span></div>
@@ -410,10 +410,10 @@
           <article class="beat-step" data-beat="22" data-phase="A6/A7" data-speaker="Leandro" data-block="4" data-scene="a5a7" data-step="4">
             <div class="beat-tag">A6 · Panorama Global A4 vs. A5 <span class="beat-speaker-chip">· Leandro</span></div>
             <h2 class="beat-heading">Las 14 variantes sobre una misma escala</h2>
-            <p class="beat-lead">En A4, Config B cae o empata. En A5, <strong>Gemini 0s-B</strong> lidera precisión (<strong>0,5996</strong>) y calibración (<strong>ECE 0,1158</strong>).</p>
+            <p class="beat-lead">En A4, <strong>Config B cae o empata</strong>. En A5, <strong>Gemini 0s-B</strong> lidera en precisión (<strong>0,5996 Macro-F1</strong>).</p>
             <div class="beat-metrics">
               <div class="metric-item"><span class="metric-val is-primary">0,5996</span><span class="metric-lbl">Gemini 0s-B · líder global</span></div>
-              <div class="metric-item"><span class="metric-val is-gold">0,1158</span><span class="metric-lbl">ECE Gemini vs. 0,336 GPT</span></div>
+              <div class="metric-item"><span class="metric-val is-danger">0,43–0,46</span><span class="metric-lbl">rango fine-tuning A4</span></div>
             </div>
           </article>
 

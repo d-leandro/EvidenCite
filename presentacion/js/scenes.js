@@ -92,22 +92,13 @@ window.EvidenScenes = (function () {
     if (step === 0) {
       setHeader(
         "ctx",
-        "El problema y las tres brechas frente al estado del arte",
-        "Tabla I · Ejemplo real inst_04783",
+        "Tres brechas abiertas frente al estado del arte",
+        "Tabla I · Lyu et al. (2021)",
         "EvidenCite es el único banco con 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
       );
       swapStage(canvas, "ctx-0", (layer) => {
         layer.innerHTML = `
         <div class="editorial-panel is-ctx-merged">
-          <div class="quote-showcase">
-            <div class="quote-meta">ARTÍCULO CITANTE (2212.08018) · VENTANA m = 3 ORACIONES</div>
-            <p class="quote-text">
-              "The procedure builds upon the recent work by Hopkins, Kamath and Majid
-              <span class="cite-mark">&lt;cite&gt;Hopkins, Kamath &amp; Majid, 2022&lt;/cite&gt;</span>
-              on pure DP mean estimation. First, we exploit their algorithm to precondition the unknown covariance matrix…
-              uses the result of <span class="othercit-mark">[OTHERCIT]</span> to improve the conditioning of Σ."
-            </p>
-          </div>
           <div class="pi-grid">
             <div class="pi-item">
               <div class="pi-code">BRECHA 1 · GRANULARIDAD</div>
