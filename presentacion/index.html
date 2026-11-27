@@ -10,6 +10,366 @@
   <script defer src="js/scenes.js"></script>
   <script defer src="js/qa.js"></script>
   <script defer src="js/app.js"></script>
+<style id="conclusions-redesign">
+
+.conclusions-v2.full-beat {
+    padding: clamp(20px, 3vh, 40px) clamp(24px, 4vw, 75px);
+}
+
+.conclusions-v2 .closing-inner {
+    max-width: 1650px;
+    width: 100%;
+}
+
+.conclusions-v2 .hero-kicker {
+    margin-bottom: 10px;
+}
+
+.conclusions-v2 .hero-title {
+    max-width: none;
+    font-size: clamp(2.1rem, 3.3vw, 3.5rem);
+    margin-bottom: 24px;
+}
+
+/* ===== Preguntas de investigación ===== */
+
+.conclusions-v2 .research-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.25fr;
+    gap: clamp(20px, 2.2vw, 40px);
+    align-items: start;
+}
+
+.conclusions-v2 .research-col {
+    min-width: 0;
+    border-top: 5px solid var(--pi-color);
+    padding-top: 12px;
+}
+
+.conclusions-v2 .pi1 {
+    --pi-color: var(--accent-primary);
+}
+
+.conclusions-v2 .pi2 {
+    --pi-color: var(--accent-warn);
+}
+
+.conclusions-v2 .pi3 {
+    --pi-color: var(--accent-gold);
+}
+
+.conclusions-v2 .research-code {
+    font-family: var(--font-mono);
+    font-size: clamp(1.8rem, 2.5vw, 2.8rem);
+    font-weight: 800;
+    color: var(--pi-color);
+    line-height: 1.1;
+    margin-bottom: 6px;
+}
+
+.conclusions-v2 .research-title {
+    font-family: var(--font-serif);
+    font-size: clamp(1.2rem, 1.65vw, 1.85rem);
+    color: var(--ink);
+    line-height: 1.15;
+    margin: 0 0 12px;
+}
+
+/* ===== Hallazgos ===== */
+
+.conclusions-v2 .fact {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.conclusions-v2 .fact-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 1.9vw, 2.2rem);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.045em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.conclusions-v2 .fact-label {
+    font-size: clamp(1rem, 1.2vw, 1.35rem);
+    color: var(--ink);
+    font-weight: 650;
+    line-height: 1.3;
+    margin-top: 4px;
+}
+
+.conclusions-v2 .fact-note {
+    font-size: clamp(0.85rem, 1vw, 1.1rem);
+    color: var(--ink-2);
+    line-height: 1.3;
+    margin-top: 3px;
+}
+
+.conclusions-v2 .positive {
+    color: var(--accent-gold);
+}
+
+.conclusions-v2 .negative {
+    color: var(--accent-danger);
+}
+
+.conclusions-v2 .research-verdict {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-left: 4px solid var(--pi-color);
+    background: var(--bg-subtle);
+    font-size: clamp(1rem, 1.25vw, 1.35rem);
+    font-weight: 750;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+/* ===== Comparación de modelos ===== */
+
+.conclusions-v2 .mini-heading {
+    font-size: clamp(1rem, 1.15vw, 1.3rem);
+    font-weight: 750;
+    color: var(--ink);
+    margin: 8px 0;
+}
+
+.conclusions-v2 .rank-list {
+    display: grid;
+    gap: 7px;
+}
+
+.conclusions-v2 .rank-row {
+    display: grid;
+    grid-template-columns: minmax(85px, auto) minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    font-size: clamp(0.95rem, 1.15vw, 1.25rem);
+    color: var(--ink);
+}
+
+.conclusions-v2 .rank-track {
+    height: 11px;
+    background: var(--bg-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.conclusions-v2 .rank-bar {
+    height: 100%;
+    width: var(--score);
+    border-radius: 4px;
+    background: var(--accent-primary);
+    opacity: 0.6;
+}
+
+.conclusions-v2 .rank-row.gemini .rank-bar {
+    background: var(--accent-primary);
+    opacity: 1;
+}
+
+.conclusions-v2 .rank-row.scibert {
+    color: var(--accent-gold);
+    font-weight: 800;
+}
+
+.conclusions-v2 .rank-row.scibert .rank-bar {
+    background: var(--accent-gold);
+    opacity: 1;
+}
+
+.conclusions-v2 .rank-value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===== Destaque de SciBERT ===== */
+
+.conclusions-v2 .scibert-highlight {
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: var(--accent-gold-soft);
+    border-left: 4px solid var(--accent-gold);
+    border-radius: 0 6px 6px 0;
+}
+
+.conclusions-v2 .scibert-highlight strong {
+    display: block;
+    color: var(--accent-gold);
+    font-size: clamp(1.25rem, 1.6vw, 1.8rem);
+    font-weight: 800;
+}
+
+.conclusions-v2 .scibert-highlight span {
+    display: block;
+    font-size: clamp(0.9rem, 1.05vw, 1.15rem);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* ===== Comparación operativa ===== */
+
+.conclusions-v2 .ops-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(0.9rem, 1.05vw, 1.15rem);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.conclusions-v2 .ops-table th,
+.conclusions-v2 .ops-table td {
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line-strong);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.conclusions-v2 .ops-table th:first-child,
+.conclusions-v2 .ops-table td:first-child {
+    text-align: left;
+}
+
+.conclusions-v2 .ops-table thead th {
+    font-weight: 750;
+}
+
+.conclusions-v2 .ops-note {
+    font-size: clamp(0.85rem, 1vw, 1.1rem);
+    color: var(--ink-2);
+    line-height: 1.35;
+    margin-top: 8px;
+}
+
+/* ===== Limitaciones y próximos pasos ===== */
+
+.conclusions-v2 .final-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(25px, 4vw, 70px);
+    margin-top: 12px;
+}
+
+.conclusions-v2 .final-col {
+    padding-top: 16px;
+    border-top: 5px solid var(--col-color);
+}
+
+.conclusions-v2 .limitations {
+    --col-color: var(--accent-warn);
+}
+
+.conclusions-v2 .future {
+    --col-color: var(--accent-gold);
+}
+
+.conclusions-v2 .final-col h3 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.8rem, 2.6vw, 2.8rem);
+    color: var(--col-color);
+    margin: 0 0 18px;
+}
+
+.conclusions-v2 .direct-list {
+    display: grid;
+    gap: clamp(12px, 1.7vh, 20px);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.conclusions-v2 .direct-list li {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    font-size: clamp(1.1rem, 1.5vw, 1.7rem);
+    line-height: 1.3;
+    color: var(--ink);
+    font-weight: 550;
+}
+
+.conclusions-v2 .list-mark {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    color: var(--col-color);
+}
+
+.conclusions-v2 .final-message {
+    margin-top: clamp(22px, 4vh, 42px);
+    padding: 18px 24px;
+    text-align: center;
+    font-family: var(--font-serif);
+    font-size: clamp(1.5rem, 2.4vw, 2.5rem);
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--accent-gold-soft);
+    border-left: 5px solid var(--accent-gold);
+}
+
+.conclusions-v2 .closing-foot {
+    margin-top: 18px;
+}
+
+/* ===== Adaptación a pantallas pequeñas ===== */
+
+@media (max-width: 900px) {
+    .conclusions-v2 .research-grid,
+    .conclusions-v2 .final-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .conclusions-v2 .research-col,
+    .conclusions-v2 .final-col {
+        margin-bottom: 20px;
+    }
+}
+
+@media (min-width: 901px) and (max-height: 800px) {
+
+    .conclusions-v2.full-beat {
+        padding-top: 18px;
+        padding-bottom: 18px;
+    }
+
+    .conclusions-v2 .hero-title {
+        margin-bottom: 12px;
+        font-size: clamp(1.9rem, 3vw, 2.9rem);
+    }
+
+    .conclusions-v2 .fact {
+        padding: 6px 0;
+    }
+
+    .conclusions-v2 .rank-list {
+        gap: 4px;
+    }
+
+    .conclusions-v2 .research-title {
+        margin-bottom: 8px;
+    }
+
+    .conclusions-v2 .scibert-highlight {
+        margin: 8px 0;
+        padding: 7px 10px;
+    }
+
+    .conclusions-v2 .research-verdict {
+        margin-top: 8px;
+    }
+
+    .conclusions-v2 .direct-list {
+        gap: 10px;
+    }
+
+    .conclusions-v2 .final-message {
+        margin-top: 22px;
+    }
+}
+
+</style>
 </head>
 <body>
   <!-- Barra superior minimalista de progreso (A1 -> A8) y expositor activo -->
@@ -549,177 +909,396 @@
          BEAT 31 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="29" data-phase="CONC" data-speaker="Julián" data-block="5">
-      <div class="closing-inner">
-        <div class="hero-kicker">CONC-01 · Síntesis Empírica · Julián</div>
-        <h2 class="hero-title" style="max-width: 30ch;">Respuesta directa a las tres preguntas de investigación</h2>
+    <section class="full-beat conclusions-v2"
+         data-beat="29"
+         data-phase="CONC"
+         data-speaker="Julián"
+         data-block="5">
 
-        <div class="verdict-grid">
+    <div class="closing-inner">
 
-          <div class="verdict-col">
-            <div class="pi-code">
-              PI1 · EVIDENCIA LOCAL VS. GLOBAL ✓
-            </div>
-            <div class="verdict-anchor">
-              Beneficio dependiente del modelo
-            </div>
-            <p>
-              La evidencia local no produjo mejoras sistemáticas.
-              En <strong>TF-IDF y SciBERT</strong> redujo el Macro-F1,
-              mientras que en <strong>Granite</strong> produjo una
-              variación marginal.
-              GPT mejoró su exactitud global en
-              <strong>+2,86 pp</strong> y Gemini redujo sus tokens
-              de razonamiento en <strong>19,4%</strong>.
-            </p>
-          </div>
+        <div class="hero-kicker">
+            CONC-01 · Síntesis Empírica · Julián
+        </div>
 
-          <div class="verdict-col">
-            <div class="pi-code">
-              PI2 · CALIDAD DEL ETIQUETADO ✓
-            </div>
-            <div class="verdict-anchor">
-              54,32% · 0,74 → 0,43–0,46
-            </div>
-            <p>
-              <strong>SciBERT, Qwen y Granite</strong> alcanzaron
-              desempeños similares pese a sus diferencias de
-              arquitectura y tamaño. Al evaluar las mismas
-              predicciones con etiquetas revisadas, el Macro-F1
-              disminuyó considerablemente, evidenciando la
-              importancia de un etiquetado consistente.
-            </p>
-          </div>
+        <h2 class="hero-title">
+            Respuestas a las preguntas de investigación
+        </h2>
 
-          <div class="verdict-col">
-            <div class="pi-code">
-              PI3 · DESEMPEÑO, CALIBRACIÓN Y EFICIENCIA ✓
+        <div class="research-grid">
+
+            <!-- PI1 -->
+
+            <div class="research-col pi1">
+
+                <div class="research-code">PI1</div>
+
+                <h3 class="research-title">
+                    Evidencia local vs. global
+                </h3>
+
+                
+    <div class="fact">
+        <div class="fact-value negative">−0,034 a −0,014</div>
+        <div class="fact-label">TF-IDF, SciBERT y Qwen</div>
+        <div class="fact-note">Disminución del Macro-F1</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value ">+0,006</div>
+        <div class="fact-label">Granite: mejora marginal</div>
+        <div class="fact-note">Sin mejora significativa en el contraste pareado</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value positive">+2,86 pp</div>
+        <div class="fact-label">GPT: mejora significativa en exactitud</div>
+        <div class="fact-note">+10,28 pp en Related Work</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value positive">−17,7%</div>
+        <div class="fact-label">Gemini: tokens de razonamiento</div>
+        <div class="fact-note">−19,4% de llamadas con razonamiento; F1 sin mejora significativa.</div>
+    </div>
+    
+
+                <div class="research-verdict">
+                    La evidencia local beneficia
+                    de forma diferente a cada modelo.
+                </div>
+
             </div>
-            <div class="verdict-anchor">
-              SciBERT 110M · F1 = 0,4623
+
+            <!-- PI2 -->
+
+            <div class="research-col pi2">
+
+                <div class="research-code">PI2</div>
+
+                <h3 class="research-title">
+                    Calidad del etiquetado
+                </h3>
+
+                
+    <div class="fact">
+        <div class="fact-value ">54,32%</div>
+        <div class="fact-label">Etiquetas corregidas</div>
+        <div class="fact-note">1.520 de 2.798 citas</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value ">0,74 → 0,43–0,46</div>
+        <div class="fact-label">Caída del Macro-F1 supervisado</div>
+        <div class="fact-note">Mismas predicciones, etiquetas revisadas</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value negative">62–65%</div>
+        <div class="fact-label">Los modelos reprodujeron los errores del etiquetado automático</div>
+        <div class="fact-note">Sobre las citas corregidas</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value ">110M → 8B</div>
+        <div class="fact-label">Más parámetros, desempeño similar</div>
+        <div class="fact-note">SciBERT, Qwen y Granite</div>
+    </div>
+    
+    <div class="fact">
+        <div class="fact-value ">+0,1331</div>
+        <div class="fact-label">Gemini supera a GPT en Macro-F1</div>
+        <div class="fact-note">Diferencia revelada por la revisión humana</div>
+    </div>
+    
+
+                <div class="research-verdict">
+                    El ruido del etiquetado limita
+                    el aprendizaje supervisado.
+                </div>
+
             </div>
-            <p>
-              Gemini obtuvo el mayor Macro-F1
-              (<strong>0,5996</strong>) y GPT presentó menores
-              costos entre las APIs evaluadas.
-              Sin embargo, <strong>SciBERT</strong> alcanzó un
-              desempeño cercano al de GPT (0,4664), con bajo
-              costo de entrenamiento y sin tarifas por consulta.
-              Ninguna familia domina todos los criterios.
-            </p>
-          </div>
+
+            <!-- PI3 -->
+
+            <div class="research-col pi3">
+
+                <div class="research-code">PI3</div>
+
+                <h3 class="research-title">
+                    Desempeño, calibración y eficiencia
+                </h3>
+
+                <div class="mini-heading">
+                    Macro-F1 sobre Gold
+                </div>
+
+                <div class="rank-list">
+                    
+    <div class="rank-row gemini">
+        <span>Gemini B</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:59.96%"></div>
+        </div>
+        <span class="rank-value">0,5996</span>
+    </div>
+    
+    <div class="rank-row ">
+        <span>GPT B</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:46.64%"></div>
+        </div>
+        <span class="rank-value">0,4664</span>
+    </div>
+    
+    <div class="rank-row scibert">
+        <span>SciBERT A</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:46.23%"></div>
+        </div>
+        <span class="rank-value">0,4623</span>
+    </div>
+    
+    <div class="rank-row ">
+        <span>Qwen A</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:45.60%"></div>
+        </div>
+        <span class="rank-value">0,4560</span>
+    </div>
+    
+    <div class="rank-row ">
+        <span>Granite B</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:44.12%"></div>
+        </div>
+        <span class="rank-value">0,4412</span>
+    </div>
+    
+    <div class="rank-row ">
+        <span>TF-IDF A</span>
+        <div class="rank-track">
+            <div class="rank-bar"
+                 style="--score:36.61%"></div>
+        </div>
+        <span class="rank-value">0,3661</span>
+    </div>
+    
+                </div>
+
+                <div class="fact-note">
+                    Resultados seleccionados sobre Gold.
+                    APIs en Zero-Shot.
+                    Granite alcanza 0,463 en la reevaluación.
+                </div>
+
+                <div class="scibert-highlight">
+                    <strong>SciBERT · 110M · $767 COP</strong>
+                    <span>
+                        Entrenamiento definitivo A/B
+                    </span>
+                    <span>
+                        Macro-F1 competitivo frente a GPT
+                    </span>
+                </div>
+
+                <div class="mini-heading">
+                    APIs · Zero-Shot · Config B
+                </div>
+
+                <table class="ops-table">
+
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>GPT</th>
+                            <th>Gemini</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        <tr>
+                            <td>USD / 10k citas</td>
+                            <td><strong>$6,59</strong></td>
+                            <td>$17,68</td>
+                        </tr>
+
+                        <tr>
+                            <td>Latencia p50</td>
+                            <td><strong>1,03 s</strong></td>
+                            <td>2,32 s</td>
+                        </tr>
+
+                        <tr>
+                            <td>Error calibración (ECE)</td>
+                            <td>0,3360</td>
+                            <td><strong>0,1158</strong></td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+                <div class="ops-note">
+                    <strong>Modelos locales:</strong>
+                    inferencia por lotes en milisegundos,
+                    sin tarifas por consulta.
+                </div>
+
+                <div class="ops-note">
+                    <strong>Zero-Shot:</strong>
+                    mayor exactitud y menor costo que 9-Shot.
+                </div>
+
+                <div class="research-verdict">
+                    Ninguna familia domina todos los criterios.
+                </div>
+
+            </div>
 
         </div>
-      </div>
-    </section>
+
+    </div>
+
+</section>
 
     <!-- ==================================================================
          BEAT 32 — CONC-02: LIMITACIONES HONESTAS Y TRABAJO FUTURO
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat" data-beat="30" data-phase="CONC" data-speaker="Julián" data-block="5">
-      <div class="closing-inner">
-        <div class="hero-kicker">CONC-02 · Alcance y Proyección · Julián</div>
-        <h2 class="hero-title" style="max-width: 30ch;">Limitaciones declaradas y próximos pasos</h2>
+    <section class="full-beat conclusions-v2"
+         data-beat="30"
+         data-phase="CONC"
+         data-speaker="Julián"
+         data-block="5">
 
-        <div class="limits-future-grid">
+    <div class="closing-inner">
 
-          <div class="lf-col">
-            <h3>Limitaciones reconocidas</h3>
+        <div class="hero-kicker">
+            CONC-02 · Alcance y Proyección · Julián
+        </div>
 
-            <ul class="lf-list">
+        <h2 class="hero-title">
+            Limitaciones y próximos pasos
+        </h2>
 
-              <li>
-                <strong>Consistencia del etiquetado:</strong>
-                diferencias entre los criterios de anotación
-                utilizados en train, dev y test.
-              </li>
+        <div class="final-grid">
 
-              <li>
-                <strong>Cobertura documental:</strong>
-                dependencia del texto completo en arXiv y
-                menor disponibilidad de algunas funciones
-                retóricas.
-              </li>
+            <div class="final-col limitations">
 
-              <li>
-                <strong>Evidencia local:</strong>
-                no se aisló el efecto de los encabezados
-                frente al contenido de los pasajes.
-              </li>
+                <h3>Limitaciones</h3>
 
-              <li>
-                <strong>Comparabilidad operativa:</strong>
-                ausencia de calibración en A4 y de mediciones
-                equivalentes de costo y latencia entre modelos
-                locales y APIs.
-              </li>
+                <ul class="direct-list">
+        <li>
+            <span class="list-mark">—</span>
+            <span>Etiquetado heterogéneo entre train, dev y test.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>Dependencia del texto completo citado en arXiv.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>Pocos ejemplos de Basis e Improvement.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>Aporte de los encabezados no aislado.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>Calibración no evaluada en modelos supervisados.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>Protocolos de inferencia local/API diferentes.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">—</span>
+            <span>32% del test: desempate asistido por LLMs.</span>
+        </li>
+        </ul>
 
-              <li>
-                <strong>Desempate híbrido:</strong>
-                el 32% del test requirió arbitraje mediante
-                LLMs, introduciendo un posible sesgo hacia
-                las familias comerciales.
-              </li>
+            </div>
 
-            </ul>
-          </div>
+            <div class="final-col future">
 
-          <div class="lf-col">
-            <h3>Próximos pasos</h3>
+                <h3>Próximos pasos</h3>
 
-            <ul class="lf-list">
+                <ul class="direct-list">
+        <li>
+            <span class="list-mark">01</span>
+            <span>Etiquetado homogéneo en train, dev y test, preferiblemente humano.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">02</span>
+            <span>Reentrenar modelos supervisados con mejores etiquetas.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">03</span>
+            <span>Evaluar por separado el aporte de los encabezados.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">04</span>
+            <span>Construir bancos Few-Shot con etiquetas validadas por humanos.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">05</span>
+            <span>Evaluar razonamiento mínimo en Gemini para reducir costo y latencia.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">06</span>
+            <span>Evaluar la calibración de los modelos supervisados.</span>
+        </li>
+        
+        <li>
+            <span class="list-mark">07</span>
+            <span>Evaluar eficiencia y costos a diferentes escalas.</span>
+        </li>
+        </ul>
 
-              <li>
-                <strong>1. Etiquetado homogéneo:</strong>
-                aplicar una guía de anotación común a train,
-                dev y test, priorizando la anotación humana
-                y una evaluación independiente.
-              </li>
-
-              <li>
-                <strong>2. Reentrenamiento supervisado:</strong>
-                reevaluar TF-IDF, SciBERT y modelos con LoRA
-                sobre datos de mayor calidad, explorando el
-                potencial de arquitecturas especializadas.
-              </li>
-
-              <li>
-                <strong>3. Recuperación y prompting:</strong>
-                aislar el aporte de los encabezados, construir
-                bancos Few-Shot curados y evaluar estrategias
-                de razonamiento eficientes.
-              </li>
-
-              <li>
-                <strong>4. Eficiencia operativa integral:</strong>
-                comparar todas las familias bajo protocolos
-                homogéneos de costo, latencia, calibración
-                y escalabilidad.
-              </li>
-
-            </ul>
-          </div>
+            </div>
 
         </div>
 
-        
-
-        <div class="closing-takeaway">
-          Incrementar el tamaño y la complejidad de los modelos
-          no garantiza un mejor desempeño.
-          <strong>La calidad del etiquetado, la especialización
-          del modelo y la selección de la evidencia</strong>
-          son factores clave para construir soluciones
-          confiables y computacionalmente eficientes.
+        <div class="final-message">
+            Mejores datos antes que modelos más grandes.
         </div>
 
         <div class="closing-foot">
-          <span>EvidenCite · MAIA · Universidad de los Andes · Gracias por su atención</span>
-          <span>Declaración de uso de IAG (Uniandes) disponible en respaldo · Presione <span class="kbd">Q</span> para Q&amp;A</span>
+
+            <span>
+                EvidenCite · MAIA · Universidad de los Andes
+                · Gracias por su atención
+            </span>
+
+            <span>
+                Declaración de uso de IAG disponible en respaldo
+                · Presione <span class="kbd">Q</span> para Q&amp;A
+            </span>
+
         </div>
-      </div>
-    </section>
+
+    </div>
+
+</section>
   </main>
 
   <!-- Tooltip flotante único para todos los gráficos SVG -->
