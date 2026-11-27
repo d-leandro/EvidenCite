@@ -244,195 +244,118 @@ window.EvidenCharts = (function () {
      ======================================================================== */
   function createA2Panel(container, data) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 470", role: "img", "aria-label": "Panel de 3 jueces abiertos A2" }, container);
-
-    txt("COMITÉ DE 3 JUECES ABIERTOS (vLLM · A100 · temp = 0 · cegados al citado)", { x: 24, y: 32, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
+    const svg = el("svg", { viewBox: "0 0 860 470", role: "img", "aria-label": "Los tres jueces de A2" }, container);
+    const acento = "var(--accent-violet)";
+    const nombres = [["Llama-3.1-8B-Instruct", "Meta"], ["Qwen2.5-7B-Instruct", "Alibaba"], ["Mistral-7B-Instruct-v0.3", "Mistral AI"]];
 
     const cardW = 250, gap = 30;
-    data.judges.forEach((j, i) => {
+    nombres.forEach((n, i) => {
       const x = 24 + i * (cardW + gap);
       const g = el("g", {}, svg);
-      el("rect", { x, y: 54, width: cardW, height: 112, rx: 8, fill: "var(--accent-violet-soft)", stroke: "var(--accent-violet)", "stroke-width": 1.6 }, g);
-      txt(`Juez ${i + 1}`, { x: x + 18, y: 80, class: "svg-mono", "font-size": 11, "font-weight": 700, fill: "var(--accent-violet)" }, g);
-      txt(j.name, { x: x + 18, y: 108, "font-size": 15.5, "font-weight": 700 }, g);
-      txt(j.params, { x: x + 18, y: 130, class: "svg-mono svg-ink2", "font-size": 12 }, g);
-      txt(`Abstención: ${j.abst}`, { x: x + 18, y: 150, class: "svg-mono svg-muted", "font-size": 11 }, g);
-      bindTip(g, j.name, [`Configuración: ${j.params}`, `Abstención sobre 18.658 citas: ${j.abst}`, "Cegado al texto citado para evitar fuga hacia Config B"]);
+      el("rect", { x, y: 40, width: cardW, height: 112, rx: 10, fill: "var(--accent-violet-soft)", stroke: acento, "stroke-width": 1.6 }, g);
+      txt(`Juez ${i + 1}`, { x: x + 18, y: 70, "font-size": 13, "font-weight": 600, fill: acento }, g);
+      txt(n[0], { x: x + 18, y: 104, "font-size": 16, "font-weight": 700 }, g);
+      txt(n[1], { x: x + 18, y: 132, class: "svg-ink2", "font-size": 14 }, g);
+      bindTip(g, data.judges[i].name, [`Abstención: ${data.judges[i].abst}`]);
     });
 
-    // Reveal verdict section (Step 2)
     const verdict = el("g", { class: "svg-anim", id: "a2-verdict" }, svg);
-    el("line", { x1: 24, y1: 198, x2: 836, y2: 198, class: "svg-grid" }, verdict);
-    txt("AUDITORÍA DEL PANEL CONTRA MULTICITE GOLD (n = 3.629)", { x: 24, y: 226, class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-danger)" }, verdict);
-
-    // Metric 1: Kappa gauge bar
-    txt("Concordancia inter-juez (κ̄ de Cohen promedio)", { x: 24, y: 262, "font-size": 14, "font-weight": 600 }, verdict);
-    el("rect", { x: 24, y: 274, width: 520, height: 28, rx: 6, fill: "var(--surface-tint)" }, verdict);
-    const kBar = el("rect", { x: 24, y: 274, width: 520 * 0.3939, height: 28, rx: 6, fill: "var(--accent-warn)" }, verdict);
-    txt("κ̄ = 0,3939 (acuerdo moderado-bajo)", { x: 560, y: 294, class: "svg-mono", "font-size": 14, "font-weight": 700, fill: "var(--accent-warn)" }, verdict);
-    bindTip(kBar, "Concordancia entre jueces A2", ["κ̄ válidos = 0,3939 · κ̄ total = 0,3936", "Confirma dispersión alta en 9 clases finas"]);
-
-    // Metric 2: Accuracy on Gold MultiCite
-    txt("Acierto del voto mayoritario 7B–8B frente a MultiCite Gold", { x: 24, y: 342, "font-size": 14, "font-weight": 600 }, verdict);
-    el("rect", { x: 24, y: 354, width: 520, height: 32, rx: 6, fill: "var(--surface-tint)" }, verdict);
-    const aBar = el("rect", { x: 24, y: 354, width: 520 * 0.364, height: 32, rx: 6, fill: "var(--accent-danger)" }, verdict);
-    txt("36,40% (1.321 / 3.629)", { x: 560, y: 376, class: "svg-mono", "font-size": 15.5, "font-weight": 700, fill: "var(--accent-danger)" }, verdict);
-    bindTip(aBar, "Voto mayoritario A2 en MultiCite Gold", [
-      "Aciertos: 1.321 de 3.629 (36,40%)",
-      "Fallo: 63,60% (sobre-atribución metodológica)",
-      "Reproduce el hallazgo de Fogelson et al. (2025)"
-    ]);
-
-    txt("Conclusión A2: un comité 7B–8B no puede sobrescribir libremente las etiquetas sin sesgar el corpus.", { x: 24, y: 432, class: "svg-serif svg-ink2", "font-size": 15, "font-style": "italic" }, verdict);
+    const filas = [
+      { lbl: "Acuerdo entre los jueces (Kappa)", val: 0.3939, txtv: "0,39", col: "var(--ink-3)", y: 226 },
+      { lbl: "Acierto frente a MultiCite", val: 0.364, txtv: "36 %", col: acento, y: 326 }
+    ];
+    filas.forEach((f) => {
+      txt(f.lbl, { x: 24, y: f.y, class: "svg-ink2", "font-size": 15 }, verdict);
+      el("rect", { x: 24, y: f.y + 14, width: 620, height: 30, rx: 6, fill: "var(--surface-tint)" }, verdict);
+      el("rect", { x: 24, y: f.y + 14, width: 620 * f.val, height: 30, rx: 6, fill: f.col }, verdict);
+      txt(f.txtv, { x: 664, y: f.y + 37, class: "svg-serif", "font-size": 24, "font-weight": 700, fill: f.col }, verdict);
+    });
 
     return {
       update(revealed) {
-        verdict.style.opacity = revealed ? "1" : "0.06";
+        verdict.style.opacity = revealed ? "1" : "0";
         verdict.style.transform = revealed ? "translateY(0)" : "translateY(14px)";
       }
     };
   }
 
-  /* ========================================================================
-     3. A2-02 — Regla Conservadora y Barra Apilada (18.658)
-     ======================================================================== */
   function renderA2Strata(container, data) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 440", role: "img", "aria-label": "Distribución de los 18.658 registros tras regla conservadora A2" }, container);
-
-    txt("REGLA CONSERVADORA DE CONSENSO (EC. 3) SOBRE N = 18.658 INSTANCIAS", { x: 24, y: 34, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    const barX = 24, barY = 66, barW = 812, barH = 66;
+    const svg = el("svg", { viewBox: "0 0 860 400", role: "img", "aria-label": "Cómo quedó el corpus después del panel" }, container);
+    const acento = "var(--accent-violet)";
+    const partes = [
+      { pct: 19.4501, n: "3.629", col: "var(--line-strong)", tinta: "var(--ink)", t: "MultiCite", d: "Etiqueta humana, se deja como está." },
+      { pct: 39.87, n: "7.439", col: "var(--ink-3)", tinta: "#FFFFFF", t: "Confirmadas por el panel", d: "Los jueces respaldaron la etiqueta." },
+      { pct: 40.68, n: "7.590", col: acento, tinta: "#FFFFFF", t: "Sin respaldo del panel", d: "Conservaron la etiqueta anterior y así entraron a entrenamiento." }
+    ];
+    const barX = 24, barY = 40, barW = 812, barH = 64;
     let cx = barX;
-    data.strata.forEach((s) => {
+    partes.forEach((s) => {
       const w = (s.pct / 100) * barW;
-      const g = el("g", {}, svg);
-      el("rect", { x: cx, y: barY, width: w - 4, height: barH, rx: 6, fill: `var(${s.colorVar})` }, g);
-      txt(`${fmtComma(s.pct, 1)}%`, { x: cx + (w - 4) / 2, y: barY + 30, "text-anchor": "middle", class: "svg-mono", "font-size": 18, "font-weight": 700, fill: "#FFFFFF" }, g);
-      txt(s.count.toLocaleString("es-CO"), { x: cx + (w - 4) / 2, y: barY + 50, "text-anchor": "middle", class: "svg-mono", "font-size": 12, fill: "#FFFFFF", opacity: 0.92 }, g);
-      bindTip(g, s.label, [`Instancias: ${s.count.toLocaleString("es-CO")} (${fmtComma(s.pct, 2)}%)`, s.desc]);
+      el("rect", { x: cx, y: barY, width: w - 4, height: barH, rx: 6, fill: s.col }, svg);
+      txt(`${fmtComma(s.pct, 1)} %`, { x: cx + (w - 4) / 2, y: barY + 40, "text-anchor": "middle", "font-size": 19, "font-weight": 700, fill: s.tinta }, svg);
       cx += w;
     });
-
-    // Breakdown rows below
-    const rules = [
-      { code: "Caso F · 19,5%", title: "MultiCite Gold protegido (3.629)", desc: "Nunca se sobrescribe con el panel 7B–8B.", col: "var(--accent-gold)" },
-      { code: "Casos A+B · 39,9%", title: "Consenso A2 (7.439)", desc: "Solo unanimidad 3/3 sobrescribe y_prior; mayoría 2/3 únicamente confirma.", col: "var(--accent-primary)" },
-      { code: "Casos C+D · 40,7%", title: "Needs Review sin consenso (7.590)", desc: "Mayoría divergente 2/3 o empate 1-1-1 retiene y_prior. Evitó destruir 40–57% de minoritarias, pero entró así a train.jsonl.", col: "var(--accent-danger)" }
-    ];
-
-    rules.forEach((r, idx) => {
-      const y = 174 + idx * 82;
-      el("rect", { x: 24, y, width: 4, height: 60, rx: 2, fill: r.col }, svg);
-      txt(r.code, { x: 42, y: y + 16, class: "svg-mono", "font-size": 12, "font-weight": 700, fill: r.col }, svg);
-      txt(r.title, { x: 195, y: y + 16, "font-size": 15, "font-weight": 700 }, svg);
-      txt(r.desc, { x: 42, y: y + 44, class: "svg-ink2", "font-size": 13 }, svg);
+    partes.forEach((s, i) => {
+      const y = 160 + i * 74;
+      el("rect", { x: 24, y: y - 16, width: 14, height: 14, rx: 3, fill: s.col }, svg);
+      txt(`${s.t} · ${s.n}`, { x: 50, y: y - 4, "font-size": 16, "font-weight": 700 }, svg);
+      txt(s.d, { x: 50, y: y + 22, class: "svg-ink2", "font-size": 14 }, svg);
     });
   }
 
-  /* ========================================================================
-     4. A3-01 — Curaduría Doble Ciego y Desempate Híbrido (2.798)
-     ======================================================================== */
   function renderA3Waterfall(container, wf) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 460", role: "img", "aria-label": "Flujo de curaduría humana doble ciega en A3" }, container);
-
-    txt("CONCILIACIÓN DEL 100% DEL CONJUNTO DE PRUEBA (N = 2.798 · 1.258 ARTÍCULOS)", { x: 24, y: 30, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    // Top bar: total 2.798
+    const svg = el("svg", { viewBox: "0 0 860 420", role: "img", "aria-label": "Cómo se resolvió el test en A3" }, container);
+    const acento = "var(--accent-violet)";
     const bX = 24, bW = 812;
-    const agreeW = (wf.humanAgree / wf.total) * bW;
-    const mcW = (wf.multiciteTie / wf.total) * bW;
-    const cbcW = Math.max(10, (wf.caseByCase / wf.total) * bW);
-    const llmW = bW - agreeW - mcW - cbcW;
+    const humano = (wf.humanDirectTotal / wf.total) * bW;
 
-    const segs = [
-      { x: bX, w: agreeW - 3, col: "var(--accent-gold)", title: "Acuerdo independiente Javier–Julián", val: "1.750 (62,5%)", sub: "κ = 0,509 (> 0,394 del panel)" },
-      { x: bX + agreeW, w: mcW - 3, col: "var(--accent-primary)", title: "Desempate MultiCite", val: "147 (5,3%)", sub: "Coincidencia con etiqueta humana previa" },
-      { x: bX + agreeW + mcW, w: cbcW - 2, col: "var(--accent-violet)", title: "Caso a caso", val: "7 (0,3%)", sub: "Revisión conjunta sin respaldo LLM" },
-      { x: bX + agreeW + mcW + cbcW, w: llmW, col: "var(--accent-warn)", title: "Árbitro LLM acotado (solo entre 2 opciones humanas)", val: "894 (32,0%)", sub: "Claude Fable 5.2 · GPT-6 · Gemini Argon" }
+    el("rect", { x: bX, y: 40, width: humano - 4, height: 64, rx: 6, fill: acento }, svg);
+    el("rect", { x: bX + humano, y: 40, width: bW - humano, height: 64, rx: 6, fill: "var(--ink-3)" }, svg);
+    txt("68 %", { x: bX + (humano - 4) / 2, y: 82, "text-anchor": "middle", "font-size": 21, "font-weight": 700, fill: "#FFFFFF" }, svg);
+    txt("32 %", { x: bX + humano + (bW - humano) / 2, y: 82, "text-anchor": "middle", "font-size": 21, "font-weight": 700, fill: "#FFFFFF" }, svg);
+    txt("Revisión humana o MultiCite · 1.904", { x: bX, y: 136, "font-size": 15, "font-weight": 700 }, svg);
+    txt("Desempate entre las dos etiquetas humanas · 894", { x: bX + bW, y: 136, "text-anchor": "end", "font-size": 15, "font-weight": 700 }, svg);
+
+    txt("Acuerdo (Kappa)", { x: 24, y: 220, class: "svg-ink2", "font-size": 15 }, svg);
+    const kappas = [
+      { lbl: "Panel A2", val: 0.3939, txtv: "0,394", col: "var(--ink-3)", y: 244 },
+      { lbl: "Revisores", val: 0.509, txtv: "0,509", col: acento, y: 300 }
     ];
-
-    segs.forEach((s) => {
-      const g = el("g", {}, svg);
-      el("rect", { x: s.x, y: 58, width: s.w, height: 64, rx: 6, fill: s.col }, g);
-      if (s.w > 90) {
-        txt(s.val, { x: s.x + s.w / 2, y: 96, "text-anchor": "middle", class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "#FFFFFF" }, g);
-      }
-      bindTip(g, s.title, [s.val, s.sub]);
+    kappas.forEach((k) => {
+      txt(k.lbl, { x: 24, y: k.y + 20, "font-size": 15, "font-weight": 600 }, svg);
+      el("rect", { x: 170, y: k.y, width: 480, height: 28, rx: 6, fill: "var(--surface-tint)" }, svg);
+      el("rect", { x: 170, y: k.y, width: 480 * k.val, height: 28, rx: 6, fill: k.col }, svg);
+      txt(k.txtv, { x: 670, y: k.y + 22, class: "svg-serif", "font-size": 22, "font-weight": 700, fill: k.col }, svg);
     });
-
-    // Grouping brackets underneath: 68% vs 32%
-    const leftEnd = bX + agreeW + mcW + cbcW - 4;
-    el("path", { d: `M ${bX} 134 L ${bX} 146 L ${leftEnd} 146 L ${leftEnd} 134`, fill: "none", stroke: "var(--accent-gold)", "stroke-width": 2 }, svg);
-    txt("68,0% (1.904 citas) · Consenso humano directo / MultiCite", { x: (bX + leftEnd) / 2, y: 170, "text-anchor": "middle", class: "svg-mono", "font-size": 13.5, "font-weight": 700, fill: "var(--accent-gold)" }, svg);
-
-    const rightStart = bX + agreeW + mcW + cbcW;
-    el("path", { d: `M ${rightStart} 134 L ${rightStart} 146 L ${bX + bW} 146 L ${bX + bW} 134`, fill: "none", stroke: "var(--accent-warn)", "stroke-width": 2 }, svg);
-    txt("32,0% (894) · Árbitro acotado", { x: (rightStart + bX + bW) / 2, y: 170, "text-anchor": "middle", class: "svg-mono", "font-size": 13, "font-weight": 700, fill: "var(--accent-warn)" }, svg);
-
-    // Kappa comparison strip
-    el("line", { x1: 24, y1: 214, x2: 836, y2: 214, class: "svg-grid" }, svg);
-    txt("MEJORA EN ACUERDO INTER-ANOTADOR (KAPPA DE COHEN)", { x: 24, y: 244, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    const kItems = [
-      { label: "Panel 3 jueces 7B–8B (A2)", val: 0.3939, col: "var(--ink-3)", y: 274 },
-      { label: "Revisión humana doble ciego (A3)", val: 0.509, col: "var(--accent-gold)", y: 326 }
-    ];
-    kItems.forEach((k) => {
-      txt(k.label, { x: 24, y: k.y + 18, "font-size": 14, "font-weight": 600 }, svg);
-      el("rect", { x: 320, y: k.y, width: 380, height: 26, rx: 5, fill: "var(--surface-tint)" }, svg);
-      el("rect", { x: 320, y: k.y, width: 380 * k.val, height: 26, rx: 5, fill: k.col }, svg);
-      txt(`κ = ${fmtComma(k.val, 3)}`, { x: 716, y: k.y + 19, class: "svg-mono", "font-size": 14.5, "font-weight": 700, fill: k.col }, svg);
-    });
-
-    txt("Transparencia metodológica: en 894 de 901 desacuerdos sin MultiCite, el árbitro solo eligió entre las dos etiquetas humanas.", { x: 24, y: 404, class: "svg-ink2", "font-size": 13 }, svg);
   }
 
-  /* ========================================================================
-     5. A3-02 ★ Estrella #3 — Morph de Barras Pre-A3 -> Gold A3
-     ======================================================================== */
   function createA3Morph(container, rows) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 500", role: "img", "aria-label": "Cambio distribucional Pre-A3 vs Gold humano A3" }, container);
-
-    const marginL = 162, chartW = 540, startY = 76, rowH = 42;
+    const svg = el("svg", { viewBox: "0 0 860 480", role: "img", "aria-label": "Distribución del test antes y después de A3" }, container);
+    const acento = "var(--accent-violet)";
+    const marginL = 162, chartW = 560, startY = 40, rowH = 42;
     const maxPct = 46;
 
-    // Header counters (fade in on Gold state)
-    const banner = el("g", { class: "svg-anim", id: "a3-morph-banner" }, svg);
-    txt("54,32% corregidas (1.520 / 2.798)", { x: marginL, y: 32, class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "var(--accent-danger)" }, banner);
-    txt("65,8% error del panel A2", { x: 486, y: 32, class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "var(--accent-warn)" }, banner);
-    txt("911 citas movidas a Background", { x: 24, y: 54, class: "svg-mono svg-muted", "font-size": 11.5 }, banner);
-
-    // X-axis gridlines
     [0, 10, 20, 30, 40].forEach((tick) => {
       const x = marginL + (tick / maxPct) * chartW;
       el("line", { x1: x, y1: startY - 12, x2: x, y2: startY + rows.length * rowH - 8, class: "svg-grid" }, svg);
-      txt(`${tick}%`, { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
+      txt(`${tick} %`, { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
     });
 
     const barEls = [];
     rows.forEach((r, i) => {
       const y = startY + i * rowH;
       const g = el("g", {}, svg);
-      txt(r.cls, { x: marginL - 14, y: y + 18, "text-anchor": "end", "font-size": 13.5, "font-weight": i < 2 || r.cls === "Gap" ? 700 : 500 }, g);
-
-      // Ghost reference bar for Pre-A3
+      txt(r.cls, { x: marginL - 14, y: y + 18, "text-anchor": "end", "font-size": 14, "font-weight": r.cls === "Background" ? 700 : 500 }, g);
       const preW = (r.prePct / maxPct) * chartW;
       el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "none", stroke: "var(--line-strong)", "stroke-dasharray": "4 3", "stroke-width": 1.2 }, g);
-
-      // Animated active bar (driven smoothly at 60fps by tween)
-      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--accent-secondary)" }, g);
+      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--ink-3)" }, g);
       rect.style.transition = "fill 500ms ease";
-      const lbl = txt(`${fmtComma(r.prePct, 1)}% (${r.preN})`, { x: marginL + preW + 10, y: y + 20, class: "svg-mono", "font-size": 12.5, "font-weight": 700 }, g);
-
-      bindTip(g, r.cls, [
-        `Test Pre-A3: ${r.preN} citas (${fmtComma(r.prePct, 2)}%)`,
-        `Test Gold A3: ${r.goldN} citas (${fmtComma(r.goldPct, 2)}%)`,
-        `Cambio: ${r.deltaPct > 0 ? "+" : ""}${fmtComma(r.deltaPct, 2)} pp`
-      ]);
-      barEls.push({ r, rect, lbl, curPct: r.prePct, curN: r.preN });
+      const lbl = txt(`${fmtComma(r.prePct, 1)} %`, { x: marginL + preW + 10, y: y + 20, "font-size": 13, "font-weight": 600 }, g);
+      bindTip(g, r.cls, [`Antes: ${r.preN} citas`, `Después: ${r.goldN} citas`]);
+      barEls.push({ r, rect, lbl, curPct: r.prePct });
     });
 
     let activeCancel = null;
@@ -440,42 +363,25 @@ window.EvidenCharts = (function () {
 
     return {
       update(isGold) {
-        banner.style.transition = "opacity 900ms ease";
-        banner.style.opacity = isGold ? "1" : "0.08";
-
         if (lastGoldState === isGold) return;
         const firstPaint = lastGoldState === null;
         lastGoldState = isGold;
-
         if (activeCancel) activeCancel();
 
         const snapshots = barEls.map((item) => {
-          const targetPct = isGold ? item.r.goldPct : item.r.prePct;
-          const targetN = isGold ? item.r.goldN : item.r.preN;
-          let color = "var(--accent-secondary)";
-          if (isGold) {
-            if (item.r.cls === "Background") color = "var(--accent-gold)";
-            else if (item.r.cls === "Application") color = "var(--accent-primary)";
-            else if (item.r.cls === "Gap" || item.r.cls === "Improvement") color = "var(--accent-danger)";
-            else color = "var(--ink-3)";
-          }
-          item.rect.setAttribute("fill", color);
-          return { item, fromPct: item.curPct, toPct: targetPct, fromN: item.curN, toN: targetN };
+          const destacada = isGold && item.r.cls === "Background";
+          item.rect.setAttribute("fill", destacada ? acento : "var(--ink-3)");
+          return { item, fromPct: item.curPct, toPct: isGold ? item.r.goldPct : item.r.prePct };
         });
 
-        const dur = firstPaint ? 0 : 1300;
-        activeCancel = tween(dur, (t) => {
+        activeCancel = tween(firstPaint ? 0 : 1300, (t) => {
           snapshots.forEach((s) => {
             const p = s.fromPct + (s.toPct - s.fromPct) * t;
-            const n = Math.round(s.fromN + (s.toN - s.fromN) * t);
             s.item.curPct = p;
-            s.item.curN = n;
             const w = (p / maxPct) * chartW;
             s.item.rect.setAttribute("width", String(w));
             s.item.lbl.setAttribute("x", String(marginL + w + 10));
-            s.item.lbl.textContent = isGold
-              ? `${fmtComma(p, 2)}% (${n.toLocaleString("es-CO")})`
-              : `${fmtComma(p, 1)}% (${n})`;
+            s.item.lbl.textContent = `${fmtComma(p, 1)} %`;
           });
         }, firstPaint ? 0 : 120);
       }

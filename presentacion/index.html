@@ -215,82 +215,58 @@
       <div class="scrolly-grid">
         <div class="narrative-col">
           <article class="beat-step" data-beat="7" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="0">
-            <div class="beat-tag">A2-01 · Comité 7B–8B <span class="beat-speaker-chip">· Javier</span></div>
-            <h2 class="beat-heading">Panel de 3 jueces abiertos en vLLM</h2>
-            <p class="beat-lead">
-              Para escalar el etiquetado de <strong>15.029 citas minadas</strong> sin anotar todo a mano, desplegamos tres LLMs abiertos de 7B–8B (temperatura 0, cegados al citado para evitar fuga hacia Config B).
-            </p>
+            <div class="beat-tag">A2</div>
+            <h2 class="beat-heading">Tres modelos abiertos revisaron 15.029 citas</h2>
+            <p class="beat-lead">Ninguno veía el artículo citado, solo el contexto de la cita.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val">3 jueces</span><span class="metric-lbl">Llama · Qwen · Mistral</span></div>
-              <div class="metric-item"><span class="metric-val">0,12%</span><span class="metric-lbl">abstención total</span></div>
+              <div class="metric-item"><span class="metric-val">3</span><span class="metric-lbl">jueces de 7B y 8B</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="8" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="1">
-            <div class="beat-tag">A2-01 · Auditoría ante Gold <span class="beat-speaker-chip">· Javier</span></div>
-            <h2 class="beat-heading">Baja concordancia y sesgo metodológico</h2>
-            <p class="beat-lead">
-              Al contrastar el voto mayoritario del panel frente a las 3.629 citas Gold de MultiCite, solo acertó el <strong>36,40%</strong> y la concordancia entre jueces quedó baja (<strong>κ̄ = 0,3939</strong>).
-            </p>
+            <div class="beat-tag">A2</div>
+            <h2 class="beat-heading">Acertaron solo 4 de cada 10 citas de MultiCite</h2>
+            <p class="beat-lead">Y entre ellos tampoco se pusieron de acuerdo.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-danger">36,40%</span><span class="metric-lbl">acierto en MultiCite Gold</span></div>
-              <div class="metric-item"><span class="metric-val is-warn">κ̄ = 0,394</span><span class="metric-lbl">acuerdo inter-juez</span></div>
+              <div class="metric-item"><span class="metric-val">36 %</span><span class="metric-lbl">de acierto frente a MultiCite</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="9" data-phase="A2" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="2">
-            <div class="beat-tag">A2-02 · Regla Conservadora <span class="beat-speaker-chip">· Javier</span></div>
-            <h2 class="beat-heading">Compromiso: 40,7% entró sin consenso a train</h2>
-            <p class="beat-lead">
-              La regla conservadora protegió las clases minoritarias evitando que los jueces 7B–8B absorbieran el 40–57%, pero dejó <strong>7.590 citas (40,7%)</strong> marcadas como <em>needs_review</em> reteniendo la etiqueta débil previa.
-            </p>
+            <div class="beat-tag">A2</div>
+            <h2 class="beat-heading">Solo se aceptó lo que el panel confirmaba</h2>
+            <p class="beat-lead">Si no había respaldo, la cita conservaba su etiqueta anterior.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-gold">19,5%</span><span class="metric-lbl">Gold MultiCite</span></div>
-              <div class="metric-item"><span class="metric-val is-primary">39,9%</span><span class="metric-lbl">Consenso A2</span></div>
-              <div class="metric-item"><span class="metric-val is-danger">40,7%</span><span class="metric-lbl">Needs Review</span></div>
+              <div class="metric-item"><span class="metric-val">40,7 %</span><span class="metric-lbl">del corpus quedó sin respaldo</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="10" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="3">
-            <div class="beat-tag">A3-01 · Curaduría Doble Ciego <span class="beat-speaker-chip">· Javier (con Julián)</span></div>
-            <h2 class="beat-heading">Revisión manual del 100% del conjunto de prueba</h2>
-            <p class="beat-lead">
-              Dos revisores del equipo (Javier y Julián) etiquetaron de forma independiente las <strong>2.798 citas</strong> (<strong>κ = 0,509</strong>). El <strong>68%</strong> cerró por consenso humano/MultiCite y el <strong>32%</strong> (894) con árbitro LLM acotado solo entre las dos opciones humanas.
-            </p>
+            <div class="beat-tag">A3</div>
+            <h2 class="beat-heading">Dos revisores humanos etiquetaron las 2.798 citas del test</h2>
+            <p class="beat-lead">Cada uno por separado, sin ver la etiqueta anterior ni la del otro.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-gold">68%</span><span class="metric-lbl">consenso directo / MultiCite</span></div>
-              <div class="metric-item"><span class="metric-val is-warn">32%</span><span class="metric-lbl">desempate acotado (894)</span></div>
+              <div class="metric-item"><span class="metric-val">0,509</span><span class="metric-lbl">Kappa entre revisores</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="11" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="4">
-            <div class="beat-tag">A3-02 · Test Pre-A3 <span class="beat-speaker-chip">· Javier</span></div>
-            <h2 class="beat-heading">Antes de A3: cuotas artificialmente balanceadas</h2>
-            <p class="beat-lead">
-              El conjunto de prueba automático reflejaba las cuotas casi uniformes de minado: <strong>Background</strong> apenas representaba el <strong>12,4%</strong> y <strong>Gap</strong> aparecía inflado al <strong>11,7%</strong>.
-            </p>
+            <div class="beat-tag">A3</div>
+            <h2 class="beat-heading">Antes, el test tenía clases casi parejas</h2>
+            <p class="beat-lead">Copiaba las cuotas del minado.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val">12,4%</span><span class="metric-lbl">Background Pre-A3</span></div>
-              <div class="metric-item"><span class="metric-val">11,7%</span><span class="metric-lbl">Gap Pre-A3</span></div>
+              <div class="metric-item"><span class="metric-val">12,4 %</span><span class="metric-lbl">era Background</span></div>
             </div>
           </article>
-
           <article class="beat-step" data-beat="12" data-phase="A3" data-speaker="Javier" data-block="2" data-scene="a2a3" data-step="5">
-            <div class="beat-tag">A3-02 · Giro Gold Humano <span class="beat-speaker-chip">· Javier</span></div>
-            <h2 class="beat-heading">A3 corrigió 54,32% del test y reveló la distribución real</h2>
-            <p class="beat-lead">
-              Se modificaron <strong>1.520 de 2.798 etiquetas</strong> (911 hacia Background). <strong>Background</strong> saltó a <strong>42,89%</strong> y <strong>Gap</strong> bajó a <strong>2,61%</strong>; el panel A2 falló en el <strong>65,8%</strong> del test.
-            </p>
+            <div class="beat-tag">A3</div>
+            <h2 class="beat-heading">Después, Background pasó a ser casi la mitad</h2>
+            <p class="beat-lead">Se cambiaron 1.520 etiquetas, el 54 % del test.</p>
             <div class="beat-metrics">
-              <div class="metric-item"><span class="metric-val is-danger">54,32%</span><span class="metric-lbl">etiquetas corregidas</span></div>
-              <div class="metric-item"><span class="metric-val is-gold">42,89%</span><span class="metric-lbl">Background Gold A3</span></div>
+              <div class="metric-item"><span class="metric-val">42,9 %</span><span class="metric-lbl">es Background</span></div>
             </div>
           </article>
         </div>
 
         <div class="visual-stage">
           <div class="stage-header">
-            <h3 class="stage-title" id="stage-a2a3-title">Panel de 3 jueces abiertos en vLLM (A2)</h3>
+            <h3 class="stage-title" id="stage-a2a3-title">Los tres jueces</h3>
             <p class="stage-caption" id="stage-a2a3-caption">N = 18.658 instancias · Ec. 3 y Tabla II</p>
           </div>
           <div class="stage-canvas" id="stage-a2a3-canvas"></div>

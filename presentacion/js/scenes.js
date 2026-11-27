@@ -320,6 +320,8 @@ window.EvidenScenes = (function () {
   function renderA2A3(step) {
     const canvas = document.getElementById("stage-a2a3-canvas");
     if (!canvas) return;
+    const titulos = ["Los tres jueces", "Acuerdo y acierto del panel", "Cómo quedó el corpus",
+                     "Cómo se resolvió el test", "El test antes de A3", "El test después de A3"];
 
     if (step <= 1) {
       swapStage(canvas, "a2-panel", (el) => {
@@ -327,38 +329,24 @@ window.EvidenScenes = (function () {
         controllers.a2Panel = C.createA2Panel(el, D.a2Panel);
       });
       controllers.a2Panel.update(step === 1);
-      setHeader(
-        "a2a3",
-        step === 0 ? "Panel de 3 jueces abiertos en vLLM (A2)" : "Auditoría A2: baja concordancia y 36,4% en Gold",
-        "Llama-3.1-8B · Qwen2.5-7B · Mistral-7B",
-        step === 0 ? "Ejecución en A100-40GB, temperatura 0, cegados al artículo citado." : "El sesgo de sobre-atribución metodológica impidió confiar en la mayoría simple."
-      );
     } else if (step === 2) {
       swapStage(canvas, "a2-strata", (el) => {
         controllers.a2a3Mode = "a2strata";
         C.renderA2Strata(el, D.a2Panel);
       });
-      setHeader("a2a3", "Balance del corpus tras la regla conservadora (Ec. 3)", "18.658 instancias · Casos A–F", "El 40,7% (7.590 citas) quedó sin consenso del panel y entró con etiqueta débil a train.jsonl.");
     } else if (step === 3) {
       swapStage(canvas, "a3-wf", (el) => {
         controllers.a2a3Mode = "a3wf";
         C.renderA3Waterfall(el, D.a3Waterfall);
       });
-      setHeader("a2a3", "Curaduría humana doble ciega del 100% del test (A3)", "N = 2.798 citas · κ = 0,509", "Javier y Julián revisaron de forma independiente las 2.798 citas; 68% directo + 32% desempate acotado.");
     } else {
       swapStage(canvas, "a3-morph", (el) => {
         controllers.a2a3Mode = "a3morph";
         controllers.a3Morph = C.createA3Morph(el, D.a3Distribution);
       });
-      const isGold = step === 5;
-      controllers.a3Morph.update(isGold);
-      setHeader(
-        "a2a3",
-        isGold ? "Distribución Gold humano A3: giro de 54,32% en el test" : "Distribución Pre-A3: cuotas artificialmente balanceadas",
-        "Tabla II · Evolución sobre N = 2.798",
-        isGold ? "Background pasó de 12,4% a 42,89% y Gap bajó de 11,7% a 2,61% (línea punteada = Pre-A3)." : "Antes de A3, el conjunto de prueba reproducía las cuotas casi uniformes del minado."
-      );
+      controllers.a3Morph.update(step === 5);
     }
+    setHeader("a2a3", titulos[step], "", "");
   }
 
   /* ---- A4 (Beats 15–19) ---- */
