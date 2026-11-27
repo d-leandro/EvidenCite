@@ -370,6 +370,152 @@
 }
 
 </style>
+<style id="conclusions-compact">
+
+.conclusions-v2.compact-conc.full-beat {
+    padding: 18px clamp(25px, 4vw, 75px);
+}
+
+.compact-conc .hero-kicker {
+    margin-bottom: 8px;
+}
+
+.compact-conc .hero-title {
+    font-size: clamp(1.9rem, 2.85vw, 3rem);
+    margin-bottom: 18px;
+}
+
+.compact-conc .research-grid {
+    grid-template-columns: 1fr 1fr 1.25fr;
+    gap: clamp(20px, 2.2vw, 36px);
+}
+
+.compact-conc .research-col {
+    padding-top: 10px;
+    border-top-width: 4px;
+}
+
+.compact-conc .research-code {
+    font-size: clamp(1.6rem, 2vw, 2.2rem);
+    margin-bottom: 5px;
+}
+
+.compact-conc .research-title {
+    font-size: clamp(1.1rem, 1.45vw, 1.55rem);
+    margin-bottom: 9px;
+}
+
+.compact-conc .fact {
+    padding: 8px 0;
+}
+
+.compact-conc .fact-value {
+    font-size: clamp(1.15rem, 1.55vw, 1.75rem);
+    line-height: 1.15;
+}
+
+.compact-conc .fact-label {
+    font-size: clamp(0.9rem, 1.03vw, 1.15rem);
+    line-height: 1.25;
+    margin-top: 3px;
+}
+
+.compact-conc .fact-note {
+    font-size: clamp(0.78rem, 0.88vw, 0.98rem);
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.compact-conc .research-verdict {
+    font-size: clamp(0.85rem, 0.98vw, 1.05rem);
+    font-weight: 650;
+    padding: 8px 10px;
+    margin-top: 12px;
+    line-height: 1.3;
+}
+
+.compact-conc .mini-heading {
+    font-size: clamp(0.9rem, 1vw, 1.1rem);
+    margin: 6px 0;
+}
+
+.compact-conc .rank-list {
+    gap: 5px;
+}
+
+.compact-conc .rank-row {
+    font-size: clamp(0.82rem, 0.95vw, 1.05rem);
+    grid-template-columns: 85px minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.compact-conc .rank-track {
+    height: 9px;
+}
+
+.compact-conc .scibert-highlight {
+    margin: 10px 0;
+    padding: 8px 12px;
+}
+
+.compact-conc .scibert-highlight strong {
+    font-size: clamp(1.05rem, 1.35vw, 1.5rem);
+}
+
+.compact-conc .scibert-highlight span {
+    font-size: clamp(0.8rem, 0.9vw, 1rem);
+}
+
+.compact-conc .ops-table {
+    font-size: clamp(0.8rem, 0.95vw, 1.05rem);
+}
+
+.compact-conc .ops-table th,
+.compact-conc .ops-table td {
+    padding: 4px;
+}
+
+.compact-conc .ops-note {
+    font-size: clamp(0.8rem, 0.9vw, 1rem);
+    margin-top: 5px;
+}
+
+@media (min-width: 901px) and (max-height: 800px) {
+
+    .compact-conc.full-beat {
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+
+    .compact-conc .hero-title {
+        font-size: 2.1rem;
+        margin-bottom: 12px;
+    }
+
+    .compact-conc .fact {
+        padding: 5px 0;
+    }
+
+    .compact-conc .fact-value {
+        font-size: 1.4rem;
+    }
+
+    .compact-conc .rank-list {
+        gap: 3px;
+    }
+
+    .compact-conc .research-verdict {
+        margin-top: 8px;
+    }
+}
+
+@media (max-width: 900px) {
+    .compact-conc .research-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+</style>
 </head>
 <body>
   <!-- Barra superior minimalista de progreso (A1 -> A8) y expositor activo -->
@@ -874,259 +1020,224 @@
          BEAT 31 — CONC-01: RESPUESTAS DIRECTAS A PI1, PI2 Y PI3
          Expositor: Julián
          ================================================================== -->
-    <section class="full-beat conclusions-v2" data-beat="27" data-phase="CONC" data-speaker="Julián" data-block="5">
+    <section class="full-beat conclusions-v2 compact-conc" data-beat="27" data-phase="CONC" data-speaker="Julián" data-block="5">
+<div class="closing-inner">
 
-    <div class="closing-inner">
+    <div class="hero-kicker">
+        CONC-01 · Síntesis Empírica · Julián
+    </div>
 
-        <div class="hero-kicker">
-            CONC-01 · Síntesis Empírica · Julián
+    <h2 class="hero-title">
+        Respuestas a las preguntas de investigación
+    </h2>
+
+    <div class="research-grid">
+
+        <div class="research-col pi1">
+
+            <div class="research-code">PI1</div>
+
+            <h3 class="research-title">
+                Evidencia local vs. global
+            </h3>
+
+
+<div class="fact">
+    <div class="fact-value negative">−0,034 a −0,014</div>
+    <div class="fact-label">TF-IDF, SciBERT y Qwen</div>
+    <div class="fact-note">Disminución del Macro-F1</div>
+</div>
+
+<div class="fact">
+    <div class="fact-value ">+0,006</div>
+    <div class="fact-label">Granite: mejora marginal</div>
+
+</div>
+
+<div class="fact">
+    <div class="fact-value positive">+2,86 pp</div>
+    <div class="fact-label">GPT: mejora significativa en exactitud</div>
+    <div class="fact-note">+10,28 pp en Related Work</div>
+</div>
+
+<div class="fact">
+    <div class="fact-value positive">−17,7%</div>
+    <div class="fact-label">Gemini: menos tokens de razonamiento</div>
+
+</div>
+
+
+            <div class="research-verdict">
+                El beneficio depende del modelo.
+            </div>
+
         </div>
 
-        <h2 class="hero-title">
-            Respuestas a las preguntas de investigación
-        </h2>
+        <div class="research-col pi2">
 
-        <div class="research-grid">
+            <div class="research-code">PI2</div>
 
-            <!-- PI1 -->
-
-            <div class="research-col pi1">
-
-                <div class="research-code">PI1</div>
-
-                <h3 class="research-title">
-                    Evidencia local vs. global
-                </h3>
+            <h3 class="research-title">
+                Calidad del etiquetado
+            </h3>
 
 
-    <div class="fact">
-        <div class="fact-value negative">−0,034 a −0,014</div>
-        <div class="fact-label">TF-IDF, SciBERT y Qwen</div>
-        <div class="fact-note">Disminución del Macro-F1</div>
+<div class="fact">
+    <div class="fact-value ">54,32%</div>
+    <div class="fact-label">Etiquetas corregidas</div>
+    <div class="fact-note">1.520 de 2.798 citas</div>
+</div>
+
+<div class="fact">
+    <div class="fact-value ">0,74 → 0,43–0,46</div>
+    <div class="fact-label">Caída del Macro-F1 supervisado</div>
+
+</div>
+
+<div class="fact">
+    <div class="fact-value negative">62–65%</div>
+    <div class="fact-label">Los modelos reprodujeron los errores del etiquetado automático</div>
+    <div class="fact-note">Sobre las citas corregidas</div>
+</div>
+
+<div class="fact">
+    <div class="fact-value ">110M → 8B</div>
+    <div class="fact-label">Desempeño similar</div>
+    <div class="fact-note">SciBERT, Qwen y Granite</div>
+</div>
+
+<div class="fact">
+    <div class="fact-value ">+0,1331</div>
+    <div class="fact-label">Gemini vs. GPT tras la revisión humana</div>
+    <div class="fact-note">Diferencia en Macro-F1</div>
+</div>
+
+
+            <div class="research-verdict">
+                El ruido limita el aprendizaje supervisado.
+            </div>
+
+        </div>
+
+        <div class="research-col pi3">
+
+            <div class="research-code">PI3</div>
+
+            <h3 class="research-title">
+                Desempeño, calibración y eficiencia
+            </h3>
+
+            <div class="mini-heading">
+                Macro-F1 sobre Gold
+            </div>
+
+            <div class="rank-list">
+
+<div class="rank-row gemini">
+    <span>Gemini B</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:59.96%"></div>
     </div>
+    <span class="rank-value">0,5996</span>
+</div>
 
-    <div class="fact">
-        <div class="fact-value ">+0,006</div>
-        <div class="fact-label">Granite: mejora marginal</div>
-        <div class="fact-note">Sin mejora significativa en el contraste pareado</div>
+<div class="rank-row ">
+    <span>GPT B</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:46.64%"></div>
     </div>
+    <span class="rank-value">0,4664</span>
+</div>
 
-    <div class="fact">
-        <div class="fact-value positive">+2,86 pp</div>
-        <div class="fact-label">GPT: mejora significativa en exactitud</div>
-        <div class="fact-note">+10,28 pp en Related Work</div>
+<div class="rank-row scibert">
+    <span>SciBERT A</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:46.23%"></div>
     </div>
+    <span class="rank-value">0,4623</span>
+</div>
 
-    <div class="fact">
-        <div class="fact-value positive">−17,7%</div>
-        <div class="fact-label">Gemini: tokens de razonamiento</div>
-        <div class="fact-note">−19,4% de llamadas con razonamiento; F1 sin mejora significativa.</div>
+<div class="rank-row ">
+    <span>Qwen A</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:45.60%"></div>
     </div>
+    <span class="rank-value">0,4560</span>
+</div>
 
+<div class="rank-row ">
+    <span>Granite B</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:44.12%"></div>
+    </div>
+    <span class="rank-value">0,4412</span>
+</div>
 
-                <div class="research-verdict">
-                    La evidencia local beneficia
-                    de forma diferente a cada modelo.
-                </div>
+<div class="rank-row ">
+    <span>TF-IDF A</span>
+    <div class="rank-track">
+        <div class="rank-bar" style="--score:36.61%"></div>
+    </div>
+    <span class="rank-value">0,3661</span>
+</div>
 
             </div>
 
-            <!-- PI2 -->
-
-            <div class="research-col pi2">
-
-                <div class="research-code">PI2</div>
-
-                <h3 class="research-title">
-                    Calidad del etiquetado
-                </h3>
-
-
-    <div class="fact">
-        <div class="fact-value ">54,32%</div>
-        <div class="fact-label">Etiquetas corregidas</div>
-        <div class="fact-note">1.520 de 2.798 citas</div>
-    </div>
-
-    <div class="fact">
-        <div class="fact-value ">0,74 → 0,43–0,46</div>
-        <div class="fact-label">Caída del Macro-F1 supervisado</div>
-        <div class="fact-note">Mismas predicciones, etiquetas revisadas</div>
-    </div>
-
-    <div class="fact">
-        <div class="fact-value negative">62–65%</div>
-        <div class="fact-label">Los modelos reprodujeron los errores del etiquetado automático</div>
-        <div class="fact-note">Sobre las citas corregidas</div>
-    </div>
-
-    <div class="fact">
-        <div class="fact-value ">110M → 8B</div>
-        <div class="fact-label">Más parámetros, desempeño similar</div>
-        <div class="fact-note">SciBERT, Qwen y Granite</div>
-    </div>
-
-    <div class="fact">
-        <div class="fact-value ">+0,1331</div>
-        <div class="fact-label">Gemini supera a GPT en Macro-F1</div>
-        <div class="fact-note">Diferencia revelada por la revisión humana</div>
-    </div>
-
-
-                <div class="research-verdict">
-                    El ruido del etiquetado limita
-                    el aprendizaje supervisado.
-                </div>
-
+            <div class="scibert-highlight">
+                <strong>SciBERT · 110M · $767 COP</strong>
+                <span>
+                    Bajo costo de entrenamiento · F1 cercano a GPT
+                </span>
             </div>
 
-            <!-- PI3 -->
+            <div class="mini-heading">
+                APIs · Zero-Shot · Config B
+            </div>
 
-            <div class="research-col pi3">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>GPT</th>
+                        <th>Gemini</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>USD / 10k citas</td>
+                        <td><strong>$6,59</strong></td>
+                        <td>$17,68</td>
+                    </tr>
+                    <tr>
+                        <td>Latencia p50</td>
+                        <td><strong>1,03 s</strong></td>
+                        <td>2,32 s</td>
+                    </tr>
+                    <tr>
+                        <td>Calibración (ECE ↓)</td>
+                        <td>0,3360</td>
+                        <td><strong>0,1158</strong></td>
+                    </tr>
+                </tbody>
+            </table>
 
-                <div class="research-code">PI3</div>
+            <div class="ops-note">
+                <strong>Locales:</strong> sin tarifas por consulta.
+            </div>
 
-                <h3 class="research-title">
-                    Desempeño, calibración y eficiencia
-                </h3>
+            <div class="ops-note">
+                <strong>Zero-Shot:</strong> mayor exactitud y menor costo.
+            </div>
 
-                <div class="mini-heading">
-                    Macro-F1 sobre Gold
-                </div>
-
-                <div class="rank-list">
-
-    <div class="rank-row gemini">
-        <span>Gemini B</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:59.96%"></div>
-        </div>
-        <span class="rank-value">0,5996</span>
-    </div>
-
-    <div class="rank-row ">
-        <span>GPT B</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:46.64%"></div>
-        </div>
-        <span class="rank-value">0,4664</span>
-    </div>
-
-    <div class="rank-row scibert">
-        <span>SciBERT A</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:46.23%"></div>
-        </div>
-        <span class="rank-value">0,4623</span>
-    </div>
-
-    <div class="rank-row ">
-        <span>Qwen A</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:45.60%"></div>
-        </div>
-        <span class="rank-value">0,4560</span>
-    </div>
-
-    <div class="rank-row ">
-        <span>Granite B</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:44.12%"></div>
-        </div>
-        <span class="rank-value">0,4412</span>
-    </div>
-
-    <div class="rank-row ">
-        <span>TF-IDF A</span>
-        <div class="rank-track">
-            <div class="rank-bar"
-                 style="--score:36.61%"></div>
-        </div>
-        <span class="rank-value">0,3661</span>
-    </div>
-
-                </div>
-
-                <div class="fact-note">
-                    Resultados seleccionados sobre Gold.
-                    APIs en Zero-Shot.
-                    Granite alcanza 0,463 en la reevaluación.
-                </div>
-
-                <div class="scibert-highlight">
-                    <strong>SciBERT · 110M · $767 COP</strong>
-                    <span>
-                        Entrenamiento definitivo A/B
-                    </span>
-                    <span>
-                        Macro-F1 competitivo frente a GPT
-                    </span>
-                </div>
-
-                <div class="mini-heading">
-                    APIs · Zero-Shot · Config B
-                </div>
-
-                <table class="ops-table">
-
-                    <thead>
-                        <tr>
-                            <th>Métrica</th>
-                            <th>GPT</th>
-                            <th>Gemini</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-
-                        <tr>
-                            <td>USD / 10k citas</td>
-                            <td><strong>$6,59</strong></td>
-                            <td>$17,68</td>
-                        </tr>
-
-                        <tr>
-                            <td>Latencia p50</td>
-                            <td><strong>1,03 s</strong></td>
-                            <td>2,32 s</td>
-                        </tr>
-
-                        <tr>
-                            <td>Error calibración (ECE)</td>
-                            <td>0,3360</td>
-                            <td><strong>0,1158</strong></td>
-                        </tr>
-
-                    </tbody>
-
-                </table>
-
-                <div class="ops-note">
-                    <strong>Modelos locales:</strong>
-                    inferencia por lotes en milisegundos,
-                    sin tarifas por consulta.
-                </div>
-
-                <div class="ops-note">
-                    <strong>Zero-Shot:</strong>
-                    mayor exactitud y menor costo que 9-Shot.
-                </div>
-
-                <div class="research-verdict">
-                    Ninguna familia domina todos los criterios.
-                </div>
-
+            <div class="research-verdict">
+                Ninguna familia domina todos los criterios.
             </div>
 
         </div>
 
     </div>
 
+</div>
 </section>
 
     <!-- ==================================================================
