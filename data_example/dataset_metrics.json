@@ -1,0 +1,152 @@
+{
+  "stage": "A3_final_labeled",
+  "source_file": "data/labeled/instances.jsonl",
+  "total_instances": 18658,
+  "parity_verification": {
+    "instances_with_abstract_config_a": 18658,
+    "instances_with_chunks_config_b": 18658,
+    "strict_parity_1_to_1": true
+  },
+  "leakage_verification": {
+    "leakage_train_test": 0,
+    "leakage_train_dev": 0,
+    "leakage_dev_test": 0,
+    "zero_leakage_guaranteed": true
+  },
+  "total_gold_instances": 5864,
+  "sources_distribution": {
+    "multicite": 3629,
+    "unarxive_mined": 15029
+  },
+  "label_source_distribution": {
+    "human_gold": 3066,
+    "human_review": 2798,
+    "needs_review": 6470,
+    "llm_panel": 6324
+  },
+  "canonical_classes_distribution": {
+    "Background": 3221,
+    "Application": 3022,
+    "Comparison": 2858,
+    "Further Reading": 1977,
+    "Gap": 1927,
+    "Originator": 1599,
+    "Evidence": 1563,
+    "Improvement": 1272,
+    "Basis": 1219
+  },
+  "splits": {
+    "train": {
+      "count": 13077,
+      "proportion": 0.7009,
+      "unique_citing_papers": 5835,
+      "label_sources": {
+        "human_gold": 2508,
+        "needs_review": 5313,
+        "llm_panel": 5256
+      },
+      "classes": {
+        "Comparison": 2119,
+        "Application": 1974,
+        "Background": 1671,
+        "Gap": 1511,
+        "Further Reading": 1453,
+        "Originator": 1228,
+        "Evidence": 1195,
+        "Improvement": 998,
+        "Basis": 928
+      }
+    },
+    "dev": {
+      "count": 2783,
+      "proportion": 0.1492,
+      "unique_citing_papers": 1243,
+      "label_sources": {
+        "human_gold": 558,
+        "needs_review": 1157,
+        "llm_panel": 1068
+      },
+      "classes": {
+        "Comparison": 441,
+        "Application": 411,
+        "Background": 350,
+        "Gap": 343,
+        "Further Reading": 297,
+        "Evidence": 268,
+        "Originator": 266,
+        "Improvement": 206,
+        "Basis": 201
+      }
+    },
+    "test": {
+      "count": 2798,
+      "proportion": 0.15,
+      "unique_citing_papers": 1258,
+      "label_sources": {
+        "human_review": 2798
+      },
+      "classes": {
+        "Background": 1200,
+        "Application": 637,
+        "Comparison": 298,
+        "Further Reading": 227,
+        "Originator": 105,
+        "Evidence": 100,
+        "Basis": 90,
+        "Gap": 73,
+        "Improvement": 68
+      }
+    }
+  },
+  "a3_test_curation_summary": {
+    "test_total": 2798,
+    "confirmed_vs_pre_a3": 1278,
+    "modified_vs_pre_a3": 1520,
+    "modified_pct": 54.32,
+    "modified_to_background": 911,
+    "modified_by_prior_stratum": {
+      "human_gold": {
+        "modified": 201,
+        "total": 563,
+        "modified_pct": 35.7
+      },
+      "llm_panel": {
+        "modified": 538,
+        "total": 1115,
+        "modified_pct": 48.25
+      },
+      "needs_review": {
+        "modified": 781,
+        "total": 1120,
+        "modified_pct": 69.73
+      }
+    }
+  },
+  "citation_context_stats": {
+    "mean_words": 83.94,
+    "min_words": 8,
+    "max_words": 542
+  },
+  "similarity_stats": {
+    "mean_top1_similarity": 0.8943
+  },
+  "nli_weak_supervision_a1": {
+    "total_evaluated": 135035,
+    "total_accepted": 63802,
+    "total_rejected": 71233,
+    "acceptance_rate_pct": 47.25,
+    "rejected_low_confidence": 70461,
+    "rejected_low_margin": 772,
+    "accepted_per_class": {
+      "Comparison": 1618,
+      "Further Reading": 13611,
+      "Basis": 709,
+      "Background": 7115,
+      "Evidence": 31408,
+      "Improvement": 1401,
+      "Gap": 3146,
+      "Application": 857,
+      "Originator": 3937
+    }
+  }
+}

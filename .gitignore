@@ -62,6 +62,7 @@ data/**
 
 # Extensiones de datos grandes por seguridad
 *.jsonl
+!data_example/**/*.jsonl
 *.jsonl.gz
 *.tar.gz
 *.zip

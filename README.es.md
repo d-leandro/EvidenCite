@@ -58,6 +58,7 @@ El navegador se comunica con **Caddy (TLS)** y **Nginx (gateway)** en una `t3.la
 | `notebooks/` | Cuadernos de análisis, entrenamiento y evaluación: TF-IDF, SciBERT, LoRA, consolidación de métricas y paneles de jueces |
 | `models/` | Artefactos TF-IDF incluidos si cumplen el límite de GitHub; índice de checkpoints y procedimiento de recuperación de pesos mayores |
 | `data/` | Estructura de datos crudos, procesados y archivos de control DVC; los conjuntos completos requieren acceso autorizado al remoto |
+| `data_example/` | Muestra pública liviana (`train`/`dev`/`test` × 3 instancias reales + `dataset_metrics.json`) y guía del ensamblaje Config A/B en *runtime* |
 | `configs/` | Parámetros YAML para preparación, recuperación, clasificación, entrenamiento y evaluación |
 | `src/` | Pipeline, ingeniería de datos, recuperación densa e inferencia |
 | `api/` y `app/` | API FastAPI, frontend web, adaptadores de modelos, métricas y procesamiento de documentos |
@@ -120,7 +121,7 @@ El despliegue **no se activa automáticamente** con un `git push`: se ejecuta co
 ## 7. Datos, modelos y reproducibilidad
 
 - **Notebooks:** ocho notebooks versionados en `notebooks/`, incluidos los de modelos A/B y consolidación de métricas.
-- **Datos:** `data/dataset.dvc` y `data/labeled.dvc` apuntan a versiones gestionadas con DVC/Google Drive. El acceso a datos completos se otorga por el equipo. La **muestra pública para evaluación de la rúbrica está pendiente de acuerdo entre integrantes**; no se debe interpretar una carpeta vacía como entrega del dataset completo.
+- **Datos:** `data/dataset.dvc` y `data/labeled.dvc` apuntan al dataset completo (`18.658` instancias, ~117 MB) gestionado con DVC/Google Drive (requiere autorización del equipo). Para inspección inmediata sin DVC ni permisos de Drive, [`data_example/`](data_example/README.md) incluye una muestra pública curada (3 instancias reales por partición —`train`, `dev` y `test`, incluyendo `inst_04783` del artículo—), las métricas auditadas completas (`data_example/dataset_metrics.json`) y el detalle ejecutable del ensamblaje en *runtime* de **Config A** vs. **Config B**.
 - **Modelos:** los pequeños artefactos TF-IDF pueden incorporarse en `models/tfidf_A/` y `models/tfidf_B/` utilizando `tools/prepare_delivery_models.sh`. Los checkpoints SciBERT, los adaptadores LoRA y el Granite base se documentan en `models/README.md`; no se finge que estos archivos están incluidos en Git.
 
 Para reconstruir el pipeline de datos (con insumos y acceso al remoto autorizados):

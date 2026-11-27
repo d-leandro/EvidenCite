@@ -59,6 +59,7 @@ The browser communicates with Caddy TLS and an Nginx gateway on an AWS Academy `
 | `notebooks/` | Eight notebooks for analysis, TF-IDF, SciBERT, LoRA, metrics and judge panels |
 | `models/` | Lightweight distributable TF-IDF artifacts, if size permits; catalog and retrieval instructions for larger checkpoints |
 | `data/` | Raw/processed data structure and DVC pointers; access to complete datasets is controlled by the project team |
+| `data_example/` | Lightweight public sample (`train`/`dev`/`test` × 3 real instances + `dataset_metrics.json`) and Config A/B runtime assembly guide |
 | `configs/` | YAML parameters for data processing, retrieval, A/B representation and training |
 | `src/` | Reproducible data pipeline, retrieval, model training and inference |
 | `api/`, `app/`, `gateway/` | FastAPI backend, web frontend and reverse proxy |
@@ -116,7 +117,7 @@ Infrastructure deployment is **manual**, not triggered by every push. **Review c
 ## 7. Data, model artifacts and notebooks
 
 - `notebooks/` contains eight committed Jupyter notebooks for exploration, training and evaluation.
-- `data/dataset.dvc` and `data/labeled.dvc` contain DVC pointers to data versions managed with a private Google Drive remote. The team must authorize remote access. **Which public dataset samples to publish is still pending team agreement.**
+- `data/dataset.dvc` and `data/labeled.dvc` contain DVC pointers to the complete dataset (`18,658` instances, ~117 MB) managed with a private Google Drive remote (team authorization required). For immediate inspection without DVC or Drive access, [`data_example/`](data_example/README.md) provides a curated public sample (3 real instances per split — `train`, `dev`, and `test`, including `inst_04783` from the paper), full audited metrics (`data_example/dataset_metrics.json`), and a runnable walkthrough of **Config A** vs. **Config B** runtime assembly.
 - `models/README.md` describes the artifact format and storage. Small `tfidf_pipeline.joblib` artifacts can be copied from trusted local exports or the team's private S3 bucket using `tools/prepare_delivery_models.sh`. Larger SciBERT, Granite base and LoRA files are not included in the Git repository and should not be represented as such.
 
 Data pipeline with authorized input data:
