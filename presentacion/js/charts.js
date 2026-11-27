@@ -261,7 +261,7 @@ window.EvidenCharts = (function () {
 
     const verdict = el("g", { class: "svg-anim", id: "a2-verdict" }, svg);
     const filas = [
-      { lbl: "Acuerdo entre los jueces (Kappa)", val: 0.3939, txtv: "0,39", col: "var(--ink-3)", y: 226 },
+      { lbl: "Acuerdo entre los jueces (Kappa)", val: 0.3939, txtv: "κ = 0,39", col: "var(--ink-3)", y: 226 },
       { lbl: "Acierto frente a MultiCite", val: 0.364, txtv: "36 %", col: acento, y: 326 }
     ];
     filas.forEach((f) => {
@@ -320,8 +320,8 @@ window.EvidenCharts = (function () {
 
     txt("Acuerdo (Kappa)", { x: 24, y: 220, class: "svg-ink2", "font-size": 15 }, svg);
     const kappas = [
-      { lbl: "Panel A2", val: 0.3939, txtv: "0,394", col: "var(--ink-3)", y: 244 },
-      { lbl: "Revisores", val: 0.509, txtv: "0,509", col: acento, y: 300 }
+      { lbl: "Panel A2", val: 0.3939, txtv: "κ = 0,394", col: "var(--ink-3)", y: 244 },
+      { lbl: "Revisores", val: 0.509, txtv: "κ = 0,509", col: acento, y: 300 }
     ];
     kappas.forEach((k) => {
       txt(k.lbl, { x: 24, y: k.y + 20, "font-size": 15, "font-weight": 600 }, svg);
@@ -369,8 +369,12 @@ window.EvidenCharts = (function () {
         if (activeCancel) activeCancel();
 
         const snapshots = barEls.map((item) => {
-          const destacada = isGold && item.r.cls === "Background";
-          item.rect.setAttribute("fill", destacada ? acento : "var(--ink-3)");
+          let fillCol = "var(--ink-3)";
+          if (isGold) {
+            if (item.r.cls === "Background") fillCol = acento;
+            else if (item.r.cls === "Gap" || item.r.cls === "Improvement") fillCol = "var(--accent-danger)";
+          }
+          item.rect.setAttribute("fill", fillCol);
           return { item, fromPct: item.curPct, toPct: isGold ? item.r.goldPct : item.r.prePct };
         });
 
