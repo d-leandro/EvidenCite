@@ -14,6 +14,7 @@ window.EvidenScenes = (function () {
     a3Morph: null,
     a2a3Mode: null,
     a4Mode: null,
+    a4Funnel: null,
     fig11: null,
     a5a7Mode: null,
     costChart: null,
@@ -83,7 +84,7 @@ window.EvidenScenes = (function () {
     return nextLayer;
   }
 
-  /* ---- CTX (Beats 1–3) ---- */
+  /* ---- CTX (Beats 1–2) ---- */
   function renderCtx(step) {
     const canvas = document.getElementById("stage-ctx-canvas");
     if (!canvas) return;
@@ -91,58 +92,37 @@ window.EvidenScenes = (function () {
     if (step === 0) {
       setHeader(
         "ctx",
-        "¿Por qué falla mirar solo el título y el resumen del citado?",
-        "Ejemplo real · inst_04783",
-        "La taxonomía de Lyu et al. (2021) distingue 9 funciones retóricas no evaluativas en Δ⁸."
+        "Tres brechas abiertas frente al estado del arte",
+        "Tabla I · Lyu et al. (2021)",
+        "EvidenCite es el único banco con 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
       );
       swapStage(canvas, "ctx-0", (layer) => {
         layer.innerHTML = `
-        <div class="editorial-panel">
-          <div class="quote-showcase">
-            <div class="quote-meta">ARTÍCULO CITANTE (2212.08018) · VENTANA m = 3 ORACIONES</div>
-            <p class="quote-text">
-              "The procedure builds upon the recent work by Hopkins, Kamath and Majid
-              <span class="cite-mark">&lt;cite&gt;Hopkins, Kamath &amp; Majid, 2022&lt;/cite&gt;</span>
-              on pure DP mean estimation. First, we exploit their algorithm to precondition the unknown covariance matrix...
-              uses the result of <span class="othercit-mark">[OTHERCIT]</span> to improve the conditioning of Σ."
-            </p>
-          </div>
-          <div class="pi-grid" style="margin-bottom:0;">
+        <div class="editorial-panel is-ctx-merged">
+          <div class="pi-grid">
             <div class="pi-item">
               <div class="pi-code">BRECHA 1 · GRANULARIDAD</div>
-              <h4 class="pi-title">3–6 clases gruesas</h4>
-              <p class="pi-desc">SciCite y ACL-ARC colapsan funciones metodológicas cercanas (<em>Basis</em>, <em>Application</em>, <em>Improvement</em>).</p>
+              <h4 class="pi-title">3–7 clases gruesas</h4>
+              <p class="pi-desc">Colapsan funciones cercanas (<em>Basis</em>, <em>Application</em>, <em>Improvement</em>).</p>
             </div>
             <div class="pi-item">
-              <div class="pi-code">BRECHA 2 · EVIDENCIA ESTÁTICA</div>
+              <div class="pi-code">BRECHA 2 · EVIDENCIA</div>
               <h4 class="pi-title">Solo título y resumen</h4>
-              <p class="pi-desc">Config A entrega el mismo resumen global para toda mención y oculta algoritmos o pruebas internas.</p>
+              <p class="pi-desc">Oculta el pasaje técnico interno del citado.</p>
             </div>
             <div class="pi-item">
-              <div class="pi-code">BRECHA 3 · RUIDO DE ETIQUETAS</div>
-              <h4 class="pi-title">Sesgo en LLMs 7B–8B</h4>
-              <p class="pi-desc">Etiquetadores abiertos sobre-atribuyen clases metodológicas y distorsionan la evaluación.</p>
+              <div class="pi-code">BRECHA 3 · RUIDO</div>
+              <h4 class="pi-title">Sesgo LLMs 7B–8B</h4>
+              <p class="pi-desc">Sin test 100% Gold distorsionan evaluación.</p>
             </div>
           </div>
-        </div>`;
-      });
-    } else if (step === 1) {
-      setHeader(
-        "ctx",
-        "Posicionamiento frente al estado del arte",
-        "Síntesis de Tabla I · 4 referencias ancla",
-        "EvidenCite es el único banco que reúne 9 clases, paridad 1:1 Config A/B y 100% de test revisado manualmente."
-      );
-      swapStage(canvas, "ctx-1", (layer) => {
-        layer.innerHTML = `
-        <div class="editorial-panel">
           <table class="sota-table">
             <thead>
               <tr>
                 <th>Referencia / Sistema</th>
                 <th>Clases</th>
                 <th>Evidencia del citado</th>
-                <th>Test Gold 9 clases</th>
+                <th>Test Gold 9 cl.</th>
                 <th>Calibración y costo</th>
               </tr>
             </thead>
@@ -157,7 +137,7 @@ window.EvidenScenes = (function () {
               <tr>
                 <td><strong>MultiCite</strong> (Lauscher et al., 2022)</td>
                 <td class="mono">7</td>
-                <td>Ninguna en CFC (F1 0,00–0,04 extractivo)</td>
+                <td>Ninguna en CFC (F1 0,00–0,04)</td>
                 <td><span class="check-no">Parcial (7 cl.)</span></td>
                 <td><span class="check-no">—</span></td>
               </tr>
@@ -193,13 +173,13 @@ window.EvidenScenes = (function () {
         "Diseño experimental en 8 actividades",
         "Al cierre de la sustentación volveremos a estas tres tarjetas con su veredicto empírico."
       );
-      swapStage(canvas, "ctx-2", (layer) => {
+      swapStage(canvas, "ctx-1", (layer) => {
         layer.innerHTML = `
         <div class="editorial-panel">
           <div class="pi-grid">
             <div class="pi-item">
               <div class="pi-code">PI1 · EVIDENCIA LOCAL</div>
-              <h4 class="pi-title">¿Cuándo ayuda Config B?</h4>
+              <h4 class="pi-title">¿Cuánto aporta la evidencia local (Config B)?</h4>
               <p class="pi-desc">¿En qué medida y en qué secciones del citante los pasajes locales superan al título y resumen global?</p>
             </div>
             <div class="pi-item">
@@ -228,7 +208,9 @@ window.EvidenScenes = (function () {
     }
   }
 
-  /* ---- A1 (Beats 4–8) ---- */
+  /* ---- A1 (Beats 3–6) ---- */
+  let a1RevealTimer = null;
+
   function buildA1AB(layer) {
     const ex = D.inst04783;
     layer.innerHTML = `
@@ -246,33 +228,31 @@ window.EvidenScenes = (function () {
           </p>
         </div>
 
-        <div class="ab-evidence-wrap">
-          <div class="ab-view is-visible" id="ab-view-a">
-            <div class="ab-label-row">
-              <span>EVIDENCIA DEL CITADO (${ex.citedId})</span>
-              <span class="ab-pill cfg-a">Config A · Vista Global (Título + Resumen)</span>
-            </div>
-            <div class="ab-global-box">
-              <h4 class="ab-global-title">${ex.citedTitle}</h4>
-              <p class="ab-global-abs">"${ex.citedAbstract}"</p>
-            </div>
+        <div class="ab-a-block">
+          <div class="ab-label-row">
+            <span>EVIDENCIA DEL CITADO (${ex.citedId})</span>
+            <span class="ab-pill cfg-a">Config A · Vista Global (Título + Resumen)</span>
           </div>
+          <div class="ab-global-box">
+            <h4 class="ab-global-title">${ex.citedTitle}</h4>
+            <p class="ab-global-abs">"${ex.citedAbstract}"</p>
+          </div>
+        </div>
 
-          <div class="ab-view is-hidden" id="ab-view-b">
-            <div class="ab-label-row">
-              <span>EVIDENCIA DEL CITADO (${ex.citedId}) · PARIDAD 1:1</span>
-              <span class="ab-pill cfg-b">Config B · Top-3 Chunks ≤110 pal. + Encabezados Autorales</span>
-            </div>
-            <div class="ab-chunks">
-              ${ex.chunks.map((ch) => `
-                <div class="ab-chunk">
-                  <div class="ab-chunk-head">
-                    <span class="ab-chunk-sec">[${ch.heading}]</span>
-                    <span class="ab-chunk-score">R${ch.rank} · cos ${ch.score}</span>
-                  </div>
-                  <p>"${ch.text}"</p>
-                </div>`).join("")}
-            </div>
+        <div class="ab-b-staged" id="ab-b-staged">
+          <div class="ab-label-row">
+            <span>MISMA CITA · PARIDAD 1:1 (RANKING TOP-3)</span>
+            <span class="ab-pill cfg-b">Config B · Top-3 Chunks ≤110 pal. + Encabezados Autorales</span>
+          </div>
+          <div class="ab-chunks">
+            ${ex.chunks.map((ch) => `
+              <div class="ab-chunk">
+                <div class="ab-chunk-head">
+                  <span class="ab-chunk-sec">[${ch.heading}]</span>
+                  <span class="ab-chunk-score">R${ch.rank} · cos ${ch.score}</span>
+                </div>
+                <p>"${ch.text}"</p>
+              </div>`).join("")}
           </div>
         </div>
       </div>`;
@@ -282,26 +262,31 @@ window.EvidenScenes = (function () {
     const canvas = document.getElementById("stage-a1-canvas");
     if (!canvas) return;
 
-    if (step <= 1) {
+    if (a1RevealTimer) {
+      clearTimeout(a1RevealTimer);
+      a1RevealTimer = null;
+    }
+
+    if (step === 0) {
       const layer = swapStage(canvas, "a1-ab", (el) => {
         controllers.a1Mode = "ab";
         controllers.a1Dag = null;
         buildA1AB(el);
       });
-      const viewA = layer.querySelector("#ab-view-a");
-      const viewB = layer.querySelector("#ab-view-b");
-      if (step === 0) {
-        setHeader("a1", "Paridad 1:1 — Configuración A (Global)", "Fig. 1 · inst_04783", "Misma ventana citante fija (m = 3 oraciones); varía únicamente la evidencia del artículo citado.");
-        if (viewA && viewB) {
-          viewA.className = "ab-view is-visible";
-          viewB.className = "ab-view is-hidden";
-        }
-      } else {
-        setHeader("a1", "Paridad 1:1 — Transformación a Configuración B (Local Top-3)", "Fig. 1 · Encabezados autorales preservados", "Encabezados exactos (Nearest Enclosing Scope) sin colapsar a IMRaD · cosenos 0,894 / 0,889 / 0,888.");
-        if (viewA && viewB) {
-          viewA.className = "ab-view is-hidden";
-          viewB.className = "ab-view is-visible";
-        }
+      setHeader(
+        "a1",
+        "Paridad 1:1 — Config A (global) vs. Config B (Top-3 local)",
+        "Fig. 1 · inst_04783 · cosenos 0,894 / 0,889 / 0,888",
+        "Misma ventana citante fija (m = 3); Config B aparece debajo con pasajes ≤110 pal. + encabezados autorales."
+      );
+      const bBlock = layer && layer.querySelector("#ab-b-staged");
+      if (bBlock) {
+        bBlock.classList.remove("is-revealed");
+        // Timed entrance underneath Config A so the audience reads Config A first (~1,35s)
+        a1RevealTimer = setTimeout(() => {
+          bBlock.classList.add("is-revealed");
+          a1RevealTimer = null;
+        }, 1350);
       }
       return;
     }
@@ -310,11 +295,11 @@ window.EvidenScenes = (function () {
       controllers.a1Mode = "dag";
       controllers.a1Dag = C.createMedallionDAG(el);
     });
-    const dagStage = step - 2; // 0, 1, 2
+    const dagStage = step - 1; // 0, 1, 2
     controllers.a1Dag.update(dagStage);
 
     if (dagStage === 0) {
-      setHeader("a1", "DAG vertical Medallion — Capas 1–2: Ingesta y rescate seminal", "Fig. 2 · MultiCite + unarXive", "Rescate Top-250 apoyado en caché local y APIs elevó la cobertura Gold de 0,4% a 3.629 pares 1:1.");
+      setHeader("a1", "Construcción del Dataset — Capas 1–2: Ingesta y rescate seminal", "Fig. 2 · MultiCite + unarXive 2024", "Rescate Top-250 apoyado en caché local y APIs estructuró 66.314 artículos y ~145.000 pares (3.629 Gold 1:1).");
     } else if (dagStage === 1) {
       setHeader("a1", "Zoom Capa 3 — Recuperación SciBERT (512 tok) y NLI calibrado", "Fig. 3 · Consulta sin encabezados + DeBERTa-v3", "Presupuesto exacto de 512 tokens y filtrado NLI para llenar cuotas por clase cuidando calidad.");
     } else {
@@ -326,6 +311,8 @@ window.EvidenScenes = (function () {
   function renderA2A3(step) {
     const canvas = document.getElementById("stage-a2a3-canvas");
     if (!canvas) return;
+    const titulos = ["Los tres jueces", "Acuerdo y acierto del panel", "Cómo quedó el corpus",
+                     "Cómo se resolvió el test", "El test antes de A3", "El test después de A3"];
 
     if (step <= 1) {
       swapStage(canvas, "a2-panel", (el) => {
@@ -333,57 +320,72 @@ window.EvidenScenes = (function () {
         controllers.a2Panel = C.createA2Panel(el, D.a2Panel);
       });
       controllers.a2Panel.update(step === 1);
-      setHeader(
-        "a2a3",
-        step === 0 ? "Panel de 3 jueces abiertos en vLLM (A2)" : "Auditoría A2: baja concordancia y 36,4% en Gold",
-        "Llama-3.1-8B · Qwen2.5-7B · Mistral-7B",
-        step === 0 ? "Ejecución en A100-40GB, temperatura 0, cegados al artículo citado." : "El sesgo de sobre-atribución metodológica impidió confiar en la mayoría simple."
-      );
     } else if (step === 2) {
       swapStage(canvas, "a2-strata", (el) => {
         controllers.a2a3Mode = "a2strata";
         C.renderA2Strata(el, D.a2Panel);
       });
-      setHeader("a2a3", "Balance del corpus tras la regla conservadora (Ec. 3)", "18.658 instancias · Casos A–F", "El 40,7% (7.590 citas) quedó sin consenso del panel y entró con etiqueta débil a train.jsonl.");
     } else if (step === 3) {
       swapStage(canvas, "a3-wf", (el) => {
         controllers.a2a3Mode = "a3wf";
         C.renderA3Waterfall(el, D.a3Waterfall);
       });
-      setHeader("a2a3", "Curaduría humana doble ciega del 100% del test (A3)", "N = 2.798 citas · κ = 0,509", "Javier y Julián revisaron de forma independiente las 2.798 citas; 68% directo + 32% desempate acotado.");
     } else {
       swapStage(canvas, "a3-morph", (el) => {
         controllers.a2a3Mode = "a3morph";
         controllers.a3Morph = C.createA3Morph(el, D.a3Distribution);
       });
-      const isGold = step === 5;
-      controllers.a3Morph.update(isGold);
-      setHeader(
-        "a2a3",
-        isGold ? "Distribución Gold humano A3: giro de 54,32% en el test" : "Distribución Pre-A3: cuotas artificialmente balanceadas",
-        "Tabla II · Evolución sobre N = 2.798",
-        isGold ? "Background pasó de 12,4% a 42,89% y Gap bajó de 11,7% a 2,61% (línea punteada = Pre-A3)." : "Antes de A3, el conjunto de prueba reproducía las cuotas casi uniformes del minado."
-      );
+      controllers.a3Morph.update(step === 5);
     }
+    setHeader("a2a3", titulos[step], "", "");
   }
 
   /* ---- A4 (Beats 15–19) ---- */
+  // Encabezado del escenario para cada pestaña del embudo de A4-01: [título, leyenda, nota al pie]
+  const A4_FUNNEL_HEAD = {
+    r1: [
+      "R1 · 10 modelos de 7 familias: se descartan multimodales y MoE",
+      "Fig. 10a · 19 corridas · 1 semilla",
+      "Etiquetado previo y con sección citante: escala no comparable con R2. Gemma 4 fue el más costoso (E4B: 73–94 GB, 50–57 min) y en el MoE LoRA solo cubrió el 0,12% de los parámetros."
+    ],
+    r2: [
+      "R2 · 10 LLMs de 2B–4B × A/B × 3 semillas: banda plana en ~0,74",
+      "Fig. 10b · 58 corridas · test automático",
+      "Top-7 sin diferencia detectable (ANOVA p = 0,45); ni tamaño (|ρ| < 0,2) ni arquitectura predicen el F1. Se eligió Granite: Llama es de acceso restringido y Qwen3.5, el más costoso."
+    ],
+    final: [
+      "Definitivos: de 110M a 8B, el mismo techo en el test automático",
+      "Fig. 4 (lado automático) · 11 corridas",
+      "Granite-4.2-8B (0,737–0,744) queda 1–2 puntos sobre SciBERT y a la altura de R2 (0,738–0,746). TF-IDF solo tiene F1 de dev: su test se evaluó directamente sobre el Gold (A4-02)."
+    ],
+    gen: [
+      "Qwen3-0.6B: cabeza de clasificación vs. modo generativo",
+      "IV-B2 · 4 corridas · 1 semilla por variante",
+      "Misma base congelada y mismo LoRA: el F1 no cambia, pero generar la etiqueta cuesta 2,9–4,2× más latencia y hasta 85 GB. Se adoptó la cabeza de clasificación, sin prompts."
+    ]
+  };
+
   function renderA4(step) {
     const canvas = document.getElementById("stage-a4-canvas");
     if (!canvas) return;
 
     if (step === 0) {
-      swapStage(canvas, "a4-r2", (el) => {
-        controllers.a4Mode = "r2";
-        C.renderA4R2(el, D.a4R2Models);
+      // Embudo en pestañas. swapStage solo lo reconstruye al llegar desde otro paso, con la pestaña Final por
+      // defecto; si el paso ya está activo (p. ej. clic en el texto), conserva la capa y la pestaña elegida.
+      swapStage(canvas, "a4-funnel", (el) => {
+        controllers.a4Mode = "funnel";
+        controllers.a4Funnel = C.createA4Funnel(el, D.a4Funnel, {
+          onChange: (key) => setHeader("a4", ...A4_FUNNEL_HEAD[key])
+        });
+        controllers.a4Funnel.show("final");
       });
-      setHeader("a4", "Embudo de 92 corridas y banda plana en R2 (~0,74)", "Fig. 10b · 10 modelos 2B–4B × 3 semillas", "Ni tamaño (|ρ| < 0,2) ni arquitectura rompen el techo automático; Granite-4.2 se elige para escalar a 8B.");
+      setHeader("a4", ...A4_FUNNEL_HEAD[controllers.a4Funnel.tab]);
     } else if (step === 1) {
       swapStage(canvas, "a4-collapse", (el) => {
         controllers.a4Mode = "collapse";
         C.renderA4Collapse(el, D.a4Definitives);
       });
-      setHeader("a4", "Desplome de A4 al pasar del test automático al Gold humano", "Fig. 4 · Tabla III (N = 2.798)", "Escalar 70× (110M → 8B) no evita la caída a 0,43–0,46 Macro-F1; Config B empeora o es neutra.");
+      setHeader("a4", "Desplome de A4 al pasar del test automático al Gold humano", "Fig. 4 · Tabla III (N = 2.798)", "Escalar 70× (110M → 8B) no evita la caída a 0,43–0,46 Macro-F1 (TF-IDF: 0,33–0,37); Config B empeora o es neutra.");
     } else {
       swapStage(canvas, "a4-fig11", (el) => {
         controllers.a4Mode = "fig11";
@@ -392,14 +394,14 @@ window.EvidenScenes = (function () {
       const subStep = step - 2; // 0, 1, 2
       controllers.fig11.update(subStep);
       const titles = [
-        "Fig. 11 (Paso 1/3) — En citas confirmadas, el fine-tuning acierta 83–88%",
-        "Fig. 11 (Paso 2/3) — En citas corregidas, A4 repite la etiqueta vieja (○)",
-        "Fig. 11 (Paso 3/3) — Divergencia causal: fine-tuning cae (●), APIs aciertan"
+        "Fig. 11 (Paso 1/3) — Confirmadas: el fine-tuning acierta 83–88%",
+        "Fig. 11 (Paso 2/3) — Corregidas: A4 repite la etiqueta vieja (○)",
+        "Fig. 11 (Paso 3/3) — Corregidas: A4 casi no coincide con la humana (●); las APIs sí"
       ];
       const foots = [
-        "Confirmadas (n = 1.278): Granite-8B (87,1%) iguala o supera a Gemini (82,8%).",
-        "Corregidas (n = 1.520): los modelos con fine-tuning repiten la etiqueta descartada 62,9–64,5% de las veces.",
-        "Al deslizar a la etiqueta humana Gold (●), A4 cae −45,8 a −49,7 pp mientras Gemini salta +36,8 pp."
+        "Confirmadas (n = 1.278): A3 mantuvo la etiqueta automática. Granite-8B (87,1%) iguala o supera a Gemini (82,8%).",
+        "Corregidas (n = 1.520): A3 cambió la etiqueta automática; los modelos con fine-tuning siguen prediciendo la descartada en 62,9–64,6% de los casos.",
+        "A4 coincide con la humana en 13,5–18,0% (Δ −45,8 a −49,8 pp); Gemini 0s-B, en 56,3% (+36,8 pp). El resto de las predicciones cae en una 3.ª clase."
       ];
       setHeader("a4", titles[subStep], "Fig. 11 (Anexo A) · N = 2.798", foots[subStep]);
     }

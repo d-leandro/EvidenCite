@@ -244,195 +244,118 @@ window.EvidenCharts = (function () {
      ======================================================================== */
   function createA2Panel(container, data) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 470", role: "img", "aria-label": "Panel de 3 jueces abiertos A2" }, container);
-
-    txt("COMITÉ DE 3 JUECES ABIERTOS (vLLM · A100 · temp = 0 · cegados al citado)", { x: 24, y: 32, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
+    const svg = el("svg", { viewBox: "0 0 860 470", role: "img", "aria-label": "Los tres jueces de A2" }, container);
+    const acento = "var(--accent-violet)";
+    const nombres = [["Llama-3.1-8B-Instruct", "Meta"], ["Qwen2.5-7B-Instruct", "Alibaba"], ["Mistral-7B-Instruct-v0.3", "Mistral AI"]];
 
     const cardW = 250, gap = 30;
-    data.judges.forEach((j, i) => {
+    nombres.forEach((n, i) => {
       const x = 24 + i * (cardW + gap);
       const g = el("g", {}, svg);
-      el("rect", { x, y: 54, width: cardW, height: 112, rx: 8, fill: "var(--accent-violet-soft)", stroke: "var(--accent-violet)", "stroke-width": 1.6 }, g);
-      txt(`Juez ${i + 1}`, { x: x + 18, y: 80, class: "svg-mono", "font-size": 11, "font-weight": 700, fill: "var(--accent-violet)" }, g);
-      txt(j.name, { x: x + 18, y: 108, "font-size": 15.5, "font-weight": 700 }, g);
-      txt(j.params, { x: x + 18, y: 130, class: "svg-mono svg-ink2", "font-size": 12 }, g);
-      txt(`Abstención: ${j.abst}`, { x: x + 18, y: 150, class: "svg-mono svg-muted", "font-size": 11 }, g);
-      bindTip(g, j.name, [`Configuración: ${j.params}`, `Abstención sobre 18.658 citas: ${j.abst}`, "Cegado al texto citado para evitar fuga hacia Config B"]);
+      el("rect", { x, y: 40, width: cardW, height: 112, rx: 10, fill: "var(--accent-violet-soft)", stroke: acento, "stroke-width": 1.6 }, g);
+      txt(`Juez ${i + 1}`, { x: x + 18, y: 70, "font-size": 13, "font-weight": 600, fill: acento }, g);
+      txt(n[0], { x: x + 18, y: 104, "font-size": 16, "font-weight": 700 }, g);
+      txt(n[1], { x: x + 18, y: 132, class: "svg-ink2", "font-size": 14 }, g);
+      bindTip(g, data.judges[i].name, [`Abstención: ${data.judges[i].abst}`]);
     });
 
-    // Reveal verdict section (Step 2)
     const verdict = el("g", { class: "svg-anim", id: "a2-verdict" }, svg);
-    el("line", { x1: 24, y1: 198, x2: 836, y2: 198, class: "svg-grid" }, verdict);
-    txt("AUDITORÍA DEL PANEL CONTRA MULTICITE GOLD (n = 3.629)", { x: 24, y: 226, class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-danger)" }, verdict);
-
-    // Metric 1: Kappa gauge bar
-    txt("Concordancia inter-juez (κ̄ de Cohen promedio)", { x: 24, y: 262, "font-size": 14, "font-weight": 600 }, verdict);
-    el("rect", { x: 24, y: 274, width: 520, height: 28, rx: 6, fill: "var(--surface-tint)" }, verdict);
-    const kBar = el("rect", { x: 24, y: 274, width: 520 * 0.3939, height: 28, rx: 6, fill: "var(--accent-warn)" }, verdict);
-    txt("κ̄ = 0,3939 (acuerdo moderado-bajo)", { x: 560, y: 294, class: "svg-mono", "font-size": 14, "font-weight": 700, fill: "var(--accent-warn)" }, verdict);
-    bindTip(kBar, "Concordancia entre jueces A2", ["κ̄ válidos = 0,3939 · κ̄ total = 0,3936", "Confirma dispersión alta en 9 clases finas"]);
-
-    // Metric 2: Accuracy on Gold MultiCite
-    txt("Acierto del voto mayoritario 7B–8B frente a MultiCite Gold", { x: 24, y: 342, "font-size": 14, "font-weight": 600 }, verdict);
-    el("rect", { x: 24, y: 354, width: 520, height: 32, rx: 6, fill: "var(--surface-tint)" }, verdict);
-    const aBar = el("rect", { x: 24, y: 354, width: 520 * 0.364, height: 32, rx: 6, fill: "var(--accent-danger)" }, verdict);
-    txt("36,40% (1.321 / 3.629)", { x: 560, y: 376, class: "svg-mono", "font-size": 15.5, "font-weight": 700, fill: "var(--accent-danger)" }, verdict);
-    bindTip(aBar, "Voto mayoritario A2 en MultiCite Gold", [
-      "Aciertos: 1.321 de 3.629 (36,40%)",
-      "Fallo: 63,60% (sobre-atribución metodológica)",
-      "Reproduce el hallazgo de Fogelson et al. (2025)"
-    ]);
-
-    txt("Conclusión A2: un comité 7B–8B no puede sobrescribir libremente las etiquetas sin sesgar el corpus.", { x: 24, y: 432, class: "svg-serif svg-ink2", "font-size": 15, "font-style": "italic" }, verdict);
+    const filas = [
+      { lbl: "Acuerdo entre los jueces (Kappa)", val: 0.3939, txtv: "κ = 0,39", col: "var(--ink-3)", y: 226 },
+      { lbl: "Acierto frente a MultiCite", val: 0.364, txtv: "36 %", col: acento, y: 326 }
+    ];
+    filas.forEach((f) => {
+      txt(f.lbl, { x: 24, y: f.y, class: "svg-ink2", "font-size": 15 }, verdict);
+      el("rect", { x: 24, y: f.y + 14, width: 620, height: 30, rx: 6, fill: "var(--surface-tint)" }, verdict);
+      el("rect", { x: 24, y: f.y + 14, width: 620 * f.val, height: 30, rx: 6, fill: f.col }, verdict);
+      txt(f.txtv, { x: 664, y: f.y + 37, class: "svg-serif", "font-size": 24, "font-weight": 700, fill: f.col }, verdict);
+    });
 
     return {
       update(revealed) {
-        verdict.style.opacity = revealed ? "1" : "0.06";
+        verdict.style.opacity = revealed ? "1" : "0";
         verdict.style.transform = revealed ? "translateY(0)" : "translateY(14px)";
       }
     };
   }
 
-  /* ========================================================================
-     3. A2-02 — Regla Conservadora y Barra Apilada (18.658)
-     ======================================================================== */
   function renderA2Strata(container, data) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 440", role: "img", "aria-label": "Distribución de los 18.658 registros tras regla conservadora A2" }, container);
-
-    txt("REGLA CONSERVADORA DE CONSENSO (EC. 3) SOBRE N = 18.658 INSTANCIAS", { x: 24, y: 34, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    const barX = 24, barY = 66, barW = 812, barH = 66;
+    const svg = el("svg", { viewBox: "0 0 860 400", role: "img", "aria-label": "Cómo quedó el corpus después del panel" }, container);
+    const acento = "var(--accent-violet)";
+    const partes = [
+      { pct: 19.4501, n: "3.629", col: "var(--line-strong)", tinta: "var(--ink)", t: "MultiCite", d: "Etiqueta humana, se deja como está." },
+      { pct: 39.87, n: "7.439", col: "var(--ink-3)", tinta: "#FFFFFF", t: "Confirmadas por el panel", d: "Los jueces respaldaron la etiqueta." },
+      { pct: 40.68, n: "7.590", col: acento, tinta: "#FFFFFF", t: "Sin respaldo del panel", d: "Conservaron la etiqueta anterior y así entraron a entrenamiento." }
+    ];
+    const barX = 24, barY = 40, barW = 812, barH = 64;
     let cx = barX;
-    data.strata.forEach((s) => {
+    partes.forEach((s) => {
       const w = (s.pct / 100) * barW;
-      const g = el("g", {}, svg);
-      el("rect", { x: cx, y: barY, width: w - 4, height: barH, rx: 6, fill: `var(${s.colorVar})` }, g);
-      txt(`${fmtComma(s.pct, 1)}%`, { x: cx + (w - 4) / 2, y: barY + 30, "text-anchor": "middle", class: "svg-mono", "font-size": 18, "font-weight": 700, fill: "#FFFFFF" }, g);
-      txt(s.count.toLocaleString("es-CO"), { x: cx + (w - 4) / 2, y: barY + 50, "text-anchor": "middle", class: "svg-mono", "font-size": 12, fill: "#FFFFFF", opacity: 0.92 }, g);
-      bindTip(g, s.label, [`Instancias: ${s.count.toLocaleString("es-CO")} (${fmtComma(s.pct, 2)}%)`, s.desc]);
+      el("rect", { x: cx, y: barY, width: w - 4, height: barH, rx: 6, fill: s.col }, svg);
+      txt(`${fmtComma(s.pct, 1)} %`, { x: cx + (w - 4) / 2, y: barY + 40, "text-anchor": "middle", "font-size": 19, "font-weight": 700, fill: s.tinta }, svg);
       cx += w;
     });
-
-    // Breakdown rows below
-    const rules = [
-      { code: "Caso F · 19,5%", title: "MultiCite Gold protegido (3.629)", desc: "Nunca se sobrescribe con el panel 7B–8B.", col: "var(--accent-gold)" },
-      { code: "Casos A+B · 39,9%", title: "Consenso A2 (7.439)", desc: "Solo unanimidad 3/3 sobrescribe y_prior; mayoría 2/3 únicamente confirma.", col: "var(--accent-primary)" },
-      { code: "Casos C+D · 40,7%", title: "Needs Review sin consenso (7.590)", desc: "Mayoría divergente 2/3 o empate 1-1-1 retiene y_prior. Evitó destruir 40–57% de minoritarias, pero entró así a train.jsonl.", col: "var(--accent-danger)" }
-    ];
-
-    rules.forEach((r, idx) => {
-      const y = 174 + idx * 82;
-      el("rect", { x: 24, y, width: 4, height: 60, rx: 2, fill: r.col }, svg);
-      txt(r.code, { x: 42, y: y + 16, class: "svg-mono", "font-size": 12, "font-weight": 700, fill: r.col }, svg);
-      txt(r.title, { x: 195, y: y + 16, "font-size": 15, "font-weight": 700 }, svg);
-      txt(r.desc, { x: 42, y: y + 44, class: "svg-ink2", "font-size": 13 }, svg);
+    partes.forEach((s, i) => {
+      const y = 160 + i * 74;
+      el("rect", { x: 24, y: y - 16, width: 14, height: 14, rx: 3, fill: s.col }, svg);
+      txt(`${s.t} · ${s.n}`, { x: 50, y: y - 4, "font-size": 16, "font-weight": 700 }, svg);
+      txt(s.d, { x: 50, y: y + 22, class: "svg-ink2", "font-size": 14 }, svg);
     });
   }
 
-  /* ========================================================================
-     4. A3-01 — Curaduría Doble Ciego y Desempate Híbrido (2.798)
-     ======================================================================== */
   function renderA3Waterfall(container, wf) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 460", role: "img", "aria-label": "Flujo de curaduría humana doble ciega en A3" }, container);
-
-    txt("CONCILIACIÓN DEL 100% DEL CONJUNTO DE PRUEBA (N = 2.798 · 1.258 ARTÍCULOS)", { x: 24, y: 30, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    // Top bar: total 2.798
+    const svg = el("svg", { viewBox: "0 0 860 420", role: "img", "aria-label": "Cómo se resolvió el test en A3" }, container);
+    const acento = "var(--accent-violet)";
     const bX = 24, bW = 812;
-    const agreeW = (wf.humanAgree / wf.total) * bW;
-    const mcW = (wf.multiciteTie / wf.total) * bW;
-    const cbcW = Math.max(10, (wf.caseByCase / wf.total) * bW);
-    const llmW = bW - agreeW - mcW - cbcW;
+    const humano = (wf.humanDirectTotal / wf.total) * bW;
 
-    const segs = [
-      { x: bX, w: agreeW - 3, col: "var(--accent-gold)", title: "Acuerdo independiente Javier–Julián", val: "1.750 (62,5%)", sub: "κ = 0,509 (> 0,394 del panel)" },
-      { x: bX + agreeW, w: mcW - 3, col: "var(--accent-primary)", title: "Desempate MultiCite", val: "147 (5,3%)", sub: "Coincidencia con etiqueta humana previa" },
-      { x: bX + agreeW + mcW, w: cbcW - 2, col: "var(--accent-violet)", title: "Caso a caso", val: "7 (0,3%)", sub: "Revisión conjunta sin respaldo LLM" },
-      { x: bX + agreeW + mcW + cbcW, w: llmW, col: "var(--accent-warn)", title: "Árbitro LLM acotado (solo entre 2 opciones humanas)", val: "894 (32,0%)", sub: "Claude Fable 5.2 · GPT-6 · Gemini Argon" }
+    el("rect", { x: bX, y: 40, width: humano - 4, height: 64, rx: 6, fill: acento }, svg);
+    el("rect", { x: bX + humano, y: 40, width: bW - humano, height: 64, rx: 6, fill: "var(--ink-3)" }, svg);
+    txt("68 %", { x: bX + (humano - 4) / 2, y: 82, "text-anchor": "middle", "font-size": 21, "font-weight": 700, fill: "#FFFFFF" }, svg);
+    txt("32 %", { x: bX + humano + (bW - humano) / 2, y: 82, "text-anchor": "middle", "font-size": 21, "font-weight": 700, fill: "#FFFFFF" }, svg);
+    txt("Revisión humana o MultiCite · 1.904", { x: bX, y: 136, "font-size": 15, "font-weight": 700 }, svg);
+    txt("Desempate entre las dos etiquetas humanas · 894", { x: bX + bW, y: 136, "text-anchor": "end", "font-size": 15, "font-weight": 700 }, svg);
+
+    txt("Acuerdo (Kappa)", { x: 24, y: 220, class: "svg-ink2", "font-size": 15 }, svg);
+    const kappas = [
+      { lbl: "Panel A2", val: 0.3939, txtv: "κ = 0,394", col: "var(--ink-3)", y: 244 },
+      { lbl: "Revisores", val: 0.509, txtv: "κ = 0,509", col: acento, y: 300 }
     ];
-
-    segs.forEach((s) => {
-      const g = el("g", {}, svg);
-      el("rect", { x: s.x, y: 58, width: s.w, height: 64, rx: 6, fill: s.col }, g);
-      if (s.w > 90) {
-        txt(s.val, { x: s.x + s.w / 2, y: 96, "text-anchor": "middle", class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "#FFFFFF" }, g);
-      }
-      bindTip(g, s.title, [s.val, s.sub]);
+    kappas.forEach((k) => {
+      txt(k.lbl, { x: 24, y: k.y + 20, "font-size": 15, "font-weight": 600 }, svg);
+      el("rect", { x: 170, y: k.y, width: 480, height: 28, rx: 6, fill: "var(--surface-tint)" }, svg);
+      el("rect", { x: 170, y: k.y, width: 480 * k.val, height: 28, rx: 6, fill: k.col }, svg);
+      txt(k.txtv, { x: 670, y: k.y + 22, class: "svg-serif", "font-size": 22, "font-weight": 700, fill: k.col }, svg);
     });
-
-    // Grouping brackets underneath: 68% vs 32%
-    const leftEnd = bX + agreeW + mcW + cbcW - 4;
-    el("path", { d: `M ${bX} 134 L ${bX} 146 L ${leftEnd} 146 L ${leftEnd} 134`, fill: "none", stroke: "var(--accent-gold)", "stroke-width": 2 }, svg);
-    txt("68,0% (1.904 citas) · Consenso humano directo / MultiCite", { x: (bX + leftEnd) / 2, y: 170, "text-anchor": "middle", class: "svg-mono", "font-size": 13.5, "font-weight": 700, fill: "var(--accent-gold)" }, svg);
-
-    const rightStart = bX + agreeW + mcW + cbcW;
-    el("path", { d: `M ${rightStart} 134 L ${rightStart} 146 L ${bX + bW} 146 L ${bX + bW} 134`, fill: "none", stroke: "var(--accent-warn)", "stroke-width": 2 }, svg);
-    txt("32,0% (894) · Árbitro acotado", { x: (rightStart + bX + bW) / 2, y: 170, "text-anchor": "middle", class: "svg-mono", "font-size": 13, "font-weight": 700, fill: "var(--accent-warn)" }, svg);
-
-    // Kappa comparison strip
-    el("line", { x1: 24, y1: 214, x2: 836, y2: 214, class: "svg-grid" }, svg);
-    txt("MEJORA EN ACUERDO INTER-ANOTADOR (KAPPA DE COHEN)", { x: 24, y: 244, class: "svg-mono svg-muted", "font-size": 11.5, "font-weight": 700 }, svg);
-
-    const kItems = [
-      { label: "Panel 3 jueces 7B–8B (A2)", val: 0.3939, col: "var(--ink-3)", y: 274 },
-      { label: "Revisión humana doble ciego (A3)", val: 0.509, col: "var(--accent-gold)", y: 326 }
-    ];
-    kItems.forEach((k) => {
-      txt(k.label, { x: 24, y: k.y + 18, "font-size": 14, "font-weight": 600 }, svg);
-      el("rect", { x: 320, y: k.y, width: 380, height: 26, rx: 5, fill: "var(--surface-tint)" }, svg);
-      el("rect", { x: 320, y: k.y, width: 380 * k.val, height: 26, rx: 5, fill: k.col }, svg);
-      txt(`κ = ${fmtComma(k.val, 3)}`, { x: 716, y: k.y + 19, class: "svg-mono", "font-size": 14.5, "font-weight": 700, fill: k.col }, svg);
-    });
-
-    txt("Transparencia metodológica: en 894 de 901 desacuerdos sin MultiCite, el árbitro solo eligió entre las dos etiquetas humanas.", { x: 24, y: 404, class: "svg-ink2", "font-size": 13 }, svg);
   }
 
-  /* ========================================================================
-     5. A3-02 ★ Estrella #3 — Morph de Barras Pre-A3 -> Gold A3
-     ======================================================================== */
   function createA3Morph(container, rows) {
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 500", role: "img", "aria-label": "Cambio distribucional Pre-A3 vs Gold humano A3" }, container);
-
-    const marginL = 162, chartW = 540, startY = 76, rowH = 42;
+    const svg = el("svg", { viewBox: "0 0 860 480", role: "img", "aria-label": "Distribución del test antes y después de A3" }, container);
+    const acento = "var(--accent-violet)";
+    const marginL = 162, chartW = 560, startY = 40, rowH = 42;
     const maxPct = 46;
 
-    // Header counters (fade in on Gold state)
-    const banner = el("g", { class: "svg-anim", id: "a3-morph-banner" }, svg);
-    txt("54,32% corregidas (1.520 / 2.798)", { x: marginL, y: 32, class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "var(--accent-danger)" }, banner);
-    txt("65,8% error del panel A2", { x: 486, y: 32, class: "svg-mono", "font-size": 15, "font-weight": 700, fill: "var(--accent-warn)" }, banner);
-    txt("911 citas movidas a Background", { x: 24, y: 54, class: "svg-mono svg-muted", "font-size": 11.5 }, banner);
-
-    // X-axis gridlines
     [0, 10, 20, 30, 40].forEach((tick) => {
       const x = marginL + (tick / maxPct) * chartW;
       el("line", { x1: x, y1: startY - 12, x2: x, y2: startY + rows.length * rowH - 8, class: "svg-grid" }, svg);
-      txt(`${tick}%`, { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
+      txt(`${tick} %`, { x, y: startY + rows.length * rowH + 14, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
     });
 
     const barEls = [];
     rows.forEach((r, i) => {
       const y = startY + i * rowH;
       const g = el("g", {}, svg);
-      txt(r.cls, { x: marginL - 14, y: y + 18, "text-anchor": "end", "font-size": 13.5, "font-weight": i < 2 || r.cls === "Gap" ? 700 : 500 }, g);
-
-      // Ghost reference bar for Pre-A3
+      txt(r.cls, { x: marginL - 14, y: y + 18, "text-anchor": "end", "font-size": 14, "font-weight": r.cls === "Background" ? 700 : 500 }, g);
       const preW = (r.prePct / maxPct) * chartW;
       el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "none", stroke: "var(--line-strong)", "stroke-dasharray": "4 3", "stroke-width": 1.2 }, g);
-
-      // Animated active bar (driven smoothly at 60fps by tween)
-      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--accent-secondary)" }, g);
+      const rect = el("rect", { x: marginL, y: y + 4, width: preW, height: 22, rx: 4, fill: "var(--ink-3)" }, g);
       rect.style.transition = "fill 500ms ease";
-      const lbl = txt(`${fmtComma(r.prePct, 1)}% (${r.preN})`, { x: marginL + preW + 10, y: y + 20, class: "svg-mono", "font-size": 12.5, "font-weight": 700 }, g);
-
-      bindTip(g, r.cls, [
-        `Test Pre-A3: ${r.preN} citas (${fmtComma(r.prePct, 2)}%)`,
-        `Test Gold A3: ${r.goldN} citas (${fmtComma(r.goldPct, 2)}%)`,
-        `Cambio: ${r.deltaPct > 0 ? "+" : ""}${fmtComma(r.deltaPct, 2)} pp`
-      ]);
-      barEls.push({ r, rect, lbl, curPct: r.prePct, curN: r.preN });
+      const lbl = txt(`${fmtComma(r.prePct, 1)} %`, { x: marginL + preW + 10, y: y + 20, "font-size": 13, "font-weight": 600 }, g);
+      bindTip(g, r.cls, [`Antes: ${r.preN} citas`, `Después: ${r.goldN} citas`]);
+      barEls.push({ r, rect, lbl, curPct: r.prePct });
     });
 
     let activeCancel = null;
@@ -440,42 +363,29 @@ window.EvidenCharts = (function () {
 
     return {
       update(isGold) {
-        banner.style.transition = "opacity 900ms ease";
-        banner.style.opacity = isGold ? "1" : "0.08";
-
         if (lastGoldState === isGold) return;
         const firstPaint = lastGoldState === null;
         lastGoldState = isGold;
-
         if (activeCancel) activeCancel();
 
         const snapshots = barEls.map((item) => {
-          const targetPct = isGold ? item.r.goldPct : item.r.prePct;
-          const targetN = isGold ? item.r.goldN : item.r.preN;
-          let color = "var(--accent-secondary)";
+          let fillCol = "var(--ink-3)";
           if (isGold) {
-            if (item.r.cls === "Background") color = "var(--accent-gold)";
-            else if (item.r.cls === "Application") color = "var(--accent-primary)";
-            else if (item.r.cls === "Gap" || item.r.cls === "Improvement") color = "var(--accent-danger)";
-            else color = "var(--ink-3)";
+            if (item.r.cls === "Background") fillCol = acento;
+            else if (item.r.cls === "Gap" || item.r.cls === "Improvement") fillCol = "var(--accent-danger)";
           }
-          item.rect.setAttribute("fill", color);
-          return { item, fromPct: item.curPct, toPct: targetPct, fromN: item.curN, toN: targetN };
+          item.rect.setAttribute("fill", fillCol);
+          return { item, fromPct: item.curPct, toPct: isGold ? item.r.goldPct : item.r.prePct };
         });
 
-        const dur = firstPaint ? 0 : 1300;
-        activeCancel = tween(dur, (t) => {
+        activeCancel = tween(firstPaint ? 0 : 1300, (t) => {
           snapshots.forEach((s) => {
             const p = s.fromPct + (s.toPct - s.fromPct) * t;
-            const n = Math.round(s.fromN + (s.toN - s.fromN) * t);
             s.item.curPct = p;
-            s.item.curN = n;
             const w = (p / maxPct) * chartW;
             s.item.rect.setAttribute("width", String(w));
             s.item.lbl.setAttribute("x", String(marginL + w + 10));
-            s.item.lbl.textContent = isGold
-              ? `${fmtComma(p, 2)}% (${n.toLocaleString("es-CO")})`
-              : `${fmtComma(p, 1)}% (${n})`;
+            s.item.lbl.textContent = `${fmtComma(p, 1)} %`;
           });
         }, firstPaint ? 0 : 120);
       }
@@ -483,59 +393,292 @@ window.EvidenCharts = (function () {
   }
 
   /* ========================================================================
-     6. A4-01 — Embudo 92 Corridas y Banda Plana R2 (Fig. 10b)
+     6. A4-01 — Embudo de 92 corridas en 4 pestañas (R1 · R2 · Final · Gen. vs. clasif.)
+     Cada pestaña dibuja su propia gráfica; la de los modelos definitivos va por defecto.
+     Config A = círculo, Config B = cuadrado (forma + color, nunca solo color).
      ======================================================================== */
-  function renderA4R2(container, models) {
-    container.innerHTML = "";
-    const svg = el("svg", { viewBox: "0 0 860 490", role: "img", "aria-label": "Ronda 2 de selección A4: 10 modelos 2B a 4B" }, container);
-
-    // Top compact funnel strip
-    const stages = [
-      { x: 24,  w: 182, t: "R1 · 19 corridas", s: "Descarta MoE/multimodal" },
-      { x: 222, w: 224, t: "R2 · 58 corridas", s: "10 modelos 2B–4B × 3 sem." },
-      { x: 462, w: 200, t: "Final · 11 corridas", s: "Granite-8B · SciBERT · TF-IDF" },
-      { x: 678, w: 158, t: "Ablación · 4", s: "Qwen3-0.6B (Q&A)" }
+  function createA4Funnel(container, data, opts) {
+    const options = opts || {};
+    const TABS = [
+      { key: "r1",    t: "R1 · 19 corridas",     s: "Descarta multimodales y MoE",          aria: "Ronda 1: Macro-F1 de test e IC95 de 10 modelos en Config A y B" },
+      { key: "r2",    t: "R2 · 58 corridas",     s: "10 LLMs 2B–4B × 3 semillas",           aria: "Ronda 2: las 58 corridas y la media por modelo" },
+      { key: "final", t: "Final · 11 corridas",  s: "Granite-4.2-8B · SciBERT · TF-IDF",    aria: "Modelos definitivos sobre el test automático" },
+      { key: "gen",   t: "Gen. vs. clasif. · 4", s: "Qwen3-0.6B · misma base y LoRA",       aria: "Qwen3-0.6B: modo generativo frente a cabeza de clasificación" }
     ];
-    stages.forEach((st, idx) => {
-      const col = idx === 1 ? "var(--accent-warn)" : "var(--line-strong)";
-      el("rect", { x: st.x, y: 14, width: st.w, height: 50, rx: 6, fill: idx === 1 ? "var(--accent-warn-soft)" : "var(--surface-tint)", stroke: col, "stroke-width": idx === 1 ? 1.6 : 1 }, svg);
-      txt(st.t, { x: st.x + 12, y: 34, class: "svg-mono", "font-size": 12, "font-weight": 700 }, svg);
-      txt(st.s, { x: st.x + 12, y: 52, class: "svg-muted", "font-size": 11 }, svg);
-    });
+    const CA = "var(--a4-cfg-a)", CB = "var(--a4-cfg-b)";
+    const colOf = (cfg) => (cfg === "A" ? CA : CB);
+    const f3 = (v) => fmtComma(v, 3);
 
-    const mL = 195, cW = 580, startY = 104, rowH = 34;
-    const xMin = 0.71, xMax = 0.765;
-    const xScale = (v) => mL + ((v - xMin) / (xMax - xMin)) * cW;
+    container.innerHTML = `
+      <div class="a4-funnel">
+        <div class="a4-tabs" role="tablist" aria-label="Etapas del embudo de selección de A4">
+          ${TABS.map((tb, i) => `<button type="button" role="tab" id="a4-tab-${tb.key}" data-a4-tab="${tb.key}" aria-controls="a4-tabpanel" aria-selected="false"><span class="a4-tab-step">${i + 1}</span><span class="a4-tab-t">${tb.t}</span><span class="a4-tab-s">${tb.s}</span></button>`).join("")}
+        </div>
+        <div class="a4-tabpanel" id="a4-tabpanel" role="tabpanel"></div>
+      </div>`;
+    const root = container.querySelector(".a4-funnel");
+    const panel = root.querySelector(".a4-tabpanel");
+    const buttons = Array.from(root.querySelectorAll("[data-a4-tab]"));
 
-    // Shaded top-7 indistinguishable band
-    const bandX1 = xScale(0.7384), bandX2 = xScale(0.7456);
-    el("rect", { x: bandX1, y: startY - 12, width: bandX2 - bandX1, height: models.length * rowH + 6, fill: "var(--accent-warn-soft)" }, svg);
-    txt("Top-7 indistinguibles (p = 0,45 · ±0,006)", { x: (bandX1 + bandX2) / 2, y: startY - 18, "text-anchor": "middle", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "var(--accent-warn)" }, svg);
+    // ---- piezas comunes ----
+    function marker(parent, cfg, x, y, o) {
+      const opt = o || {};
+      const r = opt.r || 5;
+      const fill = opt.hollow ? "var(--bg)" : colOf(cfg);
+      const stroke = opt.hollow ? colOf(cfg) : "var(--bg)";
+      if (opt.diamond) {
+        const d = r + 1.5;
+        return el("polygon", { points: `${x},${y - d} ${x + d},${y} ${x},${y + d} ${x - d},${y}`, fill, stroke, "stroke-width": 2 }, parent);
+      }
+      if (cfg === "A") return el("circle", { cx: x, cy: y, r, fill, stroke, "stroke-width": 2 }, parent);
+      const side = r * 1.8;
+      return el("rect", { x: x - side / 2, y: y - side / 2, width: side, height: side, rx: 1.5, fill, stroke, "stroke-width": 2 }, parent);
+    }
+    function whisker(parent, cfg, xa, xb, y) {
+      el("line", { x1: xa, y1: y, x2: xb, y2: y, stroke: colOf(cfg), "stroke-width": 2, "stroke-linecap": "round", opacity: 0.5 }, parent);
+    }
+    function grid(svg, xs, ticks, y0, y1, dec) {
+      ticks.forEach((tk) => {
+        const x = xs(tk);
+        el("line", { x1: x, y1: y0, x2: x, y2: y1, class: "svg-grid" }, svg);
+        txt(fmtComma(tk, dec), { x, y: y1 + 17, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
+      });
+    }
+    function legend(svg, items, x, y) {
+      let cx = x;
+      items.forEach(([kind, label]) => {
+        if (kind === "A" || kind === "B") marker(svg, kind, cx + 5, y - 4, { r: 4.6 });
+        else if (kind === "dev") marker(svg, "A", cx + 5, y - 4, { r: 3.6, hollow: true, diamond: true });
+        else if (kind === "band") el("rect", { x: cx, y: y - 11, width: 12, height: 13, rx: 2, fill: "var(--ink-3)", opacity: 0.16 }, svg);
+        else if (kind === "tick") el("line", { x1: cx + 5, y1: y - 11, x2: cx + 5, y2: y + 2, stroke: "var(--ink)", "stroke-width": 2.5 }, svg);
+        else if (kind === "ci") el("line", { x1: cx, y1: y - 4, x2: cx + 14, y2: y - 4, stroke: "var(--ink-3)", "stroke-width": 2, "stroke-linecap": "round" }, svg);
+        const t = txt(label, { x: cx + 18, y, class: "svg-ink2", "font-size": 12 }, svg);
+        cx += 18 + (t.getComputedTextLength() || label.length * 6.6) + 22;
+      });
+    }
+    function hitRow(g, x, y, w, h) {
+      el("rect", { x, y, width: w, height: h, fill: "transparent" }, g);
+    }
+    function band(svg, xa, xb, y0, y1) {
+      el("rect", { x: xa, y: y0, width: Math.max(2, xb - xa), height: y1 - y0, fill: "var(--ink-3)", opacity: 0.12 }, svg);
+    }
+    // Barra horizontal: esquina de datos redondeada, base recta
+    function barPath(x0, y, w, h) {
+      const r = Math.min(4, w / 2, h / 2);
+      return `M${x0},${y} H${x0 + w - r} Q${x0 + w},${y} ${x0 + w},${y + r} V${y + h - r} Q${x0 + w},${y + h} ${x0 + w - r},${y + h} H${x0} Z`;
+    }
 
-    [0.72, 0.73, 0.74, 0.75, 0.76].forEach((tk) => {
-      const x = xScale(tk);
-      el("line", { x1: x, y1: startY - 8, x2: x, y2: startY + models.length * rowH, class: "svg-grid" }, svg);
-      txt(fmtComma(tk, 2), { x, y: startY + models.length * rowH + 18, "text-anchor": "middle", class: "svg-mono svg-muted", "font-size": 11.5 }, svg);
-    });
-    txt("Macro-F1 sobre test automático (media de 3 semillas pareadas A y B)", { x: mL + cW / 2, y: 478, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+    // ---- R1: 10 modelos de 7 familias, una semilla (Fig. 10a) ----
+    function drawR1(svg) {
+      const rows = data.r1;
+      const mL = 182, cW = 600, x0 = 0.765, x1 = 0.86;
+      const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
+      const top = 70, rowH = 36;
+      const yOf = (i) => top + i * rowH;
+      const yEnd = yOf(rows.length - 1) + rowH / 2;
+      legend(svg, [["A", "Config A (título + resumen)"], ["B", "Config B (Top-3 fragmentos)"], ["ci", "IC95"]], mL, 22);
+      const d0 = rows.findIndex((r) => r.discarded);
+      el("rect", { x: 14, y: yOf(d0) - rowH / 2, width: mL + cW - 6, height: yEnd - yOf(d0) + rowH / 2, rx: 6, fill: "var(--ink-3)", opacity: 0.09 }, svg);
+      txt("descartados", { x: mL + cW - 8, y: yEnd - 8, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11.5, "font-style": "italic" }, svg);
+      grid(svg, xs, [0.78, 0.80, 0.82, 0.84, 0.86], top - 20, yEnd + 4, 2);
+      rows.forEach((r, i) => {
+        const y = yOf(i);
+        const g = el("g", {}, svg);
+        hitRow(g, 14, y - rowH / 2, mL + cW, rowH);
+        txt(r.name, { x: mL - 14, y: y + 4.5, "text-anchor": "end", "font-size": 13, "font-weight": 500, fill: r.discarded ? "var(--ink-2)" : "var(--ink)" }, g);
+        const tip = [];
+        [["A", r.a, -6.5], ["B", r.b, 6.5]].forEach(([cfg, v, dy]) => {
+          if (!v) return;
+          whisker(g, cfg, xs(v.lo), xs(v.hi), y + dy);
+          marker(g, cfg, xs(v.f1), y + dy, { r: 4.6 });
+          tip.push(`Config ${cfg}: ${f3(v.f1)} [${f3(v.lo)}–${f3(v.hi)}] · ${fmtComma(v.min, 1)} min · ${fmtComma(v.gb, 0)} GB`);
+        });
+        if (r.name.endsWith("*")) tip.push("MoE: LoRA cubrió solo el 0,12% de los parámetros; otra receta (1.024 tokens, LR 2e-4)");
+        else if (r.discarded) tip.push("Descartado: últimas posiciones de R1");
+        bindTip(g, r.name.replace("*", ""), tip);
+      });
+      txt("Macro-F1 de test e IC95 · etiquetado previo con sección citante (no comparable con R2)", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+      txt("* mezcla de expertos (MoE), solo Config B y otra receta", { x: mL + cW, y: yEnd + 66, "text-anchor": "end", class: "svg-muted", "font-size": 11 }, svg);
+    }
 
-    models.forEach((m, i) => {
-      const y = startY + i * rowH + 12;
-      const g = el("g", {}, svg);
-      txt(m.name, { x: mL - 14, y: y + 4, "text-anchor": "end", "font-size": 13, "font-weight": m.chosen ? 700 : 500, fill: m.chosen ? "var(--accent-primary)" : "var(--ink)" }, g);
+    // ---- R2: 10 LLMs 2B–4B × A/B × 3 semillas (Fig. 10b) ----
+    function drawR2(svg) {
+      const rows = data.r2;
+      const mL = 182, cW = 492, x0 = 0.718, x1 = 0.76;
+      const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
+      const top = 78, rowH = 36;
+      const yOf = (i) => top + i * rowH;
+      const yEnd = yOf(rows.length - 1) + rowH / 2;
+      legend(svg, [["A", "Config A"], ["B", "Config B"], ["tick", "media del modelo"], ["band", "Top-7"]], mL, 22);
+      const [b0, b1] = data.r2Band;
+      band(svg, xs(b0), xs(b1), top - 22, yEnd);
+      txt("Top-7 sin diferencia (p = 0,45 · ±0,006)", { x: (xs(b0) + xs(b1)) / 2, y: top - 28, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
+      grid(svg, xs, [0.72, 0.73, 0.74, 0.75, 0.76], top - 18, yEnd + 4, 2);
+      rows.forEach((r, i) => {
+        const y = yOf(i);
+        const g = el("g", {}, svg);
+        hitRow(g, 14, y - rowH / 2, mL + cW + 60, rowH);
+        txt(r.name, { x: mL - 14, y: y + 4.5, "text-anchor": "end", "font-size": 13, "font-weight": r.candidate ? 700 : 500, fill: r.top7 ? "var(--ink)" : "var(--ink-2)" }, g);
+        r.runs.forEach((run) => marker(g, run.cfg, xs(run.f1), y + (run.cfg === "A" ? -6 : 6), { r: 4.4 }));
+        el("line", { x1: xs(r.mean), y1: y - 14, x2: xs(r.mean), y2: y + 14, stroke: "var(--ink)", "stroke-width": 2.5 }, g);
+        txt(f3(r.mean), { x: mL + cW + 12, y: y + 4.5, class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": r.granite ? 700 : 500 }, g);
+        const porCfg = (c) => r.runs.filter((x) => x.cfg === c).map((x) => f3(x.f1)).join(" · ");
+        bindTip(g, `${r.name} · ${r.runs.length} corridas`, [
+          `Media: ${fmtComma(r.mean, 4)} (rango ${f3(r.min)}–${f3(r.max)})`,
+          `A: ${porCfg("A")}`,
+          `B: ${porCfg("B")}`,
+          r.granite ? "Familia elegida: se escaló a Granite-4.2-8B (pestaña Final)" : (r.candidate ? "Familia candidata" : (r.top7 ? "Dentro del Top-7 indistinguible" : "Grupo inferior (ANOVA)"))
+        ]);
+      });
+      // Granite: familia elegida para escalar a 8B
+      const gi = rows.map((r, i) => (r.granite ? i : -1)).filter((i) => i >= 0);
+      if (gi.length) {
+        const ya = yOf(gi[0]) - 12, yb = yOf(gi[gi.length - 1]) + 12, bx = mL + cW + 62;
+        el("path", { d: `M${bx - 5},${ya} H${bx} V${yb} H${bx - 5}`, fill: "none", stroke: "var(--ink-2)", "stroke-width": 1.4 }, svg);
+        txt("familia elegida", { x: bx + 8, y: (ya + yb) / 2 - 3, "font-size": 11.5, "font-weight": 700, fill: "var(--ink)" }, svg);
+        txt("→ Granite-4.2-8B", { x: bx + 8, y: (ya + yb) / 2 + 12, class: "svg-mono svg-ink2", "font-size": 11 }, svg);
+      }
+      txt("Macro-F1 de test automático · un punto por corrida · en negrita, las familias candidatas", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+    }
 
-      const x1 = xScale(m.min), x2 = xScale(m.max), xm = xScale(m.mean);
-      const col = m.chosen ? "var(--accent-primary)" : m.top7 ? "var(--accent-warn)" : "var(--ink-3)";
-      el("line", { x1, y1: y, x2, y2: y, stroke: col, "stroke-width": 2.4, opacity: 0.65 }, g);
-      el("circle", { cx: xm, cy: y, r: m.chosen ? 7 : 5.5, fill: "var(--bg)", stroke: col, "stroke-width": 2.4 }, g);
-      txt(fmtComma(m.mean, 3), { x: x2 + 10, y: y + 4, class: "svg-mono", "font-size": 11.5, "font-weight": m.chosen ? 700 : 500, fill: col }, g);
+    // ---- Final: definitivos sobre el test automático ----
+    function drawFinal(svg) {
+      const rows = data.final;
+      const mL = 200, cW = 560, x0 = 0.44, x1 = 0.78;
+      const xs = (v) => mL + ((v - x0) / (x1 - x0)) * cW;
+      const yOf = (i) => 84 + i * 32 + Math.floor(i / 2) * 34;
+      const top = yOf(0) - 22, yEnd = yOf(rows.length - 1) + 18;
+      legend(svg, [["A", "Config A"], ["B", "Config B"], ["dev", "TF-IDF: F1 de dev (sin test automático)"], ["band", "banda R2"]], mL, 22);
+      const [b0, b1] = data.r2Band;
+      band(svg, xs(b0), xs(b1), top - 4, yEnd);
+      txt(`R2 (2B–4B): ${f3(b0)}–${f3(b1)}`, { x: (xs(b0) + xs(b1)) / 2, y: top - 10, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": 700 }, svg);
+      grid(svg, xs, [0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75], top, yEnd + 4, 2);
+      rows.forEach((r, i) => {
+        const y = yOf(i);
+        const g = el("g", {}, svg);
+        hitRow(g, 14, y - 13, mL + cW + 70, 26);
+        if (i % 2 === 0) {
+          const yc = (y + yOf(i + 1)) / 2;
+          txt(r.name, { x: mL - 40, y: yc - 3, "text-anchor": "end", "font-size": 13.5, "font-weight": 700, fill: "var(--ink)" }, svg);
+          txt(r.sub, { x: mL - 40, y: yc + 13, "text-anchor": "end", class: "svg-muted", "font-size": 11.5 }, svg);
+          el("line", { x1: mL - 30, y1: y - 6, x2: mL - 30, y2: yOf(i + 1) + 6, stroke: "var(--line-strong)", "stroke-width": 1.2 }, svg);
+        }
+        txt(`Config ${r.cfg}`.replace("Config ", ""), { x: mL - 12, y: y + 4, "text-anchor": "end", class: "svg-mono svg-muted", "font-size": 11.5 }, g);
+        if (r.auto) {
+          const a = r.auto;
+          whisker(g, r.cfg, xs(a.lo), xs(a.hi), y);
+          marker(g, r.cfg, xs(a.f1), y, { r: 5.2 });
+          txt(f3(a.f1), { x: xs(a.hi) + 9, y: y + 4.5, class: "svg-mono svg-ink2", "font-size": 12, "font-weight": 700 }, g);
+          bindTip(g, `${r.name} · Config ${r.cfg}`, [
+            `Test automático: ${fmtComma(a.f1, 4)} [IC95 ${f3(a.lo)}–${f3(a.hi)}]`,
+            `Dev automático: ${f3(a.dev)}`,
+            `Entrenamiento: ${fmtComma(a.min, 1)} min · ${fmtComma(a.gb, 0)} GB`
+          ]);
+        } else {
+          marker(g, r.cfg, xs(r.devOnly), y, { r: 4.6, hollow: true, diamond: true });
+          txt(`${f3(r.devOnly)} (dev)`, { x: xs(r.devOnly) + 11, y: y + 4.5, class: "svg-mono svg-ink2", "font-size": 12 }, g);
+          bindTip(g, `${r.name} · Config ${r.cfg}`, [
+            `Dev automático: ${f3(r.devOnly)}`,
+            "Sin corrida sobre el test automático: se evaluó directamente sobre el Gold (A4-02)"
+          ]);
+        }
+      });
+      // 110M → 8B: ~70× parámetros, uno o dos puntos más
+      const ga = rows.find((r) => r.name.startsWith("Granite") && r.cfg === "A").auto.f1;
+      const gb = rows.find((r) => r.name.startsWith("Granite") && r.cfg === "B").auto.f1;
+      const sa = rows.find((r) => r.name === "SciBERT" && r.cfg === "A").auto.f1;
+      const sb = rows.find((r) => r.name === "SciBERT" && r.cfg === "B").auto.f1;
+      const yt = (yOf(1) + yOf(2)) / 2 + 4;
+      txt(`8B vs. 110M (~70× parámetros): +${f3(ga - sa)} (A) · +${f3(gb - sb)} (B)`, { x: xs(0.705), y: yt, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, svg);
+      txt("Macro-F1 de test automático (etiquetas A1–A2) e IC95", { x: mL + cW / 2, y: yEnd + 44, "text-anchor": "middle", class: "svg-muted", "font-size": 12 }, svg);
+      txt("Las 11 corridas: estas 4 en el test automático + 7 evaluadas directamente sobre el Gold (A4-02).", { x: mL + cW / 2, y: yEnd + 66, "text-anchor": "middle", class: "svg-muted", "font-size": 11.5 }, svg);
+    }
 
-      bindTip(g, m.name, [
-        `Media test automático: ${fmtComma(m.mean, 4)}`,
-        `Rango semillas: ${fmtComma(m.min, 4)} – ${fmtComma(m.max, 4)}`,
-        m.chosen ? "Elegido para escalar a 8B: abierto, denso y eficiente" : (m.top7 ? "Dentro del bloque Top-7 indistinguible (p=0,45)" : "Grupo inferior en ANOVA")
-      ]);
-    });
+    // ---- Gen. vs. clasif.: Qwen3-0.6B, 4 corridas ----
+    function drawGen(svg) {
+      const rows = data.gen;
+      const mL = 172, pw = 148, gap = 28;
+      const px = (k) => mL + k * (pw + gap);
+      const yOf = (i) => 104 + i * 36 + (i >= 2 ? 40 : 0);
+      const yTop = 78, yEnd = yOf(3) + 20;
+      legend(svg, [["A", "Config A"], ["B", "Config B"], ["ci", "IC95"]], mL, 22);
+      txt("CONFIG A", { x: 14, y: yOf(0) - 22, class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+      txt("CONFIG B", { x: 14, y: yOf(2) - 22, class: "svg-mono svg-muted", "font-size": 11, "font-weight": 700 }, svg);
+      rows.forEach((r, i) => {
+        txt(r.mode === "clasificador" ? "Clasificador" : "Generativo", { x: mL - 16, y: yOf(i) + 4.5, "text-anchor": "end", "font-size": 13, "font-weight": r.mode === "clasificador" ? 700 : 500, fill: "var(--ink)" }, svg);
+      });
+      const panels = [
+        { title: "Macro-F1 test auto.", x0: 0.70, x1: 0.78, ticks: [0.72, 0.76], dec: 2, kind: "dot", val: (r) => r.f1, ci: true, lbl: (r) => f3(r.f1) },
+        { title: "Macro-F1 Gold", x0: 0.40, x1: 0.48, ticks: [0.42, 0.46], dec: 2, kind: "dot", val: (r) => r.gold, lbl: (r) => f3(r.gold) },
+        { title: "Latencia (ms/inst.)", x0: 0, x1: 10, ticks: [0, 5, 10], dec: 0, kind: "bar", val: (r) => r.lat, lbl: (r) => fmtComma(r.lat, 1) },
+        { title: "Memoria pico (GB)", x0: 0, x1: 90, ticks: [0, 45, 90], dec: 0, kind: "bar", val: (r) => r.gb, lbl: (r) => fmtComma(r.gb, 1) + (r.gc ? "*" : "") }
+      ];
+      panels.forEach((p, k) => {
+        const xa = px(k);
+        const xs = (v) => xa + ((v - p.x0) / (p.x1 - p.x0)) * pw;
+        txt(p.title, { x: xa, y: yTop - 18, "font-size": 12, "font-weight": 700, fill: "var(--ink)" }, svg);
+        el("line", { x1: xa, y1: yTop - 6, x2: xa, y2: yEnd, stroke: "var(--line-strong)", "stroke-width": 1 }, svg);
+        grid(svg, xs, p.ticks, yTop - 6, yEnd, p.dec);
+        rows.forEach((r, i) => {
+          const y = yOf(i);
+          const g = el("g", {}, svg);
+          hitRow(g, xa - 4, y - 14, pw + 8, 28);
+          const v = p.val(r);
+          if (p.kind === "bar") {
+            const bw = Math.max(1, xs(v) - xs(0));
+            el("path", { d: barPath(xs(0), y - 8, bw, 16), fill: colOf(r.cfg) }, g);
+            let label = p.lbl(r);
+            if (r.mode === "generativo") {
+              const ref = rows.find((q) => q.cfg === r.cfg && q.mode === "clasificador");
+              label += ` · ×${fmtComma(v / p.val(ref), 1)}`;
+            }
+            const w = label.length * 6.9;
+            const fuera = xs(v) + 6 + w < xa + pw + gap - 4;
+            if (fuera) {
+              txt(label, { x: xs(v) + 6, y: y + 4.5, class: "svg-mono svg-ink2", "font-size": 11.5, "font-weight": r.mode === "generativo" ? 700 : 500 }, g);
+            } else {
+              // No cabe a la derecha: dentro del extremo de la barra, en blanco (APCA ≥ 59 sobre ambos tonos y temas)
+              txt(label, { x: xs(v) - 6, y: y + 4.5, "text-anchor": "end", class: "svg-mono", "font-size": 11.5, "font-weight": 700, fill: "#FFFFFF" }, g);
+            }
+          } else {
+            if (p.ci) whisker(g, r.cfg, xs(r.lo), xs(r.hi), y);
+            marker(g, r.cfg, xs(v), y, { r: 5 });
+            txt(p.lbl(r), { x: xs(v), y: y - 11, "text-anchor": "middle", class: "svg-mono svg-ink2", "font-size": 11 }, g);
+          }
+          bindTip(g, `Qwen3-0.6B · ${r.mode} · Config ${r.cfg}`, [
+            `Macro-F1 test automático: ${f3(r.f1)} [IC95 ${f3(r.lo)}–${f3(r.hi)}]`,
+            `Macro-F1 Gold (recalificado): ${f3(r.gold)}`,
+            `Latencia: ${fmtComma(r.lat, 2)} ms/instancia · entrenamiento ${fmtComma(r.min, 1)} min`,
+            `Memoria pico: ${fmtComma(r.gb, 1)} GB${r.gc ? " (con gradient checkpointing)" : ""}`
+          ]);
+        });
+      });
+      txt("Mismo F1 (diferencias de 0,005–0,022, del orden del IC95 con una corrida por variante); generar la etiqueta cuesta 2,9–4,2× más latencia.", { x: 14, y: yEnd + 42, class: "svg-muted", "font-size": 11.5 }, svg);
+      txt("* Generativo B con gradient checkpointing: sin él no cabía en la B200 (180 GB), así que 31,7 vs. 34,2 GB no se comparan en igualdad.", { x: 14, y: yEnd + 62, class: "svg-muted", "font-size": 11.5 }, svg);
+    }
+
+    const DRAW = { r1: drawR1, r2: drawR2, final: drawFinal, gen: drawGen };
+    const VIEWBOX = { r1: "0 0 860 520", r2: "0 0 860 520", final: "0 0 860 470", gen: "0 0 860 430" };
+    let current = null;
+
+    function show(key) {
+      const k = DRAW[key] ? key : "final";
+      current = k;
+      buttons.forEach((b) => {
+        const on = b.dataset.a4Tab === k;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+      panel.setAttribute("aria-labelledby", `a4-tab-${k}`);
+      Tooltip.hide();
+      panel.innerHTML = "";
+      const svg = el("svg", { viewBox: VIEWBOX[k], role: "img", "aria-label": TABS.find((tb) => tb.key === k).aria }, panel);
+      DRAW[k](svg);
+      if (options.onChange) options.onChange(k);
+    }
+
+    buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.a4Tab)));
+    return { show, get tab() { return current; } };
   }
 
   /* ========================================================================
@@ -570,8 +713,21 @@ window.EvidenCharts = (function () {
       const g = el("g", {}, svg);
       txt(r.name, { x: mL - 14, y: y + 4, "text-anchor": "end", "font-size": 13.5, "font-weight": i < 2 ? 700 : 500 }, g);
 
-      const xAuto = xScale(r.autoF1);
       const xGold = xScale(r.goldF1);
+      if (r.autoF1 == null) {
+        // Sin corrida sobre el test automático (TF-IDF): solo el punto Gold, como en la Fig. 4 del informe
+        const dotOnly = el("circle", { cx: xGold, cy: y, r: 7.2, fill: "var(--accent-danger)", stroke: "var(--bg)", "stroke-width": 1.6, opacity: 0 }, g);
+        const lblOnly = txt(fmtComma(r.goldF1, 3), { x: xGold - 12, y: y + 4, "text-anchor": "end", class: "svg-mono", "font-size": 12, "font-weight": 700, fill: "var(--accent-danger)", opacity: 0 }, g);
+        txt("solo evaluado sobre el Gold", { x: mL - 14, y: y + 20, "text-anchor": "end", class: "svg-muted", "font-size": 11 }, g);
+        bindTip(g, `${r.name} (${r.params})`, [
+          "Test automático: sin corrida (se evaluó directamente sobre el Gold)",
+          `Dev automático: ${fmtComma(r.devF1, 3)}`,
+          `Gold humano A3 (Tabla III): ${fmtComma(r.goldF1, 3)}`
+        ]);
+        animRefs.push({ fadeOnly: [dotOnly, lblOnly] });
+        return;
+      }
+      const xAuto = xScale(r.autoF1);
 
       const bar = el("line", { x1: xAuto, y1: y, x2: xAuto, y2: y, stroke: "var(--accent-danger)", "stroke-width": 3, "stroke-linecap": "round" }, g);
       el("circle", { cx: xAuto, cy: y, r: 6.5, fill: "var(--bg)", stroke: "var(--ink-3)", "stroke-width": 2.2 }, g);
@@ -592,7 +748,13 @@ window.EvidenCharts = (function () {
     tween(1300, (t) => {
       const dotOp = Math.min(1, t * 4);
       const lblOp = t > 0.65 ? (t - 0.65) / 0.35 : 0;
-      animRefs.forEach(({ bar, dotGold, lblGold, xAuto, xGold }) => {
+      animRefs.forEach(({ bar, dotGold, lblGold, xAuto, xGold, fadeOnly }) => {
+        if (fadeOnly) {
+          // TF-IDF (solo Gold): aparece en su sitio, sin deslizarse
+          fadeOnly[0].setAttribute("opacity", String(dotOp));
+          fadeOnly[1].setAttribute("opacity", String(lblOp));
+          return;
+        }
         const curX = xAuto + (xGold - xAuto) * t;
         bar.setAttribute("x1", String(curX));
         dotGold.setAttribute("cx", String(curX));
@@ -636,7 +798,7 @@ window.EvidenCharts = (function () {
     // Panel B group
     const gB = el("g", { class: "svg-anim" }, svg);
     txt("(b) Corregidas (n = 1.520)", { x: p2X, y: 34, "font-size": 13.5, "font-weight": 700 }, gB);
-    txt("etiqueta vieja (○)  →  etiqueta humana Gold (●)", { x: p2X, y: 52, class: "svg-mono svg-muted", "font-size": 11 }, gB);
+    txt("% que coincide con la vieja (○) / humana (●)", { x: p2X, y: 52, class: "svg-mono svg-muted", "font-size": 11 }, gB);
     [0, 20, 40, 60, 80].forEach((tk) => {
       const x = xCorr(tk);
       el("line", { x1: x, y1: 62, x2: x, y2: 415, class: "svg-grid" }, gB);
@@ -718,9 +880,10 @@ window.EvidenCharts = (function () {
       }, rowB);
 
       bindTip(rowB, `${r.name} — Corregidas (n = 1.520)`, [
-        `Repite etiqueta automática (○): ${fmtComma(r.auto, 1)}%`,
-        `Acierta etiqueta humana Gold (●): ${fmtComma(r.hum, 1)}%`,
-        `Brecha Δ (hum − auto): ${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`
+        `Repite la etiqueta automática descartada (○): ${fmtComma(r.auto, 1)}%`,
+        `Coincide con la etiqueta humana Gold (●): ${fmtComma(r.hum, 1)}%`,
+        `Otra clase: ${fmtComma(100 - r.auto - r.hum, 1)}%`,
+        `Δ (humana − vieja): ${r.delta > 0 ? "+" : "−"}${fmtComma(Math.abs(r.delta), 1)} pp`
       ]);
 
       dynRows.push({ isA5, line, solidGroup, lblHum, lblDelta, lblAuto, hollow, xAuto, xHum, y });
@@ -729,9 +892,10 @@ window.EvidenCharts = (function () {
     // Bottom clean legend
     const legY = 466;
     el("circle", { cx: 220, cy: legY - 4, r: 5.5, fill: "var(--bg)", stroke: "var(--ink-2)", "stroke-width": 2 }, svg);
-    txt("repite etiqueta vieja (○)", { x: 232, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
+    txt("repite la etiqueta vieja (○)", { x: 232, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
     el("circle", { cx: 420, cy: legY - 4, r: 5.5, fill: "var(--ink-2)" }, svg);
-    txt("acierta etiqueta humana Gold (●)", { x: 432, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
+    txt("coincide con la humana Gold (●)", { x: 432, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
+    txt("el resto predice una 3.ª clase", { x: 640, y: legY, class: "svg-muted", "font-size": 11.5 }, svg);
 
     let cancelA4 = null;
     let cancelA5 = null;
@@ -1970,7 +2134,7 @@ window.EvidenCharts = (function () {
     renderA2Strata,
     renderA3Waterfall,
     createA3Morph,
-    renderA4R2,
+    createA4Funnel,
     renderA4Collapse,
     createFig11ThreeStep,
     renderA5ParityBreak,
