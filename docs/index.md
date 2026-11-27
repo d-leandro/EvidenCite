@@ -7,7 +7,7 @@ title: EvidenCite | Documentación
 
 **Proyecto de grado MAIA, Universidad de los Andes.** EvidenCite clasifica funciones retóricas de citas científicas en nueve categorías, comparando **Configuración A** (título y resumen del artículo citado) y **Configuración B** (fragmentos de evidencia recuperados mediante SciBERT).
 
-[**Abrir aplicación**](https://evidencite.34-204-10-62.sslip.io) | [**Repositorio GitHub**](https://github.com/d-leandro/EvidenCite) | [**README en español**](https://github.com/d-leandro/EvidenCite/blob/main/README.es.md)
+[**Abrir aplicación**](https://evidencite.54-163-149-217.sslip.io) | [**Repositorio GitHub**](https://github.com/d-leandro/EvidenCite) | [**README en español**](https://github.com/d-leandro/EvidenCite/blob/main/README.es.md)
 
 > La dirección de la aplicación corresponde a la IP pública actual de AWS Academy. Puede cambiar al detener o recrear la EC2. La disponibilidad de Granite A/B depende del servicio remoto del equipo y de Tailscale Funnel.
 

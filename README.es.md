@@ -4,7 +4,7 @@
 
 [![Python 3.12](https://img.shields.io/badge/despliegue-Python%203.12-3776ab)](pyproject.toml) [![Docker Compose](https://img.shields.io/badge/contenedores-Docker%20Compose-2496ed)](compose.aws.yaml) [![Infraestructura](https://img.shields.io/badge/IaC-Terraform-7b42bc)](infra/evidencite/) [![Documentación](https://img.shields.io/badge/manuales-GitHub%20Pages-24964f)](https://d-leandro.github.io/EvidenCite/)
 
-**[Abrir aplicación](https://evidencite.34-204-10-62.sslip.io)** | **[Repositorio](https://github.com/d-leandro/EvidenCite)** | **[Manual de usuario](https://d-leandro.github.io/EvidenCite/manual-usuario.html)** | **[Manual de despliegue](https://d-leandro.github.io/EvidenCite/manual-instalacion.html)** | [English](README.md)
+**[Abrir aplicación](https://evidencite.54-163-149-217.sslip.io)** | **[Repositorio](https://github.com/d-leandro/EvidenCite)** | **[Manual de usuario](https://d-leandro.github.io/EvidenCite/manual-usuario.html)** | **[Manual de despliegue](https://d-leandro.github.io/EvidenCite/manual-instalacion.html)** | [English](README.md)
 
 > **Disponibilidad de la demo.** La URL corresponde a la IP pública actual de una EC2 en AWS Academy; puede cambiar si se detiene o recrea. Los clasificadores Granite dependen además del computador del grupo y de Tailscale Funnel. Consulta `/api/v1/models` antes de una demostración. No se ofrece garantía de disponibilidad continua.
 
@@ -20,7 +20,7 @@ Una cita científica no solo apunta a otro documento: puede aportar antecedentes
 
 ## 2. Aplicación y guía rápida (sin instalar nada)
 
-1. Abre la [aplicación publicada](https://evidencite.34-204-10-62.sslip.io).
+1. Abre la [aplicación publicada](https://evidencite.54-163-149-217.sslip.io).
 2. En **Análisis de Citas**, expande **¿Necesitas un ejemplo?** y pulsa **Cargar ejemplo**. El contexto ilustrativo hace referencia a *Attention Is All You Need* (arXiv `1706.03762`).
 3. Verifica la cita objetivo `Vaswani et al. (2017)`. Para A, busca y confirma el artículo (o ingresa el título y resumen manualmente). Para B, recupera los tres fragmentos o procesa el PDF correspondiente.
 4. Elige uno de los modelos que aparezca disponible, pulsa **Clasificar intención de cita** e interpreta la etiqueta y las nueve probabilidades.
@@ -146,7 +146,7 @@ Resultados del panel **Entrenamiento y evaluación**, conjunto `test-revisado`, 
 ## 8. API y ejemplos reproducibles
 
 ```bash
-APP_URL='https://evidencite.34-204-10-62.sslip.io'
+APP_URL='https://evidencite.54-163-149-217.sslip.io'
 curl -fsS "$APP_URL/health"
 curl -fsS "$APP_URL/api/v1/models"    # disponibilidad en tiempo real
 curl -fsS "$APP_URL/api/v1/labels"

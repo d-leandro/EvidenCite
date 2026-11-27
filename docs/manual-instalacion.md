@@ -7,7 +7,7 @@ title: Manual de instalación y despliegue | EvidenCite
 
 **EvidenCite. Infraestructura híbrida en AWS Academy y trabajador Granite en un computador del equipo.**
 
-[Aplicación](https://evidencite.34-204-10-62.sslip.io) | [Repositorio](https://github.com/d-leandro/EvidenCite) | [Manual de usuario](manual-usuario.html)
+[Aplicación](https://evidencite.54-163-149-217.sslip.io) | [Repositorio](https://github.com/d-leandro/EvidenCite) | [Manual de usuario](manual-usuario.html)
 
 > **Estado documentado: 26 de noviembre de 2026.** Se verificó el funcionamiento de ocho clasificadores A/B. La URL de la EC2 depende de su IP pública y puede cambiar. El laboratorio AWS Academy tiene presupuesto y permisos limitados, y el trabajador Granite depende de un computador personal; esta guía no promete disponibilidad permanente.
 
